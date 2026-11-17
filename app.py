@@ -395,6 +395,10 @@ def player_projection_table(players, gameweeks, fx_map):
     return pd.DataFrame(rows)
 
 
+def safe_horizon_max(gameweeks):
+    return max(1, min(6, len(gameweeks)))
+
+
 # ---------------------------------------------------------
 # SIDEBAR — MANUAL TEAM ID ONLY
 # ---------------------------------------------------------
@@ -864,10 +868,13 @@ with tabs[1]:
         hide_index=True,
     )
 
+    # FIXED: use triple quotes for a multiline caption.
     st.caption(
-        "xP is a transparent statistical estimate using public FPL data "
-        such as expected goal involvement, minutes, form, clean-sheet history "
-        "and fixture difficulty. It is not an official FPL projection."
+        """
+        xP is a transparent statistical estimate using public FPL data
+        such as expected goal involvement, minutes, form, clean-sheet history
+        and fixture difficulty. It is not an official FPL projection.
+        """
     )
 
 
@@ -878,11 +885,13 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("Transfer planner")
 
+    transfer_max = safe_horizon_max(available_gws)
+
     transfer_horizon = st.slider(
         "Compare transfer value over how many Gameweeks?",
         min_value=1,
-        max_value=min(6, len(available_gws)),
-        value=min(3, len(available_gws)),
+        max_value=transfer_max,
+        value=min(3, transfer_max),
         key="transfer_horizon",
     )
 
@@ -1044,11 +1053,13 @@ with tabs[3]:
         unsafe_allow_html=True,
     )
 
+    planner_max = safe_horizon_max(available_gws)
+
     planner_horizon = st.slider(
         "Planning horizon",
         min_value=1,
-        max_value=min(6, len(available_gws)),
-        value=min(6, len(available_gws)),
+        max_value=planner_max,
+        value=planner_max,
         key="multi_gw_horizon",
     )
 
@@ -1451,11 +1462,13 @@ with tabs[5]:
 with tabs[6]:
     st.subheader("Fixture difficulty and rotation planner")
 
+    fixture_max = safe_horizon_max(available_gws)
+
     fixture_horizon = st.slider(
         "Upcoming Gameweeks",
         min_value=1,
-        max_value=min(6, len(available_gws)),
-        value=min(5, len(available_gws)),
+        max_value=fixture_max,
+        value=min(5, fixture_max),
         key="fixture_horizon",
     )
 
