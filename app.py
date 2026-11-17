@@ -1,5 +1,6 @@
 
-import math
+import html
+import itertools
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -10,20 +11,17 @@ import streamlit as st
 
 from fpl_engine import (
     num,
-    estimate_xp,
-    fixture_lookup,
     player_fixture_xp,
+    fixture_lookup,
     build_squad,
-    best_starting_xi,
 )
 
-
-# ============================================================
-# CONFIGURATION
-# ============================================================
+# ---------------------------------------------------------
+# AJK BOLA WAWEI AI — CONFIGURATION
+# ---------------------------------------------------------
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "FPL-AI-Analyst/1.0"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/1.0"}
 MY_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 
 POS_NAMES = {
@@ -34,7 +32,7 @@ POS_NAMES = {
 }
 
 st.set_page_config(
-    page_title="FPL AI Analyst",
+    page_title="AJK Bola Wawei AI",
     page_icon="⚽",
     layout="wide",
 )
@@ -43,18 +41,102 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1.5rem;
+        padding-top: 1.3rem;
         max-width: 1600px;
     }
 
     [data-testid="stMetric"] {
-        background: rgba(120, 130, 145, 0.09);
+        background: rgba(120,130,145,.09);
         padding: 12px 14px;
         border-radius: 12px;
     }
 
-    div[data-testid="stTabs"] button {
-        font-weight: 600;
+    .small-note {
+        color: #8b93a1;
+        font-size: .84rem;
+    }
+
+    .pitch {
+        background:
+            repeating-linear-gradient(
+                0deg,
+                #176b42,
+                #176b42 70px,
+                #1b7549 70px,
+                #1b7549 140px
+            );
+        border: 3px solid rgba(255,255,255,.75);
+        border-radius: 15px;
+        padding: 18px 10px;
+        color: white;
+        position: relative;
+    }
+
+    .pitch-row {
+        display: flex;
+        justify-content: space-evenly;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 16px 0;
+    }
+
+    .pitch-player {
+        background: rgba(0,0,0,.30);
+        border: 1px solid rgba(255,255,255,.30);
+        border-radius: 10px;
+        min-width: 88px;
+        max-width: 125px;
+        padding: 8px 6px;
+        text-align: center;
+        font-size: 12px;
+        line-height: 1.35;
+    }
+
+    .pitch-player strong {
+        display: block;
+        font-size: 12px;
+        color: white;
+    }
+
+    .pitch-player small {
+        display: block;
+        color: #e1f5e8;
+        font-size: 10px;
+    }
+
+    .captain {
+        background: #e9bd35;
+        color: #222;
+        border-radius: 5px;
+        padding: 1px 5px;
+        font-weight: bold;
+        margin-left: 3px;
+    }
+
+    .vice {
+        background: #d9e4ef;
+        color: #222;
+        border-radius: 5px;
+        padding: 1px 5px;
+        font-weight: bold;
+        margin-left: 3px;
+    }
+
+    .bench-card {
+        background: rgba(120,130,145,.10);
+        border: 1px solid rgba(120,130,145,.25);
+        border-radius: 9px;
+        padding: 10px;
+        text-align: center;
+        font-size: 12px;
+    }
+
+    .section-note {
+        padding: 10px 13px;
+        border-radius: 9px;
+        background: rgba(120,130,145,.08);
+        margin-bottom: 12px;
     }
     </style>
     """,
@@ -62,9 +144,9 @@ st.markdown(
 )
 
 
-# ============================================================
-# HELPER FUNCTIONS
-# ============================================================
+# ---------------------------------------------------------
+# HELPERS
+# ---------------------------------------------------------
 
 @st.cache_data(ttl=600, show_spinner=False)
 def get_json(path):
@@ -91,7 +173,7 @@ def status_label(player):
         "n": "Not available",
     }
 
-    status = labels.get(
+    label = labels.get(
         player.get("status"),
         str(player.get("status", "Unknown")),
     )
@@ -99,377 +181,260 @@ def status_label(player):
     chance = player.get("chance_of_playing_next_round")
 
     if chance is not None:
-        status += f" · {chance}% chance"
+        label += f" · {chance}% chance"
 
-    return status
+    return label
 
 
-def malaysia_time(
-    iso_datetime,
-    fmt="%d %b %Y, %I:%M %p MYT",
-):
-    if not iso_datetime:
+def malaysia_time(value, fmt="%d %b %Y, %H:%M"):
+    if not value:
         return "TBC"
 
-    return (
-        datetime.fromisoformat(
-            iso_datetime.replace("Z", "+00:00")
-        )
-        .astimezone(MY_TZ)
-        .strftime(fmt)
-    )
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return dt.astimezone(MY_TZ).strftime(fmt)
+    except Exception:
+        return "TBC"
 
 
 def fx_text(fixtures_for_player):
-    if not fixtures_for_player:
-        return "—"
-
-    return ", ".join(
-        item[0] for item in fixtures_for_player
-    )
+    return ", ".join(x[0] for x in fixtures_for_player) if fixtures_for_player else "Blank"
 
 
 def report_files():
     folder = Path("reports")
+    return sorted(folder.glob("GW*_report.md"), reverse=True) if folder.exists() else []
 
-    if not folder.exists():
-        return []
 
-    return sorted(
-        folder.glob("GW*_report.md"),
+def gw_xp(player, gameweek, fx_map):
+    """
+    Return zero for a confirmed blank gameweek.
+    Otherwise use the existing free FPL xP heuristic.
+    """
+    fixtures_for_player = fx_map.get((player["team"], gameweek), [])
+
+    if not fixtures_for_player:
+        return 0.0
+
+    return player_fixture_xp(player, fixtures_for_player)
+
+
+def best_xi_for_gw(squad, gameweek, fx_map):
+    """
+    Find the highest-scoring legal starting XI.
+    Formation rules: 1 GK, 3-5 DEF, 2-5 MID, 1-3 FWD.
+    """
+    keepers = [p for p in squad if p.get("element_type") == 1]
+    defenders = sorted(
+        [p for p in squad if p.get("element_type") == 2],
+        key=lambda p: gw_xp(p, gameweek, fx_map),
+        reverse=True,
+    )
+    midfielders = sorted(
+        [p for p in squad if p.get("element_type") == 3],
+        key=lambda p: gw_xp(p, gameweek, fx_map),
+        reverse=True,
+    )
+    forwards = sorted(
+        [p for p in squad if p.get("element_type") == 4],
+        key=lambda p: gw_xp(p, gameweek, fx_map),
         reverse=True,
     )
 
+    if not keepers:
+        return []
 
-def get_target_gameweek(events):
-    """
-    Select the earliest unfinished Gameweek with a deadline
-    that has not passed in Malaysia time.
+    keeper = max(
+        keepers,
+        key=lambda p: gw_xp(p, gameweek, fx_map),
+    )
 
-    If no future deadline exists, fall back to the earliest
-    unfinished Gameweek.
-    """
+    best_team = []
+    best_score = -1
 
-    now = datetime.now(MY_TZ)
+    for def_count in range(3, min(5, len(defenders)) + 1):
+        for mid_count in range(2, min(5, len(midfielders)) + 1):
+            forward_count = 10 - 1 - def_count - mid_count
 
-    unfinished = [
-        event
-        for event in events
-        if (
-            not event.get("finished")
-            and event.get("deadline_time")
-        )
-    ]
+            if forward_count < 1 or forward_count > 3:
+                continue
 
-    future_events = []
+            if forward_count > len(forwards):
+                continue
 
-    for event in unfinished:
+            for defs in itertools.combinations(defenders, def_count):
+                for mids in itertools.combinations(midfielders, mid_count):
+                    for fwds in itertools.combinations(forwards, forward_count):
+                        xi = [keeper] + list(defs) + list(mids) + list(fwds)
 
-        deadline = datetime.fromisoformat(
-            event["deadline_time"].replace("Z", "+00:00")
-        )
+                        score = sum(
+                            gw_xp(p, gameweek, fx_map)
+                            for p in xi
+                        )
 
-        if deadline.astimezone(MY_TZ) >= now:
-            future_events.append(event)
+                        if len(xi) == 11 and score > best_score:
+                            best_score = score
+                            best_team = xi
 
-    if future_events:
-
-        return min(
-            future_events,
-            key=lambda event: event["deadline_time"],
-        )
-
-    if unfinished:
-
-        return min(
-            unfinished,
-            key=lambda event: event["deadline_time"],
-        )
-
-    return None
+    return best_team
 
 
-# ============================================================
-# VISUAL SQUAD FUNCTIONS
-# ============================================================
-
-def render_squad_pitch(
-    players_to_show,
+def render_pitch(
+    starting_xi,
     gameweek,
     fx_map,
-    team_short,
-    pick_lookup=None,
-    title="Starting XI",
+    captain_id=None,
+    vice_id=None,
+    bench=None,
 ):
     """
-    Display players in a visual football formation.
-
-    Players are grouped by position:
-    Goalkeeper, Defender, Midfielder, Forward.
+    Draw a football-pitch style lineup using Streamlit HTML rendering.
     """
-
-    pick_lookup = pick_lookup or {}
-
-    if not players_to_show:
-        st.info("No players available to display.")
+    if not starting_xi:
+        st.info("No starting XI is available to display.")
         return
 
-    st.markdown(f"### ⚽ {title}")
-
-    position_groups = {
-        1: ("🧤 Goalkeeper", []),
-        2: ("🛡️ Defenders", []),
-        3: ("⚙️ Midfielders", []),
-        4: ("🎯 Forwards", []),
+    groups = {
+        4: [],
+        3: [],
+        2: [],
+        1: [],
     }
 
-    for player in players_to_show:
+    for player in starting_xi:
+        groups.setdefault(player.get("element_type"), []).append(player)
 
-        position_id = player.get("element_type")
+    pitch_rows = []
 
-        if position_id in position_groups:
-            position_groups[position_id][1].append(player)
+    for position in [4, 3, 2, 1]:
+        cards = []
 
-    # Formation, for example 3-4-3.
-    formation = "-".join(
-        str(len(position_groups[position_id][1]))
-        for position_id in [2, 3, 4]
+        for player in groups.get(position, []):
+            player_id = player.get("id")
+            name = html.escape(str(player.get("web_name", "Player")))
+            club = html.escape(str(player.get("team_name", "")))
+            fixture = html.escape(
+                fx_text(fx_map.get((player["team"], gameweek), []))
+            )
+            xp = gw_xp(player, gameweek, fx_map)
+
+            badge = ""
+
+            if player_id == captain_id:
+                badge = '<span class="captain">C</span>'
+            elif player_id == vice_id:
+                badge = '<span class="vice">VC</span>'
+
+            cards.append(
+                f"""
+                <div class="pitch-player">
+                    <strong>{name} {badge}</strong>
+                    <small>{club} · {fixture}</small>
+                    <small>xP: {xp:.2f}</small>
+                </div>
+                """
+            )
+
+        if cards:
+            pitch_rows.append(
+                '<div class="pitch-row">' + "".join(cards) + "</div>"
+            )
+
+    st.markdown(
+        '<div class="pitch">'
+        + "".join(pitch_rows)
+        + "</div>",
+        unsafe_allow_html=True,
     )
 
-    st.caption(f"Formation: {formation}")
+    if bench:
+        st.markdown("**Substitutes**")
 
-    for position_id in [1, 2, 3, 4]:
+        columns = st.columns(len(bench))
 
-        label, line_players = position_groups[position_id]
-
-        if not line_players:
-            continue
-
-        st.markdown(f"**{label}**")
-
-        columns = st.columns(len(line_players))
-
-        for index, player in enumerate(line_players):
+        for index, player in enumerate(bench):
+            xp = gw_xp(player, gameweek, fx_map)
+            fixture = fx_text(fx_map.get((player["team"], gameweek), []))
 
             with columns[index]:
-
-                player_id = player["id"]
-
-                player_pick = pick_lookup.get(
-                    player_id,
-                    {},
-                )
-
-                player_fixtures = fx_map.get(
-                    (player["team"], gameweek),
-                    [],
-                )
-
-                xp = player_fixture_xp(
-                    player,
-                    player_fixtures,
-                )
-
-                captain_label = ""
-
-                if player_pick.get("is_captain"):
-                    captain_label = " 🟡 C"
-
-                elif player_pick.get("is_vice_captain"):
-                    captain_label = " 🔵 VC"
-
-                with st.container(border=True):
-
-                    st.markdown(
-                        f"**{player.get('web_name', 'Unknown')}"
-                        f"{captain_label}**"
-                    )
-
-                    st.caption(
-                        team_short.get(
-                            player["team"],
-                            "",
-                        )
-                    )
-
-                    st.caption(
-                        fx_text(player_fixtures)
-                    )
-
-                    st.metric(
-                        "Expected points",
-                        f"{xp:.1f}",
-                    )
-
-                    status = player.get("status", "a")
-
-                    if status != "a":
-
-                        st.caption(
-                            f"⚠️ {status_label(player)}"
-                        )
-
-    st.caption(
-        "C = Captain · VC = Vice-captain. "
-        "Expected points are statistical estimates."
-    )
-
-
-def render_bench(
-    players_to_show,
-    gameweek,
-    fx_map,
-    team_short,
-):
-    """Display substitute players separately."""
-
-    if not players_to_show:
-        return
-
-    st.markdown("### 🪑 Substitutes")
-
-    columns = st.columns(len(players_to_show))
-
-    for index, player in enumerate(players_to_show):
-
-        with columns[index]:
-
-            player_fixtures = fx_map.get(
-                (player["team"], gameweek),
-                [],
-            )
-
-            xp = player_fixture_xp(
-                player,
-                player_fixtures,
-            )
-
-            with st.container(border=True):
-
                 st.markdown(
-                    f"**{player.get('web_name', 'Unknown')}**"
-                )
-
-                st.caption(
-                    f"{POS_NAMES.get(player['element_type'], '?')} "
-                    f"· {team_short.get(player['team'], '')}"
-                )
-
-                st.caption(
-                    fx_text(player_fixtures)
-                )
-
-                st.metric(
-                    "Expected points",
-                    f"{xp:.1f}",
+                    f"""
+                    <div class="bench-card">
+                        <strong>{html.escape(str(player.get("web_name", "Player")))}</strong><br>
+                        {POS_NAMES.get(player.get("element_type"), "?")}<br>
+                        {html.escape(fixture)}<br>
+                        xP: {xp:.2f}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
                 )
 
 
-# ============================================================
-# SIDEBAR
-# ============================================================
+def player_projection_table(players, gameweeks, fx_map):
+    rows = []
+
+    for player in players:
+        row = {
+            "Player": player.get("web_name", ""),
+            "Position": POS_NAMES.get(player.get("element_type"), "?"),
+            "Club": player.get("team_name", ""),
+            "Price": money(player.get("now_cost")),
+            "Status": status_label(player),
+        }
+
+        total = 0.0
+
+        for gameweek in gameweeks:
+            value = gw_xp(player, gameweek, fx_map)
+            row[f"GW{gameweek}"] = value
+            total += value
+
+        row["Total xP"] = round(total, 2)
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------
+# SIDEBAR — MANUAL TEAM ID ONLY
+# ---------------------------------------------------------
 
 with st.sidebar:
+    st.title("⚽ AJK Bola Wawei AI")
+    st.caption("Your personal Fantasy Premier League analyst")
 
-    st.header("⚽ FPL Manager")
+    st.subheader("Manager")
 
-    st.caption(
-        "Enter your public Fantasy Premier League Team ID."
+    team_id = st.number_input(
+        "FPL Team ID",
+        min_value=1,
+        value=1645144,
+        step=1,
     )
 
-    team_id_input = st.text_input(
-        "Your FPL Team ID",
-        value="",
-        placeholder="e.g. 1645144",
-        help="No FPL password is required.",
-    )
-
-    if st.button(
-        "↻ Refresh data",
-        use_container_width=True,
-    ):
-
+    if st.button("↻ Refresh data", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
+    st.divider()
+
     st.caption(
-        "Free public FPL data. No password required."
+        "Free public FPL data. No FPL password or paid AI API is required."
     )
 
 
-if not team_id_input.strip():
-
-    st.info(
-        "👈 Enter your FPL Team ID in the sidebar "
-        "to start analysing your team."
-    )
-
-    st.stop()
-
-
-if not team_id_input.strip().isdigit():
-
-    st.error(
-        "Please enter a valid numeric FPL Team ID."
-    )
-
-    st.stop()
-
-
-team_id = int(team_id_input.strip())
-
-
-# ============================================================
+# ---------------------------------------------------------
 # LOAD FPL DATA
-# ============================================================
+# ---------------------------------------------------------
 
 try:
-
-    with st.spinner("Loading current FPL data..."):
-
+    with st.spinner("Loading live FPL data..."):
         boot = get_json("bootstrap-static/")
         fixtures = get_json("fixtures/")
-        profile = get_json(f"entry/{team_id}/")
-
-except requests.HTTPError as error:
-
-    status_code = (
-        error.response.status_code
-        if error.response is not None
-        else None
-    )
-
-    if status_code == 404:
-
-        st.error(
-            "That FPL Team ID was not found. "
-            "Please check the number."
-        )
-
-    else:
-
-        st.error(
-            f"Unable to load FPL data: {error}"
-        )
-
-    st.stop()
-
-
-except requests.RequestException as error:
-
-    st.error(
-        f"Unable to connect to the FPL API: {error}"
-    )
-
-    st.stop()
-
+        profile = get_json(f"entry/{int(team_id)}/")
 
 except Exception as error:
-
-    st.error(
-        f"Unexpected error while loading data: {error}"
-    )
-
+    st.error(f"Unable to load FPL data: {error}")
     st.stop()
 
 
@@ -483,84 +448,105 @@ player_by_id = {
 }
 
 team_names = {
-    team["id"]: team["name"]
+    team["id"]: team.get("name", "")
     for team in teams
 }
 
 team_short = {
-    team["id"]: team.get(
-        "short_name",
-        team["name"],
-    )
+    team["id"]: team.get("short_name", team.get("name", ""))
     for team in teams
 }
 
-fx_map = fixture_lookup(
-    fixtures,
-    teams,
+fx_map = fixture_lookup(fixtures, teams)
+
+current_event = next(
+    (event for event in events if event.get("is_current")),
+    None,
 )
 
-target_gw = get_target_gameweek(events)
+next_event = next(
+    (event for event in events if event.get("is_next")),
+    None,
+)
 
-if not target_gw:
-
-    st.warning(
-        "No upcoming Gameweek is currently available "
-        "from the FPL API."
+if next_event:
+    target_event = next_event
+elif current_event and not current_event.get("finished"):
+    target_event = current_event
+else:
+    target_event = next(
+        (
+            event for event in events
+            if not event.get("finished") and event.get("deadline_time")
+        ),
+        None,
     )
 
+if not target_event:
+    st.warning("No upcoming Gameweek is currently available from the FPL API.")
     st.stop()
 
+target_gw = int(target_event["id"])
 
-gw = int(target_gw["id"])
+# Always plan forward from the selected target GW.
+upcoming_events = [
+    event
+    for event in events
+    if int(event["id"]) >= target_gw
+    and not event.get("finished")
+    and event.get("deadline_time")
+]
+
+upcoming_events = sorted(
+    upcoming_events,
+    key=lambda event: int(event["id"]),
+)
+
+available_gws = [
+    int(event["id"])
+    for event in upcoming_events
+]
+
+if not available_gws:
+    available_gws = [target_gw]
 
 
-# ============================================================
+# ---------------------------------------------------------
 # LOAD TEAM PICKS AND HISTORY
-# ============================================================
-
-picks_data = None
-snapshot_gw = gw
+# ---------------------------------------------------------
 
 try:
-
     picks_data = get_json(
-        f"entry/{team_id}/event/{gw}/picks/"
+        f"entry/{int(team_id)}/event/{target_gw}/picks/"
     )
+    snapshot_gw = target_gw
 
 except Exception:
-
-    completed = [
-        event
-        for event in events
+    completed_events = [
+        event for event in events
         if event.get("finished")
     ]
 
-    if completed:
+    snapshot_gw = (
+        int(completed_events[-1]["id"])
+        if completed_events
+        else target_gw
+    )
 
-        snapshot_gw = int(
-            completed[-1]["id"]
+    try:
+        picks_data = get_json(
+            f"entry/{int(team_id)}/event/{snapshot_gw}/picks/"
         )
-
-        try:
-
-            picks_data = get_json(
-                f"entry/{team_id}/event/{snapshot_gw}/picks/"
-            )
-
-        except Exception:
-
-            picks_data = None
+    except Exception:
+        picks_data = None
 
 
 try:
-
     history = get_json(
-        f"entry/{team_id}/history/"
+        f"entry/{int(team_id)}/history/"
     ).get("current", [])
 
 except Exception:
-
     history = []
 
 
@@ -572,28 +558,83 @@ manager = (
 ).strip()
 
 deadline_text = malaysia_time(
-    target_gw.get("deadline_time"),
-    "%d %b %Y, %I:%M %p MYT",
+    target_event.get("deadline_time")
 )
 
+squad = []
+picks = []
 
-# ============================================================
-# DASHBOARD HEADER
-# ============================================================
+if picks_data:
+    picks = picks_data.get("picks", [])
 
-st.title("⚽ FPL AI Analyst")
+    squad = [
+        player_by_id[pick["element"]]
+        for pick in picks
+        if pick.get("element") in player_by_id
+    ]
 
-st.subheader(
-    profile.get("name", "FPL Manager")
-)
+owned_ids = {
+    player["id"]
+    for player in squad
+}
+
+
+# Add team names to player objects for display.
+for player in players:
+    player["team_name"] = team_short.get(
+        player.get("team"),
+        "",
+    )
+
+
+# ---------------------------------------------------------
+# BUILD PLAYER PROJECTIONS
+# ---------------------------------------------------------
+
+projection_rows = []
+
+for player in players:
+    fixtures_for_player = fx_map.get(
+        (player["team"], target_gw),
+        [],
+    )
+
+    projection_rows.append(
+        {
+            "id": player["id"],
+            "Player": player.get("web_name", ""),
+            "Position": POS_NAMES.get(player.get("element_type"), "?"),
+            "Club": team_short.get(player["team"], ""),
+            "Price": num(player.get("now_cost")) / 10,
+            "Price label": money(player.get("now_cost")),
+            "Fixture": fx_text(fixtures_for_player),
+            "xP": gw_xp(player, target_gw, fx_map),
+            "Form": num(player.get("form")),
+            "xGI": num(player.get("expected_goal_involvements")),
+            "Minutes": num(player.get("minutes")),
+            "Ownership %": num(player.get("selected_by_percent")),
+            "Status": status_label(player),
+            "status_code": player.get("status", "a"),
+            "team": player["team"],
+            "element_type": player["element_type"],
+        }
+    )
+
+proj = pd.DataFrame(projection_rows)
+
+
+# ---------------------------------------------------------
+# HEADER AND MANAGER OVERVIEW
+# ---------------------------------------------------------
+
+st.title("⚽ AJK Bola Wawei AI")
 
 st.caption(
-    f"{manager}  ·  Team ID {team_id}  ·  "
-    f"Gameweek {gw}"
-)
-
-st.info(
-    f"🗓️ NEXT DEADLINE: {deadline_text}"
+    f"{profile.get('name', 'FPL Manager')} · "
+    f"{manager} · "
+    f"Team ID {int(team_id)} · "
+    f"Target GW{target_gw} · "
+    f"Deadline: {deadline_text} Malaysia time"
 )
 
 c1, c2, c3, c4 = st.columns(4)
@@ -610,7 +651,7 @@ c2.metric(
 
 c3.metric(
     "Target Gameweek",
-    str(gw),
+    str(target_gw),
 )
 
 c4.metric(
@@ -624,255 +665,87 @@ c4.metric(
 )
 
 
-# ============================================================
-# BUILD PLAYER PROJECTIONS
-# ============================================================
-
-projection_rows = []
-
-for player in players:
-
-    player_fixtures = fx_map.get(
-        (player["team"], gw),
-        [],
-    )
-
-    xp = player_fixture_xp(
-        player,
-        player_fixtures,
-    )
-
-    projection_rows.append(
-        {
-            "id": player["id"],
-            "Player": player.get("web_name", ""),
-            "Position": POS_NAMES.get(
-                player.get("element_type"),
-                "?",
-            ),
-            "Club": team_short.get(
-                player["team"],
-                "",
-            ),
-            "Price": num(
-                player.get("now_cost")
-            ) / 10,
-            "Price label": money(
-                player.get("now_cost")
-            ),
-            "Fixture": fx_text(
-                player_fixtures
-            ),
-            "xP": xp,
-            "Form": num(
-                player.get("form")
-            ),
-            "xGI": num(
-                player.get("expected_goal_involvements")
-            ),
-            "Minutes": num(
-                player.get("minutes")
-            ),
-            "Ownership %": num(
-                player.get("selected_by_percent")
-            ),
-            "Status": status_label(player),
-            "status_code": player.get("status", "a"),
-            "team": player["team"],
-            "element_type": player["element_type"],
-        }
-    )
-
-
-proj = pd.DataFrame(
-    projection_rows
-)
-
-
-# ============================================================
-# TEAM SQUAD
-# ============================================================
-
-picks = []
-squad = []
-
-if picks_data:
-
-    picks = picks_data.get("picks", [])
-
-    squad = [
-        player_by_id[pick["element"]]
-        for pick in picks
-        if pick.get("element") in player_by_id
-    ]
-
-
-owned_ids = {
-    player["id"]
-    for player in squad
-}
-
-
-# ============================================================
-# MAIN NAVIGATION
-# ============================================================
+# ---------------------------------------------------------
+# NAVIGATION
+# ---------------------------------------------------------
 
 tabs = st.tabs(
     [
         "Overview",
         "Captain & xP",
         "Transfers",
+        "Multi-GW Planner",
         "Wildcard / Free Hit",
         "Differentials",
         "Fixtures & Rotation",
         "Weekly Reports",
-        "Multi-GW Planner",
     ]
 )
 
 
-# ============================================================
+# =========================================================
 # TAB 1 — OVERVIEW
-# ============================================================
+# =========================================================
 
 with tabs[0]:
-
-    left, right = st.columns([1.3, 1])
+    left, right = st.columns([1.5, 1])
 
     with left:
+        st.subheader("Your squad — pitch view")
 
-        st.subheader("Your squad")
+        if picks and squad:
+            starting_players = []
+            bench_players = []
 
-        if picks:
+            captain_id = None
+            vice_id = None
 
-            pick_lookup = {
-                pick["element"]: pick
-                for pick in picks
-            }
+            for pick in picks:
+                player = player_by_id.get(pick.get("element"))
 
-            starting_players = [
-                player_by_id[pick["element"]]
-                for pick in picks
-                if (
-                    pick.get("position", 99) <= 11
-                    and pick["element"] in player_by_id
-                )
-            ]
+                if not player:
+                    continue
 
-            bench_players = [
-                player_by_id[pick["element"]]
-                for pick in picks
-                if (
-                    pick.get("position", 99) > 11
-                    and pick["element"] in player_by_id
-                )
-            ]
+                if pick.get("is_captain"):
+                    captain_id = player["id"]
 
-            render_squad_pitch(
+                if pick.get("is_vice_captain"):
+                    vice_id = player["id"]
+
+                if pick.get("position", 99) <= 11:
+                    starting_players.append(player)
+                else:
+                    bench_players.append(player)
+
+            render_pitch(
                 starting_players,
-                gw,
+                target_gw,
                 fx_map,
-                team_short,
-                pick_lookup,
-                "Your Starting XI",
+                captain_id=captain_id,
+                vice_id=vice_id,
+                bench=bench_players,
             )
-
-            render_bench(
-                bench_players,
-                gw,
-                fx_map,
-                team_short,
-            )
-
-            with st.expander(
-                "View detailed squad table"
-            ):
-
-                pick_rows = []
-
-                for pick in picks:
-
-                    player = player_by_id.get(
-                        pick.get("element")
-                    )
-
-                    if not player:
-                        continue
-
-                    player_fixtures = fx_map.get(
-                        (player["team"], gw),
-                        [],
-                    )
-
-                    pick_rows.append(
-                        {
-                            "Slot": (
-                                "XI"
-                                if pick.get("position", 99) <= 11
-                                else "Bench"
-                            ),
-                            "Player": player["web_name"],
-                            "Pos": POS_NAMES.get(
-                                player["element_type"],
-                                "?",
-                            ),
-                            "Club": team_short.get(
-                                player["team"],
-                                "",
-                            ),
-                            "Fixture": fx_text(
-                                player_fixtures
-                            ),
-                            "xP": player_fixture_xp(
-                                player,
-                                player_fixtures,
-                            ),
-                            "Status": status_label(player),
-                            "Captain": (
-                                "C"
-                                if pick.get("is_captain")
-                                else "VC"
-                                if pick.get("is_vice_captain")
-                                else ""
-                            ),
-                        }
-                    )
-
-                st.dataframe(
-                    pd.DataFrame(pick_rows),
-                    use_container_width=True,
-                    hide_index=True,
-                )
 
             st.caption(
                 f"Squad snapshot: GW{snapshot_gw}. "
-                "If target Gameweek picks are not published, "
-                "the latest available public picks are shown."
+                "If the target GW picks are not published yet, "
+                "the latest available public lineup is displayed."
             )
 
         else:
-
             st.info(
-                "Public picks are not available for this manager. "
+                "Your public squad picks are not available. "
                 "Other player analysis remains available."
             )
 
-
     with right:
-
         st.subheader("Squad health")
 
         if squad:
-
             flagged = [
-                player
-                for player in squad
-                if (
-                    player.get("status") != "a"
-                    or player.get(
-                        "chance_of_playing_next_round"
-                    ) not in (None, 100)
-                )
+                player for player in squad
+                if player.get("status") != "a"
+                or player.get("chance_of_playing_next_round") not in (None, 100)
             ]
 
             st.metric(
@@ -880,55 +753,39 @@ with tabs[0]:
                 len(flagged),
             )
 
-            for player in flagged:
+            if flagged:
+                for player in flagged:
+                    st.warning(
+                        f"**{player['web_name']}** — "
+                        f"{status_label(player)}\n\n"
+                        f"{player.get('news') or 'No additional FPL news supplied.'}"
+                    )
+            else:
+                st.success("No major availability concerns detected.")
 
-                st.warning(
-                    f"**{player['web_name']}** — "
-                    f"{status_label(player)}\n\n"
-                    f"{player.get('news') or 'No additional FPL news.'}"
-                )
+        st.subheader("Upcoming deadlines")
 
-        st.subheader("Next deadlines")
-
-        upcoming_events = [
-            event
-            for event in events
-            if (
-                not event.get("finished")
-                and event.get("deadline_time")
-            )
-        ]
-
-        for event in upcoming_events[:5]:
-
-            event_time = malaysia_time(
-                event["deadline_time"],
-                "%d %b %Y, %I:%M %p",
-            )
-
+        for event in upcoming_events[:6]:
             st.write(
                 f"**GW{event['id']}** · "
-                f"{event_time} Malaysia time"
+                f"{malaysia_time(event.get('deadline_time'), '%d %b %H:%M')} Malaysia"
             )
 
 
-# ============================================================
-# TAB 2 — CAPTAIN & EXPECTED POINTS
-# ============================================================
+# =========================================================
+# TAB 2 — CAPTAIN AND PLAYER xP
+# =========================================================
 
 with tabs[1]:
-
-    st.subheader(
-        "Captain and vice-captain recommendations"
-    )
+    st.subheader("Captain and vice-captain recommendations")
 
     st.caption(
-        "Ranked using the free xP estimate. "
-        "Captaincy doubles the selected player's FPL points. "
-        "The xP column is per player and is not doubled."
+        "Candidates are ranked using the app's free xP estimate. "
+        "Captaincy doubles the selected player's actual FPL points; "
+        "the xP shown here is the player's normal projected points."
     )
 
-    pool = proj[
+    captain_pool = proj[
         (proj["Position"] != "GKP")
         & (proj["status_code"].isin(["a", "d"]))
     ].sort_values(
@@ -936,23 +793,20 @@ with tabs[1]:
         ascending=False,
     ).head(12).copy()
 
-    if not pool.empty:
-
-        pool.insert(
+    if not captain_pool.empty:
+        captain_pool.insert(
             0,
             "Recommendation",
             [
-                "Captain candidate"
-                if index == 0
-                else "Vice-captain candidate"
-                if index == 1
+                "Captain candidate" if index == 0
+                else "Vice-captain candidate" if index == 1
                 else "Alternative"
-                for index in range(len(pool))
+                for index in range(len(captain_pool))
             ],
         )
 
         st.dataframe(
-            pool[
+            captain_pool[
                 [
                     "Recommendation",
                     "Player",
@@ -970,31 +824,27 @@ with tabs[1]:
 
         st.metric(
             "Top captain projected points",
-            f"{pool.iloc[0]['xP']:.2f}",
+            f"{captain_pool.iloc[0]['xP']:.2f}",
         )
 
     st.divider()
 
-    st.subheader(
-        "Expected points — player explorer"
-    )
+    st.subheader("Expected points — player explorer")
 
     position_filter = st.selectbox(
         "Position filter",
         ["All", "GKP", "DEF", "MID", "FWD"],
-        key="xp_pos",
+        key="xp_position_filter",
     )
 
-    view = (
+    player_view = (
         proj
         if position_filter == "All"
-        else proj[
-            proj["Position"] == position_filter
-        ]
+        else proj[proj["Position"] == position_filter]
     )
 
     st.dataframe(
-        view.sort_values(
+        player_view.sort_values(
             "xP",
             ascending=False,
         ).head(35)[
@@ -1015,28 +865,42 @@ with tabs[1]:
     )
 
     st.caption(
-        "xP is a transparent statistical estimate based on "
-        "available player data, minutes, form and fixture difficulty. "
-        "It is not official FPL data or a guarantee."
+        "xP is a transparent statistical estimate using public FPL data "
+        such as expected goal involvement, minutes, form, clean-sheet history "
+        "and fixture difficulty. It is not an official FPL projection."
     )
 
 
-# ============================================================
-# TAB 3 — TRANSFER PLANNER
-# ============================================================
+# =========================================================
+# TAB 3 — MULTI-GAMEWEEK TRANSFER COMPARISON
+# =========================================================
 
 with tabs[2]:
-
     st.subheader("Transfer planner")
 
-    if not squad:
+    transfer_horizon = st.slider(
+        "Compare transfer value over how many Gameweeks?",
+        min_value=1,
+        max_value=min(6, len(available_gws)),
+        value=min(3, len(available_gws)),
+        key="transfer_horizon",
+    )
 
-        st.info(
-            "Transfer planner needs a public squad snapshot."
-        )
+    transfer_gws = available_gws[:transfer_horizon]
 
+    st.write(
+        "The planner compares the projected points of an outgoing player "
+        "against affordable players in the same position across your selected "
+        "Gameweek horizon."
+    )
+
+    st.caption(
+        "This is a transfer comparison tool, not an automatic transfer execution system."
+    )
+
+    if not squad or not picks:
+        st.info("Transfer planning requires your public squad snapshot.")
     else:
-
         bank_tenths = num(
             latest.get(
                 "bank",
@@ -1044,22 +908,15 @@ with tabs[2]:
             )
         )
 
-        st.write(
-            f"Latest public bank estimate: **{money(bank_tenths)}**"
-        )
-
-        st.caption(
-            "Selling prices use public picks data where available. "
-            "Current market price is used as a fallback."
+        st.metric(
+            "Latest public bank estimate",
+            money(bank_tenths),
         )
 
         transfer_rows = []
 
         for pick in picks:
-
-            old_player = player_by_id.get(
-                pick.get("element")
-            )
+            old_player = player_by_id.get(pick.get("element"))
 
             if not old_player:
                 continue
@@ -1069,105 +926,328 @@ with tabs[2]:
                 old_player.get("now_cost", 0),
             )
 
-            position_id = old_player.get(
-                "element_type"
+            position_id = old_player.get("element_type")
+
+            old_total = sum(
+                gw_xp(old_player, gameweek, fx_map)
+                for gameweek in transfer_gws
             )
 
-            candidates = proj[
-                (proj["element_type"] == position_id)
-                & (~proj["id"].isin(owned_ids))
-                & (proj["status_code"].isin(["a", "d"]))
-            ].copy()
+            candidates = []
 
-            candidates["cost_tenths"] = candidates["id"].map(
-                {
-                    player["id"]: num(
-                        player.get("now_cost")
-                    )
-                    for player in players
-                }
-            )
+            for candidate in players:
+                if candidate["id"] in owned_ids:
+                    continue
 
-            candidates = candidates[
-                candidates["cost_tenths"]
-                <= sell_price + bank_tenths
-            ]
+                if candidate.get("element_type") != position_id:
+                    continue
 
-            if candidates.empty:
+                if candidate.get("status") not in ("a", "d"):
+                    continue
+
+                candidate_cost = num(candidate.get("now_cost"))
+
+                if candidate_cost > sell_price + bank_tenths:
+                    continue
+
+                new_total = sum(
+                    gw_xp(candidate, gameweek, fx_map)
+                    for gameweek in transfer_gws
+                )
+
+                candidates.append(
+                    {
+                        "player": candidate,
+                        "total_xp": new_total,
+                        "gain": new_total - old_total,
+                    }
+                )
+
+            if not candidates:
                 continue
 
-            best = candidates.sort_values(
-                "xP",
-                ascending=False,
-            ).iloc[0]
-
-            old_xp = player_fixture_xp(
-                old_player,
-                fx_map.get(
-                    (old_player["team"], gw),
-                    [],
-                ),
+            best = max(
+                candidates,
+                key=lambda item: item["gain"],
             )
 
-            delta = best["xP"] - old_xp
+            new_player = best["player"]
 
             transfer_rows.append(
                 {
-                    "Sell candidate": old_player["web_name"],
-                    "Buy candidate": best["Player"],
+                    "Sell": old_player.get("web_name"),
+                    "Buy": new_player.get("web_name"),
                     "Position": POS_NAMES.get(position_id),
                     "Sell price": money(sell_price),
-                    "Buy price": best["Price label"],
-                    "Next GW xP gain": round(delta, 2),
-                    "New fixture": best["Fixture"],
-                    "New status": best["Status"],
+                    "Buy price": money(new_player.get("now_cost")),
+                    "Outgoing xP": round(old_total, 2),
+                    "Incoming xP": round(best["total_xp"], 2),
+                    "Projected gain": round(best["gain"], 2),
+                    "New fixture run": " | ".join(
+                        f"GW{gameweek}: "
+                        f"{fx_text(fx_map.get((new_player['team'], gameweek), []))}"
+                        for gameweek in transfer_gws
+                    ),
+                    "_gain": best["gain"],
                 }
             )
 
         if transfer_rows:
-
-            transfer_df = pd.DataFrame(
-                transfer_rows
-            ).sort_values(
-                "Next GW xP gain",
+            transfer_df = pd.DataFrame(transfer_rows).sort_values(
+                "_gain",
                 ascending=False,
             )
 
             st.dataframe(
-                transfer_df.head(20),
+                transfer_df.drop(columns=["_gain"]).head(20),
                 use_container_width=True,
                 hide_index=True,
             )
 
-        else:
+            best_move = transfer_df.iloc[0]
 
+            st.success(
+                f"Best estimated move over {transfer_horizon} GW(s): "
+                f"{best_move['Sell']} → {best_move['Buy']} "
+                f"({best_move['Projected gain']:+.2f} projected points)"
+            )
+
+        else:
             st.info(
-                "No affordable same-position transfer candidates "
-                "were found using the available public data."
+                "No affordable same-position transfer candidates were found."
             )
 
         st.warning(
-            "These are one-transfer comparisons, not automatic "
-            "transfer instructions. Check your actual bank, selling "
-            "prices, free transfers, squad limits and hit cost "
-            "before confirming transfers on the official FPL site."
+            "Important: this first version evaluates one transfer at a time. "
+            "It does not simulate every possible multi-transfer path, "
+            "and cannot fully infer private selling-price rules, exact free "
+            "transfers or hit costs. Verify your bank and transfer state "
+            "on the official FPL website."
         )
 
 
-# ============================================================
-# TAB 4 — WILDCARD / FREE HIT
-# ============================================================
+# =========================================================
+# TAB 4 — MULTI-GAMEWEEK PLANNER
+# =========================================================
 
 with tabs[3]:
+    st.subheader("Multi-Gameweek Planner")
 
-    st.subheader(
-        "Wildcard / Free Hit squad optimiser"
+    st.markdown(
+        """
+        <div class="section-note">
+        Plan ahead instead of looking only at the next deadline.
+        Compare your squad's estimated points, starting XI and captain
+        recommendations across up to six upcoming Gameweeks.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    planner_horizon = st.slider(
+        "Planning horizon",
+        min_value=1,
+        max_value=min(6, len(available_gws)),
+        value=min(6, len(available_gws)),
+        key="multi_gw_horizon",
+    )
+
+    planner_gws = available_gws[:planner_horizon]
+
+    st.write(
+        "**Selected Gameweeks:** "
+        + ", ".join(f"GW{gameweek}" for gameweek in planner_gws)
+    )
+
+    if not squad:
+        st.info(
+            "Your squad data is not available. "
+            "The multi-gameweek player projection table can still be used below."
+        )
+
+    else:
+        st.subheader("Your squad — projected points")
+
+        squad_projection = player_projection_table(
+            squad,
+            planner_gws,
+            fx_map,
+        )
+
+        squad_projection = squad_projection.sort_values(
+            "Total xP",
+            ascending=False,
+        )
+
+        st.dataframe(
+            squad_projection,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        total_projection = squad_projection["Total xP"].sum()
+
+        st.metric(
+            f"Squad projected points — next {planner_horizon} GW(s)",
+            f"{total_projection:.2f}",
+        )
+
+        st.divider()
+
+        st.subheader("Gameweek-by-gameweek starting XI")
+
+        selected_plan_gw = st.selectbox(
+            "View lineup for",
+            planner_gws,
+            format_func=lambda value: f"Gameweek {value}",
+            key="selected_plan_gw",
+        )
+
+        planned_xi = best_xi_for_gw(
+            squad,
+            selected_plan_gw,
+            fx_map,
+        )
+
+        if planned_xi:
+            xi_ids = {
+                player["id"]
+                for player in planned_xi
+            }
+
+            bench = [
+                player for player in squad
+                if player["id"] not in xi_ids
+            ]
+
+            bench = sorted(
+                bench,
+                key=lambda player: gw_xp(player, selected_plan_gw, fx_map),
+                reverse=True,
+            )
+
+            captain_candidates = sorted(
+                [
+                    player for player in planned_xi
+                    if player.get("element_type") != 1
+                ],
+                key=lambda player: gw_xp(player, selected_plan_gw, fx_map),
+                reverse=True,
+            )
+
+            captain = captain_candidates[0] if captain_candidates else None
+            vice = captain_candidates[1] if len(captain_candidates) > 1 else None
+
+            st.metric(
+                "Starting XI projected points",
+                f"{sum(gw_xp(player, selected_plan_gw, fx_map) for player in planned_xi):.2f}",
+            )
+
+            render_pitch(
+                planned_xi,
+                selected_plan_gw,
+                fx_map,
+                captain_id=captain["id"] if captain else None,
+                vice_id=vice["id"] if vice else None,
+                bench=bench,
+            )
+
+            if captain:
+                st.info(
+                    f"Captain: **{captain['web_name']}** · "
+                    f"Vice-captain: **{vice['web_name']}**"
+                )
+
+        else:
+            st.warning(
+                "A legal starting XI could not be generated from the available squad."
+            )
+
+        st.divider()
+
+        st.subheader("Captain plan across the selected Gameweeks")
+
+        captain_rows = []
+
+        for gameweek in planner_gws:
+            xi = best_xi_for_gw(
+                squad,
+                gameweek,
+                fx_map,
+            )
+
+            candidates = sorted(
+                [
+                    player for player in xi
+                    if player.get("element_type") != 1
+                ],
+                key=lambda player: gw_xp(player, gameweek, fx_map),
+                reverse=True,
+            )
+
+            captain = candidates[0] if candidates else None
+            vice = candidates[1] if len(candidates) > 1 else None
+
+            captain_rows.append(
+                {
+                    "Gameweek": gameweek,
+                    "Captain": captain.get("web_name") if captain else "—",
+                    "Captain xP": gw_xp(captain, gameweek, fx_map) if captain else 0,
+                    "Vice-captain": vice.get("web_name") if vice else "—",
+                    "Vice xP": gw_xp(vice, gameweek, fx_map) if vice else 0,
+                    "Starting XI xP": round(
+                        sum(
+                            gw_xp(player, gameweek, fx_map)
+                            for player in xi
+                        ),
+                        2,
+                    ),
+                }
+            )
+
+        st.dataframe(
+            pd.DataFrame(captain_rows),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.divider()
+
+    st.subheader("Top projected players across the planning horizon")
+
+    all_player_projection = player_projection_table(
+        players,
+        planner_gws,
+        fx_map,
+    )
+
+    st.dataframe(
+        all_player_projection.sort_values(
+            "Total xP",
+            ascending=False,
+        ).head(25),
+        use_container_width=True,
+        hide_index=True,
     )
 
     st.caption(
-        "Builds an indicative 15-player squad using FPL position "
-        "quotas and a maximum of three players per club. "
-        "This is an estimate, not a guaranteed global optimum."
+        "The planner uses the current public FPL data and the app's xP heuristic. "
+        "It does not yet simulate every possible transfer sequence, price change, "
+        "injury event or chip strategy. Blank gameweeks are shown as zero projected points."
+    )
+
+
+# =========================================================
+# TAB 5 — WILDCARD / FREE HIT
+# =========================================================
+
+with tabs[4]:
+    st.subheader("Wildcard / Free Hit squad optimiser")
+
+    st.caption(
+        "Builds an indicative 15-player squad using FPL position quotas "
+        "and a maximum of three players per club. The current engine uses "
+        "a greedy squad-building heuristic, not a guaranteed global optimum."
     )
 
     budget = st.number_input(
@@ -1181,8 +1261,8 @@ with tabs[3]:
     chip_mode = st.radio(
         "Planning mode",
         [
-            "Wildcard (longer-term squad)",
-            "Free Hit (one Gameweek)",
+            "Wildcard — longer-term squad",
+            "Free Hit — one Gameweek",
         ],
         horizontal=True,
     )
@@ -1191,102 +1271,97 @@ with tabs[3]:
         "Optimise 15-player squad",
         type="primary",
     ):
-
         optimised_squad = build_squad(
             players,
             fx_map,
-            gw,
+            target_gw,
             budget,
         )
 
         if len(optimised_squad) < 15:
-
             st.error(
-                f"Only {len(optimised_squad)} eligible players "
-                "were found within the constraints. "
+                f"Only {len(optimised_squad)} eligible players were found. "
                 "Try increasing the budget."
             )
 
         else:
+            st.success(f"{chip_mode} draft generated.")
 
-            starting_xi = best_starting_xi(
+            optimised_xi = best_xi_for_gw(
                 optimised_squad,
+                target_gw,
                 fx_map,
-                gw,
             )
 
-            # Visual starting XI.
-            render_squad_pitch(
-                starting_xi,
-                gw,
-                fx_map,
-                team_short,
-                title="Optimised Starting XI",
-            )
-
-            # Visual substitutes.
-            starting_ids = {
+            xi_ids = {
                 player["id"]
-                for player in starting_xi
+                for player in optimised_xi
             }
 
-            bench_players = [
-                player
-                for player in optimised_squad
-                if player["id"] not in starting_ids
+            optimised_bench = [
+                player for player in optimised_squad
+                if player["id"] not in xi_ids
             ]
 
-            render_bench(
-                bench_players,
-                gw,
-                fx_map,
-                team_short,
+            total_cost = sum(
+                num(player.get("now_cost"))
+                for player in optimised_squad
+            ) / 10
+
+            total_xp = sum(
+                gw_xp(player, target_gw, fx_map)
+                for player in optimised_xi
             )
+
+            m1, m2, m3 = st.columns(3)
+
+            m1.metric(
+                "Estimated squad cost",
+                f"£{total_cost:.1f}m",
+            )
+
+            m2.metric(
+                "Remaining budget",
+                f"£{budget - total_cost:.1f}m",
+            )
+
+            m3.metric(
+                "Starting XI xP",
+                f"{total_xp:.2f}",
+            )
+
+            render_pitch(
+                optimised_xi,
+                target_gw,
+                fx_map,
+                bench=optimised_bench,
+            )
+
+            st.subheader("Full 15-player squad")
 
             rows = []
 
             for player in optimised_squad:
-
-                player_fixtures = fx_map.get(
-                    (player["team"], gw),
-                    [],
-                )
-
                 rows.append(
                     {
                         "Line-up": (
                             "Starting XI"
-                            if player["id"] in starting_ids
+                            if player["id"] in xi_ids
                             else "Bench"
                         ),
-                        "Player": player["web_name"],
-                        "Position": POS_NAMES.get(
-                            player["element_type"]
-                        ),
-                        "Club": team_short.get(
-                            player["team"]
-                        ),
-                        "Price": money(
-                            player.get("now_cost")
-                        ),
+                        "Player": player.get("web_name"),
+                        "Position": POS_NAMES.get(player.get("element_type")),
+                        "Club": team_short.get(player.get("team")),
+                        "Price": money(player.get("now_cost")),
                         "Fixture": fx_text(
-                            player_fixtures
+                            fx_map.get((player["team"], target_gw), [])
                         ),
-                        "xP": player_fixture_xp(
-                            player,
-                            player_fixtures,
-                        ),
+                        "xP": gw_xp(player, target_gw, fx_map),
                     }
                 )
 
-            result_df = pd.DataFrame(rows)
-
-            st.markdown(
-                "### Detailed Optimised Squad"
-            )
-
             st.dataframe(
-                result_df.sort_values(
+                pd.DataFrame(rows).sort_values(
                     ["Line-up", "Position", "xP"],
                     ascending=[True, True, False],
                 ),
@@ -1294,32 +1369,18 @@ with tabs[3]:
                 hide_index=True,
             )
 
-            total_cost = sum(
-                num(player.get("now_cost"))
-                for player in optimised_squad
-            ) / 10
-
-            st.metric(
-                "Estimated squad cost",
-                f"£{total_cost:.1f}m",
-            )
-
-            st.success(
-                f"{chip_mode} draft generated. "
-                "Review player availability and club limits "
-                "before using it."
+            st.warning(
+                "Review the squad's availability, budget and club limits "
+                "before making any changes in the official FPL website."
             )
 
 
-# ============================================================
-# TAB 5 — DIFFERENTIALS
-# ============================================================
+# =========================================================
+# TAB 6 — DIFFERENTIALS
+# =========================================================
 
-with tabs[4]:
-
-    st.subheader(
-        "Differential and hidden-gem finder"
-    )
+with tabs[5]:
+    st.subheader("Differential and hidden-gem finder")
 
     max_ownership = st.slider(
         "Maximum ownership %",
@@ -1353,8 +1414,7 @@ with tabs[4]:
     ].copy()
 
     gems["Value (xP/£m)"] = (
-        gems["xP"]
-        / gems["Price"].clip(lower=0.1)
+        gems["xP"] / gems["Price"].clip(lower=0.1)
     )
 
     st.dataframe(
@@ -1379,306 +1439,152 @@ with tabs[4]:
     )
 
     st.caption(
-        "Differentials are filtered by your selected ownership, "
-        "price and minutes thresholds. They are not guaranteed "
-        "breakout picks."
+        "Differentials are defined by your selected ownership, price and minutes "
+        "thresholds. They are not guaranteed breakout picks."
     )
 
 
-# ============================================================
-# TAB 6 — FIXTURES & ROTATION
-# ============================================================
+# =========================================================
+# TAB 7 — FIXTURES AND ROTATION
+# =========================================================
 
-with tabs[5]:
+with tabs[6]:
+    st.subheader("Fixture difficulty and rotation planner")
 
-    st.subheader(
-        "📊 Fixture Radar & Rotation Planner"
-    )
-
-    st.caption(
-        "Visualise upcoming fixture difficulty. "
-        "Green = easier, red = harder."
-    )
-
-    horizon = st.slider(
+    fixture_horizon = st.slider(
         "Upcoming Gameweeks",
-        2,
-        8,
-        5,
+        min_value=1,
+        max_value=min(6, len(available_gws)),
+        value=min(5, len(available_gws)),
         key="fixture_horizon",
     )
 
-    upcoming_gws = [
-        event["id"]
-        for event in events
-        if (
-            not event.get("finished")
-            and event.get("deadline_time")
+    fixture_gws = available_gws[:fixture_horizon]
+
+    fixture_rows = []
+
+    for team in teams:
+        row = {
+            "Club": team.get("name"),
+        }
+
+        difficulties = []
+
+        for gameweek in fixture_gws:
+            team_fixtures = fx_map.get(
+                (team["id"], gameweek),
+                [],
+            )
+
+            row[f"GW{gameweek}"] = (
+                fx_text(team_fixtures)
+                if team_fixtures
+                else "Blank"
+            )
+
+            difficulties.extend(
+                difficulty
+                for _, difficulty in team_fixtures
+            )
+
+        row["Avg FDR"] = (
+            round(
+                sum(difficulties) / len(difficulties),
+                2,
+            )
+            if difficulties
+            else None
         )
-    ][:horizon]
 
-    if not upcoming_gws:
+        fixture_rows.append(row)
 
-        st.warning(
-            "No upcoming fixtures available."
-        )
+    fixture_df = pd.DataFrame(fixture_rows).sort_values(
+        "Avg FDR",
+        ascending=True,
+        na_position="last",
+    )
 
-    else:
+    st.dataframe(
+        fixture_df,
+        use_container_width=True,
+        hide_index=True,
+    )
 
-        fixture_names = []
-        fixture_difficulty = []
+    st.subheader("Rotation notes from your squad")
 
-        for team in teams:
+    if squad:
+        rotation_rows = []
 
-            name_row = {
-                "Club": team.get("name")
-            }
+        for player in squad:
+            difficulties = []
 
-            difficulty_row = {
-                "Club": team.get("name")
-            }
-
-            all_difficulties = []
-
-            for event_id in upcoming_gws:
-
+            for gameweek in fixture_gws:
                 team_fixtures = fx_map.get(
-                    (team["id"], event_id),
+                    (player["team"], gameweek),
                     [],
                 )
 
-                if team_fixtures:
-
-                    name_row[f"GW{event_id}"] = " / ".join(
-                        opponent
-                        for opponent, difficulty
-                        in team_fixtures
-                    )
-
-                    average_difficulty = sum(
-                        difficulty
-                        for _, difficulty in team_fixtures
-                    ) / len(team_fixtures)
-
-                    difficulty_row[f"GW{event_id}"] = round(
-                        average_difficulty,
-                        1,
-                    )
-
-                    all_difficulties.extend(
-                        difficulty
-                        for _, difficulty in team_fixtures
-                    )
-
-                else:
-
-                    name_row[f"GW{event_id}"] = "Blank"
-                    difficulty_row[f"GW{event_id}"] = None
-
-            difficulty_row["Avg FDR"] = (
-                round(
-                    sum(all_difficulties)
-                    / len(all_difficulties),
-                    2,
+                difficulties.extend(
+                    difficulty
+                    for _, difficulty in team_fixtures
                 )
-                if all_difficulties
-                else None
+
+            rotation_rows.append(
+                {
+                    "Player": player.get("web_name"),
+                    "Club": team_short.get(player.get("team")),
+                    "Position": POS_NAMES.get(player.get("element_type")),
+                    "Minutes": player.get("minutes"),
+                    "Status": status_label(player),
+                    "Avg FDR": (
+                        round(
+                            sum(difficulties) / len(difficulties),
+                            2,
+                        )
+                        if difficulties
+                        else None
+                    ),
+                    "Upcoming": " | ".join(
+                        f"GW{gameweek}: "
+                        f"{fx_text(fx_map.get((player['team'], gameweek), []))}"
+                        for gameweek in fixture_gws
+                    ),
+                }
             )
 
-            fixture_names.append(name_row)
-            fixture_difficulty.append(difficulty_row)
-
-        names_df = pd.DataFrame(
-            fixture_names
-        )
-
-        difficulty_df = pd.DataFrame(
-            fixture_difficulty
-        ).sort_values(
-            "Avg FDR",
-            ascending=True,
-            na_position="last",
-        )
-
-        gameweek_columns = [
-            f"GW{gameweek}"
-            for gameweek in upcoming_gws
-        ]
-
-        heatmap = difficulty_df.set_index(
-            "Club"
-        )[gameweek_columns]
-
-        st.markdown(
-            "### 🟢 Fixture Difficulty Heatmap"
-        )
-
-        st.caption(
-            "FDR scale: 1 = easiest, 5 = hardest."
-        )
-
         st.dataframe(
-            heatmap.style.background_gradient(
-                cmap="RdYlGn_r",
-                axis=None,
-                vmin=1,
-                vmax=5,
-            ).format(
-                "{:.1f}",
-                na_rep="—",
+            pd.DataFrame(rotation_rows).sort_values(
+                ["Avg FDR", "Minutes"],
+                ascending=[True, False],
             ),
-            use_container_width=True,
-            height=650,
-        )
-
-        st.markdown(
-            "### 🏆 Best Upcoming Fixture Runs"
-        )
-
-        best_teams = difficulty_df.dropna(
-            subset=["Avg FDR"]
-        ).head(5)
-
-        if best_teams.empty:
-
-            st.info(
-                "No fixture difficulty data is available."
-            )
-
-        else:
-
-            metric_columns = st.columns(
-                len(best_teams)
-            )
-
-            for index, (_, team_row) in enumerate(
-                best_teams.iterrows()
-            ):
-
-                with metric_columns[index]:
-
-                    st.metric(
-                        label=team_row["Club"],
-                        value=f'{team_row["Avg FDR"]:.2f}',
-                        help=(
-                            "Average fixture difficulty. "
-                            "Lower is easier."
-                        ),
-                    )
-
-        st.markdown(
-            "### 🗓️ Opponent Fixture Timeline"
-        )
-
-        st.dataframe(
-            names_df,
             use_container_width=True,
             hide_index=True,
         )
 
-        st.divider()
-
-        st.markdown(
-            "### 🔄 Your Squad Rotation Planner"
-        )
-
-        if squad:
-
-            rotation_rows = []
-
-            for player in squad:
-
-                player_fixtures_by_gw = [
-                    fx_map.get(
-                        (player["team"], gameweek),
-                        [],
-                    )
-                    for gameweek in upcoming_gws
-                ]
-
-                difficulties = [
-                    difficulty
-                    for fixture_group in player_fixtures_by_gw
-                    for _, difficulty in fixture_group
-                ]
-
-                rotation_rows.append(
-                    {
-                        "Player": player["web_name"],
-                        "Club": team_short.get(
-                            player["team"]
-                        ),
-                        "Position": POS_NAMES.get(
-                            player["element_type"]
-                        ),
-                        "Minutes": player.get("minutes"),
-                        "Status": status_label(player),
-                        "Avg FDR": (
-                            round(
-                                sum(difficulties)
-                                / len(difficulties),
-                                2,
-                            )
-                            if difficulties
-                            else None
-                        ),
-                        "Upcoming fixtures": " | ".join(
-                            f"GW{gameweek}: "
-                            f"{fx_text(fx_map.get((player['team'], gameweek), []))}"
-                            for gameweek in upcoming_gws
-                        ),
-                    }
-                )
-
-            rotation_df = pd.DataFrame(
-                rotation_rows
-            )
-
-            st.dataframe(
-                rotation_df.sort_values(
-                    ["Avg FDR", "Minutes"],
-                    ascending=[True, False],
-                    na_position="last",
-                ),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-        else:
-
-            st.info(
-                "Public squad picks are not available "
-                "for rotation analysis."
-            )
+    else:
+        st.info("Load public picks to see squad rotation notes.")
 
 
-# ============================================================
-# TAB 7 — WEEKLY REPORTS
-# ============================================================
+# =========================================================
+# TAB 8 — WEEKLY REPORTS
+# =========================================================
 
-with tabs[6]:
-
-    st.subheader(
-        "Automatic weekly FPL reports"
-    )
+with tabs[7]:
+    st.subheader("Automatic weekly FPL reports")
 
     st.write(
-        "The GitHub Actions workflow can generate a Markdown "
-        "report every Monday at 09:00 Malaysia time (01:00 UTC) "
-        "and save it in this repository. Reports appear here "
-        "after the repository syncs."
+        "The GitHub Actions workflow can generate a Markdown report "
+        "every Monday at 09:00 Malaysia time (01:00 UTC). "
+        "Reports appear here after they are saved to the repository."
     )
 
-    available_reports = report_files()
+    files = report_files()
 
-    if available_reports:
-
-        for report_path in available_reports[:12]:
-
+    if files:
+        for report_path in files[:12]:
             with st.expander(
                 report_path.stem.replace("_", " ")
             ):
-
                 content = report_path.read_text(
                     encoding="utf-8"
                 )
@@ -1694,502 +1600,27 @@ with tabs[6]:
                 )
 
     else:
-
         st.info(
             "No scheduled reports have been generated yet. "
-            "The workflow runs on its next schedule or can be "
-            "started manually from GitHub Actions."
+            "The workflow can also be started manually from GitHub Actions."
         )
 
     st.caption(
-        "Scheduled reports depend on GitHub Actions being enabled "
-        "and the public FPL API being available. GitHub may delay "
-        "scheduled runs."
+        "Scheduled reports depend on GitHub Actions and the public FPL API. "
+        "GitHub may delay scheduled runs."
     )
 
 
-# ============================================================
-# TAB 8 — MULTI-GAMEWEEK PLANNER
-# ============================================================
-
-with tabs[7]:
-
-    st.subheader(
-        "📅 Multi-Gameweek Planner"
-    )
-
-    st.caption(
-        "Plan your squad, captaincy and transfer opportunities "
-        "over the next 1–6 Gameweeks."
-    )
-
-    planning_horizon = st.slider(
-        "Planning horizon",
-        min_value=1,
-        max_value=6,
-        value=6,
-        key="multi_gw_horizon",
-    )
-
-    planner_events = sorted(
-        [
-            event
-            for event in events
-            if (
-                not event.get("finished")
-                and int(event["id"]) >= gw
-            )
-        ],
-        key=lambda event: int(event["id"]),
-    )[:planning_horizon]
-
-    planner_gws = [
-        int(event["id"])
-        for event in planner_events
-    ]
-
-    if not planner_gws:
-
-        st.warning(
-            "No upcoming Gameweeks are available."
-        )
-
-    else:
-
-        st.write(
-            "**Planning Gameweeks:** "
-            + ", ".join(
-                f"GW{gameweek}"
-                for gameweek in planner_gws
-            )
-        )
-
-        # ----------------------------------------------------
-        # BUILD MULTI-GW PROJECTIONS
-        # ----------------------------------------------------
-
-        multi_gw_rows = []
-        multi_gw_scores = {}
-
-        for player in players:
-
-            gw_scores = {}
-
-            for gameweek in planner_gws:
-
-                player_fixtures = fx_map.get(
-                    (player["team"], gameweek),
-                    [],
-                )
-
-                gw_scores[gameweek] = player_fixture_xp(
-                    player,
-                    player_fixtures,
-                )
-
-            total_xp = sum(
-                gw_scores.values()
-            )
-
-            multi_gw_scores[player["id"]] = gw_scores
-
-            multi_gw_rows.append(
-                {
-                    "id": player["id"],
-                    "Player": player["web_name"],
-                    "Position": POS_NAMES.get(
-                        player["element_type"],
-                        "?",
-                    ),
-                    "Club": team_short.get(
-                        player["team"],
-                        "",
-                    ),
-                    "Price": money(
-                        player.get("now_cost")
-                    ),
-                    "Total xP": round(
-                        total_xp,
-                        2,
-                    ),
-                    **{
-                        f"GW{gameweek} xP": round(
-                            gw_scores[gameweek],
-                            2,
-                        )
-                        for gameweek in planner_gws
-                    },
-                    "Status": status_label(player),
-                    "status_code": player.get("status", "a"),
-                    "element_type": player["element_type"],
-                    "now_cost": num(
-                        player.get("now_cost")
-                    ),
-                }
-            )
-
-        multi_proj = pd.DataFrame(
-            multi_gw_rows
-        )
-
-        # ----------------------------------------------------
-        # 1. CURRENT SQUAD PROJECTION
-        # ----------------------------------------------------
-
-        st.markdown(
-            "### 📊 Your Squad Projection"
-        )
-
-        if squad:
-
-            squad_total = 0
-            squad_gw_totals = {}
-
-            for gameweek in planner_gws:
-
-                gw_total = 0
-
-                for player in squad:
-
-                    gw_total += multi_gw_scores.get(
-                        player["id"],
-                        {},
-                    ).get(gameweek, 0)
-
-                squad_gw_totals[gameweek] = gw_total
-
-                squad_total += gw_total
-
-            metric_columns = st.columns(
-                min(len(planner_gws), 3)
-            )
-
-            for index, gameweek in enumerate(
-                planner_gws
-            ):
-
-                with metric_columns[
-                    index % len(metric_columns)
-                ]:
-
-                    st.metric(
-                        f"GW{gameweek} projected xP",
-                        f"{squad_gw_totals[gameweek]:.1f}",
-                    )
-
-            st.metric(
-                f"Total projected xP · {planning_horizon} GWs",
-                f"{squad_total:.1f}",
-            )
-
-            st.caption(
-                "This is the sum of individual player estimates "
-                "for your current 15-player squad. It assumes "
-                "all squad players contribute and is not a "
-                "starting-XI points prediction."
-            )
-
-        else:
-
-            st.info(
-                "Your public squad is unavailable. "
-                "Player and captain projections are still available."
-            )
-
-        st.divider()
-
-        # ----------------------------------------------------
-        # 2. CAPTAIN RECOMMENDATIONS
-        # ----------------------------------------------------
-
-        st.markdown(
-            "### 🏅 Captain Recommendations"
-        )
-
-        captain_rows = []
-
-        outfield_players = [
-            player
-            for player in players
-            if (
-                player.get("element_type") != 1
-                and player.get("status") in ["a", "d"]
-            )
-        ]
-
-        for gameweek in planner_gws:
-
-            ranked_players = sorted(
-                outfield_players,
-                key=lambda player: multi_gw_scores.get(
-                    player["id"],
-                    {},
-                ).get(gameweek, 0),
-                reverse=True,
-            )
-
-            for rank, player in enumerate(
-                ranked_players[:3],
-                start=1,
-            ):
-
-                captain_rows.append(
-                    {
-                        "Gameweek": f"GW{gameweek}",
-                        "Recommendation": (
-                            "Captain"
-                            if rank == 1
-                            else "Vice-captain"
-                            if rank == 2
-                            else "Alternative"
-                        ),
-                        "Player": player["web_name"],
-                        "Club": team_short.get(
-                            player["team"],
-                            "",
-                        ),
-                        "Fixture": fx_text(
-                            fx_map.get(
-                                (player["team"], gameweek),
-                                [],
-                            )
-                        ),
-                        "xP": round(
-                            multi_gw_scores[player["id"]][gameweek],
-                            2,
-                        ),
-                    }
-                )
-
-        if captain_rows:
-
-            st.dataframe(
-                pd.DataFrame(captain_rows),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-        else:
-
-            st.info(
-                "No captain recommendations are available."
-            )
-
-        st.divider()
-
-        # ----------------------------------------------------
-        # 3. MULTI-GW PLAYER EXPLORER
-        # ----------------------------------------------------
-
-        st.markdown(
-            "### 🔍 Best Players Over This Period"
-        )
-
-        player_position_filter = st.selectbox(
-            "Filter position",
-            ["All", "GKP", "DEF", "MID", "FWD"],
-            key="multi_gw_position",
-        )
-
-        player_view = multi_proj.copy()
-
-        if player_position_filter != "All":
-
-            player_view = player_view[
-                player_view["Position"]
-                == player_position_filter
-            ]
-
-        st.dataframe(
-            player_view.sort_values(
-                "Total xP",
-                ascending=False,
-            ).head(30)[
-                [
-                    "Player",
-                    "Position",
-                    "Club",
-                    "Price",
-                    *[
-                        f"GW{gameweek} xP"
-                        for gameweek in planner_gws
-                    ],
-                    "Total xP",
-                    "Status",
-                ]
-            ],
-            use_container_width=True,
-            hide_index=True,
-        )
-
-        st.divider()
-
-        # ----------------------------------------------------
-        # 4. MULTI-GW TRANSFER OPPORTUNITIES
-        # ----------------------------------------------------
-
-        st.markdown(
-            "### 🔄 Transfer Opportunities"
-        )
-
-        if not squad:
-
-            st.info(
-                "A public squad snapshot is required "
-                "for transfer comparisons."
-            )
-
-        else:
-
-            bank_tenths = num(
-                latest.get(
-                    "bank",
-                    profile.get("last_deadline_bank", 0),
-                )
-            )
-
-            transfer_rows = []
-
-            for pick in picks:
-
-                old_player = player_by_id.get(
-                    pick.get("element")
-                )
-
-                if not old_player:
-                    continue
-
-                sell_price = num(
-                    pick.get("selling_price"),
-                    old_player.get("now_cost", 0),
-                )
-
-                position_id = old_player.get(
-                    "element_type"
-                )
-
-                affordable = multi_proj[
-                    (
-                        multi_proj["element_type"]
-                        == position_id
-                    )
-                    & (
-                        ~multi_proj["id"].isin(owned_ids)
-                    )
-                    & (
-                        multi_proj["status_code"].isin(
-                            ["a", "d"]
-                        )
-                    )
-                    & (
-                        multi_proj["now_cost"]
-                        <= sell_price + bank_tenths
-                    )
-                ].copy()
-
-                if affordable.empty:
-                    continue
-
-                old_scores = multi_gw_scores.get(
-                    old_player["id"],
-                    {},
-                )
-
-                for _, candidate in affordable.iterrows():
-
-                    new_scores = multi_gw_scores.get(
-                        candidate["id"],
-                        {},
-                    )
-
-                    total_gain = sum(
-                        new_scores.get(gameweek, 0)
-                        - old_scores.get(gameweek, 0)
-                        for gameweek in planner_gws
-                    )
-
-                    first_gain_gw = next(
-                        (
-                            gameweek
-                            for gameweek in planner_gws
-                            if (
-                                new_scores.get(gameweek, 0)
-                                > old_scores.get(gameweek, 0)
-                            )
-                        ),
-                        None,
-                    )
-
-                    transfer_rows.append(
-                        {
-                            "Sell": old_player["web_name"],
-                            "Buy": candidate["Player"],
-                            "Position": POS_NAMES.get(
-                                position_id,
-                                "?",
-                            ),
-                            "Sell price": money(
-                                sell_price
-                            ),
-                            "Buy price": candidate["Price"],
-                            "Total xP gain": round(
-                                total_gain,
-                                2,
-                            ),
-                            "First GW with xP advantage": (
-                                f"GW{first_gain_gw}"
-                                if first_gain_gw
-                                else "No individual GW advantage"
-                            ),
-                        }
-                    )
-
-            if transfer_rows:
-
-                transfer_df = pd.DataFrame(
-                    transfer_rows
-                ).sort_values(
-                    "Total xP gain",
-                    ascending=False,
-                )
-
-                st.dataframe(
-                    transfer_df.head(25),
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-                st.caption(
-                    "Positive Total xP gain indicates that the "
-                    "incoming player has a higher combined "
-                    "estimated xP over the selected horizon."
-                )
-
-            else:
-
-                st.info(
-                    "No affordable transfer comparisons were found."
-                )
-
-        st.warning(
-            "Important: These projections are estimates, not "
-            "official FPL predictions. They do not fully model "
-            "future injuries, rotation, price changes, future "
-            "free-transfer accumulation, transfer hits, chips "
-            "or changing player availability. Check the latest "
-            "information before making transfers."
-        )
-
-
-# ============================================================
+# ---------------------------------------------------------
 # FOOTER
-# ============================================================
+# ---------------------------------------------------------
 
 st.divider()
 
 st.caption(
-    "Independent fan-made tool; not affiliated with the "
-    "Premier League. All xP, captain, transfer and optimisation "
-    "outputs are estimates from statistical heuristics, not "
-    "official FPL projections or guaranteed outcomes."
+    "AJK Bola Wawei AI · Independent fan-made FPL analytics tool. "
+    "Not affiliated with or endorsed by the Premier League. "
+    "All xP, captain, transfer and optimisation outputs are estimates "
+    "based on public data and transparent statistical heuristics. "
+    "Always verify decisions on the official FPL website."
 )
