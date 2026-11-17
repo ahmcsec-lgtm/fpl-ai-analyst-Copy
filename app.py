@@ -705,7 +705,7 @@ with tabs[2]:
         ))
         free_transfers = st.number_input(
             "Free transfers available",
-            min_value=1, max_value=5, value=1,
+            min_value=0, max_value=5, value=1,
             help="Enter your current free-transfer count from FPL.",
         )
         st.metric("Reported bank", money(bank))
