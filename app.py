@@ -7,7 +7,7 @@ import streamlit as st
 from fpl_engine import num, estimate_xp, fixture_lookup, player_fixture_xp, build_squad, best_starting_xi
 
 API = "https://fantasy.premierleague.com/api"
-DEFAULT_TEAM_ID = 1645144
+
 HEADERS = {"User-Agent": "FPL-AI-Analyst/1.0 (personal analytics app)"}
 POS_NAMES = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 
@@ -34,12 +34,34 @@ def report_files():
     folder = Path("reports")
     return sorted(folder.glob("GW*_report.md"), reverse=True) if folder.exists() else []
 
+
 with st.sidebar:
-    st.header("Manager")
-    team_id = st.number_input("FPL Team ID", min_value=1, value=DEFAULT_TEAM_ID, step=1)
+    st.header("⚽ FPL Manager")
+    st.caption("Enter your own Fantasy Premier League Team ID.")
+
+    team_id_input = st.text_input(
+        "Your FPL Team ID",
+        value="",
+        placeholder="e.g. 1645144",
+        help="Enter any valid public FPL Team ID."
+    )
+
     if st.button("↻ Refresh data", use_container_width=True):
-        st.cache_data.clear(); st.rerun()
-    st.caption("Public FPL API only. No FPL password or paid AI API is required.")
+        st.cache_data.clear()
+        st.rerun()
+
+    st.caption("Free public FPL data. No FPL password required.")
+
+if not team_id_input.strip():
+    st.info("👈 Enter your FPL Team ID in the sidebar to start analysing your team.")
+    st.stop()
+
+if not team_id_input.strip().isdigit():
+    st.error("Please enter a valid numeric FPL Team ID.")
+    st.stop()
+
+team_id = int(team_id_input.strip())
+
 
 try:
     with st.spinner("Loading current FPL data…"):
