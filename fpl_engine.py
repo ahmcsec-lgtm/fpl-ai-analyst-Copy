@@ -1,238 +1,202 @@
 
-"""Transparent statistical helpers for FPL AI Analyst.
+"""AJK Bola Wawei AI — transparent FPL projection and optimisation engine.
 
-These are heuristic estimates based on public FPL data.
-They are not official FPL projections or guaranteed outcomes.
+Uses public FPL data and transparent statistical heuristics.
+These are estimates, not official FPL projections or guaranteed outcomes.
 """
 
 from __future__ import annotations
 
+from itertools import combinations
 from typing import Any
 
+POSITION_QUOTAS = {1: 2, 2: 5, 3: 5, 4: 3}
+POSITION_NAMES = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 
-POSITION_QUOTAS = {
-    1: 2,  # Goalkeepers
-    2: 5,  # Defenders
-    3: 5,  # Midfielders
-    4: 3,  # Forwards
-}
-
-POSITION_NAMES = {
-    1: "GKP",
-    2: "DEF",
-    3: "MID",
-    4: "FWD",
+RISK_FACTORS = {
+    "Cautious": 0.85,
+    "Balanced": 1.0,
+    "Aggressive": 1.15,
 }
 
 
 def num(value: Any, default: float = 0.0) -> float:
-    """Safely convert a value to a number."""
     try:
         return float(value) if value not in (None, "") else default
     except (TypeError, ValueError):
         return default
 
 
+def clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
 def availability_factor(player: dict) -> float:
-    """Estimate the probability that a player is available."""
     status = player.get("status", "a")
-
     factors = {
-        "a": 1.0,
-        "d": 0.65,
-        "i": 0.15,
-        "s": 0.0,
-        "u": 0.0,
-        "n": 0.0,
+        "a": 1.0, "d": 0.65, "i": 0.15,
+        "s": 0.0, "u": 0.0, "n": 0.0,
     }
-
     factor = factors.get(status, 0.6)
-
     chance = player.get("chance_of_playing_next_round")
-
     if chance is not None:
-        factor *= max(0.0, min(1.0, num(chance) / 100.0))
-
+        factor *= clamp(num(chance) / 100.0, 0.0, 1.0)
     return factor
 
 
-def projected_minutes(player: dict) -> float:
-    """Estimate minutes for one fixture using historical minutes and starts."""
-
-    minutes = num(player.get("minutes"))
-    starts = num(player.get("starts"))
-
-    if minutes <= 0:
-        expected = 20.0
-    elif starts > 0:
-        minutes_per_start = min(90.0, minutes / starts)
-
-        appearance_rate = min(
-            1.0,
-            starts / max(1.0, minutes / 90.0),
-        )
-
-        expected = minutes_per_start * (
-            0.75 + 0.25 * appearance_rate
-        )
+def projected_minutes(
+    player: dict,
+    minutes_override: float | None = None,
+) -> float:
+    """Estimate expected minutes in one fixture."""
+    if minutes_override is not None:
+        base = clamp(num(minutes_override), 0, 90)
     else:
-        expected = min(35.0, minutes / 10.0)
+        minutes = num(player.get("minutes"))
+        starts = num(player.get("starts"))
+        appearances = num(player.get("starts")) + num(player.get("substitute_in"))
 
-    expected *= availability_factor(player)
+        if minutes <= 0:
+            base = 20.0
+        elif starts > 0:
+            minutes_per_start = clamp(minutes / starts, 0, 90)
+            start_rate = clamp(starts / max(1, appearances), 0, 1)
+            base = minutes_per_start * (0.75 + 0.25 * start_rate)
+        else:
+            base = clamp(minutes / 10, 0, 35)
 
-    return round(max(0.0, min(90.0, expected)), 1)
+    return round(clamp(base * availability_factor(player), 0, 90), 1)
 
 
-def estimate_xp(player: dict, difficulty: float = 3.0) -> float:
-    """
-    Estimate expected points for one fixture.
+def _rate_per_90(value: Any, minutes: float) -> float:
+    return num(value) / max(minutes / 90.0, 1.0)
 
-    This is a transparent heuristic, not an official FPL prediction.
-    """
 
+def player_projection(
+    player: dict,
+    difficulty: float = 3.0,
+    *,
+    minutes_override: float | None = None,
+    team_strength: float = 1.0,
+    risk: str = "Balanced",
+) -> dict:
+    """Return a transparent single-fixture projection breakdown."""
     position = int(num(player.get("element_type"), 3))
-
-    minutes = projected_minutes(player)
-
-    if minutes < 1:
-        return 0.0
-
-    minutes_per_90 = minutes / 90.0
-
+    minutes = projected_minutes(player, minutes_override)
+    mins_factor = minutes / 90.0
     historical_minutes = num(player.get("minutes"))
 
-    historical_90s = max(
-        1.0,
-        historical_minutes / 90.0,
+    if minutes <= 0:
+        return {
+            "xp": 0.0, "minutes": 0.0, "start_probability": 0.0,
+            "appearance": 0.0, "attacking": 0.0,
+            "clean_sheet": 0.0, "bonus": 0.0,
+            "availability": availability_factor(player),
+        }
+
+    xg90 = _rate_per_90(player.get("expected_goals"), historical_minutes)
+    xa90 = _rate_per_90(player.get("expected_assists"), historical_minutes)
+    xgi90 = _rate_per_90(
+        player.get("expected_goal_involvements"), historical_minutes
     )
 
-    xg_per_90 = (
-        num(player.get("expected_goals")) / historical_90s
-    )
-
-    xa_per_90 = (
-        num(player.get("expected_assists")) / historical_90s
-    )
-
-    xgi_per_90 = (
-        num(player.get("expected_goal_involvements")) / historical_90s
-    )
-
-    goal_points = {
-        1: 10,
-        2: 6,
-        3: 5,
-        4: 4,
-    }.get(position, 4)
-
-    if xg_per_90 + xa_per_90 > 0:
-        attacking_rate = (
-            xg_per_90 * goal_points
-            + xa_per_90 * 3.0
-        )
+    goal_points = {1: 10, 2: 6, 3: 5, 4: 4}.get(position, 4)
+    if xg90 + xa90 > 0:
+        attacking_rate = xg90 * goal_points + xa90 * 3
     else:
-        attacking_rate = xgi_per_90 * 4.2
+        attacking_rate = xgi90 * 4.2
 
-    attacking_points = attacking_rate * minutes_per_90
+    attacking = attacking_rate * mins_factor
+    appearance = 2.0 * mins_factor
 
-    appearance_points = (
-        2.0 if minutes >= 60 else 1.0
-    ) * min(1.0, minutes / 60.0)
+    difficulty = clamp(num(difficulty, 3), 1, 5)
+    fixture_factor = clamp(1.16 - (difficulty - 1) * 0.11, 0.72, 1.20)
+    team_strength = clamp(num(team_strength, 1), 0.75, 1.25)
 
-    difficulty = max(1.0, min(5.0, num(difficulty, 3.0)))
+    starts = num(player.get("starts"))
+    clean_sheets = num(player.get("clean_sheets"))
+    cs_rate = clamp(clean_sheets / max(1, starts), 0, 0.9)
+    cs_points = {1: 4, 2: 4, 3: 1, 4: 0}.get(position, 0)
+    clean_sheet = cs_rate * 0.75 * cs_points * mins_factor
 
-    fixture_factor = max(
-        0.72,
-        min(1.20, 1.16 - (difficulty - 1.0) * 0.11),
-    )
+    # Use historic bonus per start as a modest baseline, not a guarantee.
+    bonus_total = num(player.get("bonus"))
+    bonus_rate = bonus_total / max(1, starts)
+    bonus = clamp(bonus_rate * 0.30 * mins_factor, 0, 1.0)
 
-    clean_sheet_rate = (
-        num(player.get("clean_sheets"))
-        / max(1.0, num(player.get("starts")))
-    )
+    # Blend long-run performance and recent form conservatively.
+    baseline = (
+        num(player.get("points_per_game")) * 0.20
+        + num(player.get("form")) * 0.10
+    ) * mins_factor
 
-    clean_sheet_points = {
-        1: 4,
-        2: 4,
-        3: 1,
-        4: 0,
-    }.get(position, 0)
+    attacking *= team_strength
+    clean_sheet *= team_strength
 
-    clean_sheet_estimate = (
-        min(0.75, clean_sheet_rate * 0.75)
-        * clean_sheet_points
-        * minutes_per_90
-    )
-
-    baseline_points = (
-        num(player.get("points_per_game")) * 0.25
-        + num(player.get("form")) * 0.15
-    )
-
-    raw_xp = (
-        attacking_points
-        + appearance_points
-        + clean_sheet_estimate
-        + baseline_points
+    raw = (
+        attacking + appearance + clean_sheet + bonus + baseline
     ) * fixture_factor
 
-    return round(max(0.0, min(15.0, raw_xp)), 2)
+    # Risk mode changes how much uncertain projections are discounted/boosted.
+    risk_factor = RISK_FACTORS.get(risk, 1.0)
+    availability = availability_factor(player)
+    uncertainty_penalty = (1.0 - availability) * 0.8
+    if risk == "Cautious":
+        raw -= uncertainty_penalty
+    elif risk == "Aggressive":
+        raw += min(0.25, uncertainty_penalty * 0.25)
+
+    return {
+        "xp": round(clamp(raw, 0, 15), 2),
+        "minutes": minutes,
+        "start_probability": round(clamp(minutes / 90, 0, 1), 3),
+        "appearance": round(appearance, 2),
+        "attacking": round(attacking * fixture_factor, 2),
+        "clean_sheet": round(clean_sheet * fixture_factor, 2),
+        "bonus": round(bonus * fixture_factor, 2),
+        "availability": round(availability, 3),
+    }
+
+
+def estimate_xp(
+    player: dict,
+    difficulty: float = 3.0,
+    *,
+    minutes_override: float | None = None,
+    team_strength: float = 1.0,
+    risk: str = "Balanced",
+) -> float:
+    return player_projection(
+        player,
+        difficulty,
+        minutes_override=minutes_override,
+        team_strength=team_strength,
+        risk=risk,
+    )["xp"]
 
 
 def fixture_lookup(
     fixtures: list[dict],
     teams: list[dict],
 ) -> dict[tuple[int, int], list[tuple[str, int]]]:
-    """Create a team/Gameweek fixture lookup."""
-
     names = {
-        team["id"]: team.get(
-            "short_name",
-            str(team["id"]),
-        )
+        team["id"]: team.get("short_name", str(team["id"]))
         for team in teams
     }
-
-    output = {}
+    output: dict[tuple[int, int], list[tuple[str, int]]] = {}
 
     for fixture in fixtures:
-        gameweek = fixture.get("event")
-
-        if gameweek is None:
+        gw = fixture.get("event")
+        home = fixture.get("team_h")
+        away = fixture.get("team_a")
+        if gw is None or home is None or away is None:
             continue
 
-        home_team = fixture.get("team_h")
-        away_team = fixture.get("team_a")
-
-        if home_team is None or away_team is None:
-            continue
-
-        home_difficulty = int(
-            fixture.get("team_h_difficulty") or 3
+        output.setdefault((home, gw), []).append(
+            (f"{names.get(away, away)} (H)", int(fixture.get("team_h_difficulty") or 3))
         )
-
-        away_difficulty = int(
-            fixture.get("team_a_difficulty") or 3
-        )
-
-        output.setdefault(
-            (home_team, gameweek),
-            [],
-        ).append(
-            (
-                f"{names.get(away_team, away_team)} (H)",
-                home_difficulty,
-            )
-        )
-
-        output.setdefault(
-            (away_team, gameweek),
-            [],
-        ).append(
-            (
-                f"{names.get(home_team, home_team)} (A)",
-                away_difficulty,
-            )
+        output.setdefault((away, gw), []).append(
+            (f"{names.get(home, home)} (A)", int(fixture.get("team_a_difficulty") or 3))
         )
 
     return output
@@ -241,62 +205,124 @@ def fixture_lookup(
 def player_fixture_xp(
     player: dict,
     fixtures: list[tuple[str, int]],
+    *,
+    minutes_override: float | None = None,
+    team_strength: float = 1.0,
+    risk: str = "Balanced",
 ) -> float:
-    """Calculate projected points across a Gameweek's fixtures."""
-
+    """Calculate one Gameweek's xP. A blank Gameweek correctly returns zero."""
     if not fixtures:
-        return estimate_xp(player, 3.0)
+        return 0.0
 
-    # Each fixture is estimated separately.
-    # Minutes and availability are based on historical player data,
-    # so double-gameweek projections should be treated cautiously.
-    total_xp = sum(
-        estimate_xp(player, difficulty)
+    return round(sum(
+        estimate_xp(
+            player,
+            difficulty,
+            minutes_override=minutes_override,
+            team_strength=team_strength,
+            risk=risk,
+        )
         for _, difficulty in fixtures
-    )
-
-    return round(total_xp, 2)
+    ), 2)
 
 
-def _player_fixture_difficulty(
-    player: dict,
-    fx_by_team_gw: dict,
-    gw: int,
-) -> float:
-    fixtures = fx_by_team_gw.get(
-        (player["team"], gw),
-        [],
-    )
-
+def _difficulty(player: dict, fx_map: dict, gw: int) -> float:
+    fixtures = fx_map.get((player["team"], gw), [])
     if not fixtures:
         return 3.0
-
-    return sum(
-        difficulty
-        for _, difficulty in fixtures
-    ) / len(fixtures)
+    return sum(d for _, d in fixtures) / len(fixtures)
 
 
-def _player_score(
+def player_horizon_xp(
     player: dict,
+    gameweeks: list[int],
+    fx_map: dict,
+    *,
+    risk: str = "Balanced",
+    minutes_overrides: dict[int, float] | None = None,
+    team_strengths: dict[int, float] | None = None,
+) -> float:
+    total = 0.0
+    minutes_overrides = minutes_overrides or {}
+    team_strengths = team_strengths or {}
+
+    for gw in gameweeks:
+        total += player_fixture_xp(
+            player,
+            fx_map.get((player["team"], gw), []),
+            minutes_override=minutes_overrides.get(player["id"]),
+            team_strength=team_strengths.get(player["team"], 1.0),
+            risk=risk,
+        )
+    return round(total, 2)
+
+
+def best_starting_xi(
+    squad: list[dict],
     fx_by_team_gw: dict,
     gw: int,
-) -> float:
-    """Combine expected points and price efficiency."""
+    *,
+    risk: str = "Balanced",
+) -> list[dict]:
+    """Find the highest-xP legal XI across available FPL formations."""
+    if len(squad) < 11:
+        return []
 
-    difficulty = _player_fixture_difficulty(
-        player,
-        fx_by_team_gw,
-        gw,
+    def xp(p):
+        return player_fixture_xp(
+            p, fx_by_team_gw.get((p["team"], gw), []), risk=risk
+        )
+
+    keepers = sorted([p for p in squad if int(num(p.get("element_type"))) == 1],
+                     key=xp, reverse=True)
+    defs = sorted([p for p in squad if int(num(p.get("element_type"))) == 2],
+                  key=xp, reverse=True)
+    mids = sorted([p for p in squad if int(num(p.get("element_type"))) == 3],
+                  key=xp, reverse=True)
+    fwds = sorted([p for p in squad if int(num(p.get("element_type"))) == 4],
+                  key=xp, reverse=True)
+
+    if not keepers:
+        return []
+
+    best, best_score = [], -1.0
+    for dc in range(3, min(5, len(defs)) + 1):
+        for mc in range(2, min(5, len(mids)) + 1):
+            fc = 10 - dc - mc
+            if not 1 <= fc <= 3 or fc > len(fwds):
+                continue
+
+            # Top players per position are sufficient because each position
+            # contributes independently to the total score.
+            xi = [keepers[0]] + defs[:dc] + mids[:mc] + fwds[:fc]
+            score = sum(xp(p) for p in xi)
+            if len(xi) == 11 and score > best_score:
+                best, best_score = xi, score
+
+    return best
+
+
+def bench_order(
+    squad: list[dict],
+    xi: list[dict],
+    fx_map: dict,
+    gw: int,
+) -> list[dict]:
+    xi_ids = {p["id"] for p in xi}
+    bench = [p for p in squad if p["id"] not in xi_ids]
+    return sorted(
+        bench,
+        key=lambda p: (
+            player_fixture_xp(p, fx_map.get((p["team"], gw), [])),
+            p.get("element_type") == 1,
+        ),
+        reverse=True,
     )
 
-    xp = estimate_xp(player, difficulty)
 
-    price = max(
-        0.1,
-        num(player.get("now_cost")) / 10.0,
-    )
-
+def _player_score(player: dict, fx_map: dict, gw: int) -> float:
+    xp = player_fixture_xp(player, fx_map.get((player["team"], gw), []))
+    price = max(0.1, num(player.get("now_cost")) / 10)
     return xp / price
 
 
@@ -306,284 +332,160 @@ def build_squad(
     gw: int,
     budget_m: float = 100.0,
 ) -> list[dict]:
-    """
-    Build an indicative 15-player squad.
-
-    Uses FPL position quotas, a three-player club limit,
-    budget-aware selection and a reserve-budget check.
-
-    This is a greedy heuristic, not a guaranteed global optimum.
-    """
-
-    remaining_budget = int(round(budget_m * 10))
-
-    selected = []
-    selected_ids = set()
-    club_counts = {}
-
+    """Build a legal 15-player squad using a budget-aware greedy optimiser."""
+    budget = int(round(budget_m * 10))
     pools = {}
 
-    for position in POSITION_QUOTAS:
-        pools[position] = [
-            player
-            for player in players
-            if int(num(player.get("element_type"))) == position
-            and player.get("status", "a") not in ("u", "s", "n")
-            and num(player.get("now_cost")) > 0
-        ]
-
-        pools[position].sort(
-            key=lambda player: (
-                _player_score(
-                    player,
-                    fx_by_team_gw,
-                    gw,
-                ),
-                estimate_xp(
-                    player,
-                    _player_fixture_difficulty(
-                        player,
-                        fx_by_team_gw,
-                        gw,
-                    ),
-                ),
+    for pos, quota in POSITION_QUOTAS.items():
+        pools[pos] = sorted(
+            [
+                p for p in players
+                if int(num(p.get("element_type"))) == pos
+                and p.get("status", "a") not in ("u", "s", "n")
+                and num(p.get("now_cost")) > 0
+            ],
+            key=lambda p: (
+                _player_score(p, fx_by_team_gw, gw),
+                player_fixture_xp(p, fx_by_team_gw.get((p["team"], gw), [])),
             ),
             reverse=True,
         )
+        if len(pools[pos]) < quota:
+            return []
 
-    if any(
-        len(pools[position]) < quota
-        for position, quota in POSITION_QUOTAS.items()
-    ):
-        return []
+    # A minimum-cost reserve prevents the early picks consuming the budget.
+    selected: list[dict] = []
+    selected_ids: set[int] = set()
+    club_counts: dict[int, int] = {}
+    remaining = budget
 
-    # Minimum price reserve for every remaining position.
-    for position, quota in POSITION_QUOTAS.items():
-
+    # Fill positions in order of scarce/expensive positions.
+    for pos, quota in POSITION_QUOTAS.items():
         for _ in range(quota):
-
             candidates = [
-                player
-                for player in pools[position]
-                if player["id"] not in selected_ids
-                and club_counts.get(player["team"], 0) < 3
+                p for p in pools[pos]
+                if p["id"] not in selected_ids
+                and club_counts.get(p["team"], 0) < 3
             ]
 
-            if not candidates:
-                return selected
-
             chosen = None
-
             for candidate in candidates:
+                cost = int(num(candidate.get("now_cost")))
+                if cost > remaining:
+                    continue
 
-                cost = int(
-                    num(candidate.get("now_cost"))
-                )
+                future_min = 0
+                possible = True
 
-                # Calculate the minimum cost of the other
-                # unfilled squad places.
-                future_costs = []
-
-                for future_position, future_quota in POSITION_QUOTAS.items():
-
-                    already_selected = sum(
-                        1
-                        for item in selected
-                        if int(num(item.get("element_type")))
-                        == future_position
+                for future_pos, future_quota in POSITION_QUOTAS.items():
+                    already = sum(
+                        int(num(x.get("element_type"))) == future_pos
+                        for x in selected
                     )
-
-                    outstanding = future_quota - already_selected
-
-                    if future_position == position:
+                    outstanding = future_quota - already
+                    if future_pos == pos:
                         outstanding -= 1
-
                     if outstanding <= 0:
                         continue
 
                     future_pool = [
-                        item
-                        for item in pools[future_position]
-                        if item["id"] not in selected_ids
-                        and item["id"] != candidate["id"]
-                        and item["team"] != candidate["team"]
-                        or (
-                            future_position == position
-                            and item["id"] not in selected_ids
-                            and item["id"] != candidate["id"]
-                            and club_counts.get(item["team"], 0) < 3
-                            and (
-                                item["team"] != candidate["team"]
-                                or club_counts.get(item["team"], 0) < 2
-                            )
+                        p for p in pools[future_pos]
+                        if p["id"] not in selected_ids
+                        and p["id"] != candidate["id"]
+                        and (
+                            p["team"] != candidate["team"]
+                            or club_counts.get(p["team"], 0) + 1 < 3
                         )
                     ]
-
-                    future_pool.sort(
-                        key=lambda item: num(item.get("now_cost"))
-                    )
-
+                    future_pool.sort(key=lambda p: num(p.get("now_cost")))
                     if len(future_pool) < outstanding:
-                        future_costs = []
+                        possible = False
                         break
-
-                    future_costs.extend(
-                        int(num(item.get("now_cost")))
-                        for item in future_pool[:outstanding]
+                    future_min += sum(
+                        int(num(p.get("now_cost")))
+                        for p in future_pool[:outstanding]
                     )
 
-                if not future_costs and sum(
-                    POSITION_QUOTAS.values()
-                ) - len(selected) > 1:
-                    continue
-
-                reserve = sum(future_costs)
-
-                if cost + reserve <= remaining_budget:
+                if possible and cost + future_min <= remaining:
                     chosen = candidate
                     break
 
-            # If reserve checking is too restrictive, use the
-            # best affordable candidate that respects club limits.
             if chosen is None:
                 chosen = next(
-                    (
-                        player
-                        for player in candidates
-                        if int(num(player.get("now_cost")))
-                        <= remaining_budget
-                    ),
+                    (p for p in candidates if int(num(p.get("now_cost"))) <= remaining),
                     None,
                 )
 
             if chosen is None:
-                return selected
+                return []
 
             cost = int(num(chosen.get("now_cost")))
-
             selected.append(chosen)
             selected_ids.add(chosen["id"])
+            club_counts[chosen["team"]] = club_counts.get(chosen["team"], 0) + 1
+            remaining -= cost
 
-            remaining_budget -= cost
-
-            club_counts[chosen["team"]] = (
-                club_counts.get(chosen["team"], 0) + 1
-            )
+    if len(selected) != 15:
+        return []
 
     return selected
 
 
-def best_starting_xi(
+def suggest_transfers(
     squad: list[dict],
-    fx_by_team_gw: dict,
-    gw: int,
+    players: list[dict],
+    gameweeks: list[int],
+    fx_map: dict,
+    bank_tenths: int = 0,
+    free_transfers: int = 1,
+    risk: str = "Balanced",
+    max_suggestions: int = 10,
 ) -> list[dict]:
-    """
-    Select the highest-xP legal starting XI.
+    """Rank legal one-for-one transfer options using horizon xP and budget."""
+    owned = {p["id"] for p in squad}
+    suggestions = []
 
-    Checks formations with 3–5 defenders, 2–5 midfielders
-    and 1–3 forwards.
-    """
+    for outgoing in squad:
+        sell_price = int(num(outgoing.get("selling_price"), num(outgoing.get("now_cost"))))
+        old_xp = player_horizon_xp(outgoing, gameweeks, fx_map, risk=risk)
 
-    if len(squad) < 11:
-        return []
-
-    def player_xp(player):
-        return player_fixture_xp(
-            player,
-            fx_by_team_gw.get(
-                (player["team"], gw),
-                [],
-            ),
-        )
-
-    goalkeepers = sorted(
-        [
-            player
-            for player in squad
-            if int(num(player.get("element_type"))) == 1
-        ],
-        key=player_xp,
-        reverse=True,
-    )
-
-    defenders = sorted(
-        [
-            player
-            for player in squad
-            if int(num(player.get("element_type"))) == 2
-        ],
-        key=player_xp,
-        reverse=True,
-    )
-
-    midfielders = sorted(
-        [
-            player
-            for player in squad
-            if int(num(player.get("element_type"))) == 3
-        ],
-        key=player_xp,
-        reverse=True,
-    )
-
-    forwards = sorted(
-        [
-            player
-            for player in squad
-            if int(num(player.get("element_type"))) == 4
-        ],
-        key=player_xp,
-        reverse=True,
-    )
-
-    if not goalkeepers:
-        return []
-
-    goalkeeper = goalkeepers[:1]
-
-    best_xi = None
-    best_score = -1.0
-
-    for defender_count in range(
-        3,
-        min(5, len(defenders)) + 1,
-    ):
-
-        for midfielder_count in range(
-            2,
-            min(5, len(midfielders)) + 1,
-        ):
-
-            forward_count = (
-                10
-                - defender_count
-                - midfielder_count
-            )
-
-            if not 1 <= forward_count <= 3:
+        for incoming in players:
+            if incoming["id"] in owned:
+                continue
+            if incoming.get("element_type") != outgoing.get("element_type"):
+                continue
+            if incoming.get("status", "a") in ("i", "s", "u", "n"):
                 continue
 
-            if forward_count > len(forwards):
+            # Maintain three-per-club rule after the swap.
+            club_count = sum(p.get("team") == incoming.get("team") for p in squad)
+            if incoming.get("team") != outgoing.get("team") and club_count >= 3:
                 continue
 
-            xi = (
-                goalkeeper
-                + defenders[:defender_count]
-                + midfielders[:midfielder_count]
-                + forwards[:forward_count]
-            )
-
-            if len(xi) != 11:
+            price = int(num(incoming.get("now_cost")))
+            if price > sell_price + bank_tenths:
                 continue
 
-            score = sum(
-                player_xp(player)
-                for player in xi
-            )
+            new_xp = player_horizon_xp(incoming, gameweeks, fx_map, risk=risk)
+            gain = round(new_xp - old_xp, 2)
 
-            if score > best_score:
-                best_score = score
-                best_xi = xi
+            suggestions.append({
+                "out_id": outgoing["id"],
+                "in_id": incoming["id"],
+                "out": outgoing.get("web_name", ""),
+                "in": incoming.get("web_name", ""),
+                "position": POSITION_NAMES.get(outgoing.get("element_type"), "?"),
+                "sell_price": sell_price,
+                "buy_price": price,
+                "out_xp": old_xp,
+                "in_xp": new_xp,
+                "gain": gain,
+            })
 
-    return best_xi or []
+    hit_cost = max(0, 4 * max(0, 1 - free_transfers))
+    suggestions.sort(key=lambda x: x["gain"], reverse=True)
+
+    for item in suggestions:
+        item["net_gain_after_hit"] = round(item["gain"] - hit_cost, 2)
+
+    return suggestions[:max_suggestions]
