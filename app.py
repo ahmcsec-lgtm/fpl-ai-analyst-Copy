@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.7 — player action panel on click.
+"""AJK Bola Wawei AI v5.7.2 — clear player availability symbols and legend.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -123,8 +123,10 @@ h1,h2,h3{letter-spacing:-.035em}
 .squad-player-label small{display:block;color:#1d654b;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .squad-player .captain-marker{display:inline-block;background:#39205c;color:white;border-radius:4px;
   font-size:9px;margin-left:3px;padding:1px 3px}
-.squad-warning{position:absolute;top:1px;right:18%;background:#f8a83e;color:#16201b;
-  font-size:10px;font-weight:900;width:17px;height:17px;border-radius:50%;z-index:4}
+.squad-warning{position:absolute;top:0;right:5%;font-size:16px;line-height:1;
+  display:flex;align-items:center;justify-content:center;width:23px;height:23px;
+  border-radius:50%;background:rgba(9,34,28,.92);border:1px solid rgba(255,255,255,.75);
+  box-shadow:0 2px 7px rgba(0,0,0,.35);z-index:6}
 .squad-bench{background:#153a32;border:1px solid #315a4b;border-top:0;border-radius:0 0 17px 17px;padding:12px 10px 14px}
 .squad-bench-heading{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:0 2px 12px}
 .squad-bench-heading strong{font-size:12px;letter-spacing:.08em}
@@ -141,7 +143,7 @@ h1,h2,h3{letter-spacing:-.035em}
  .squad-player-label{padding:3px 1px;min-height:32px}
  .squad-player-label strong{font-size:9px}.squad-player-label small{font-size:8px}
  .squad-bench{padding:10px 5px}.squad-bench-row{gap:4px}
- .squad-warning{right:7%;font-size:9px;width:15px;height:15px}
+ .squad-warning{right:2%;font-size:13px;width:19px;height:19px}
  .squad-bench-heading span{font-size:9px}
 }
 
@@ -322,8 +324,9 @@ def pitch_player_card(player: dict, captain_id: int, vice_id: int, gw: int,
         xp = player_fixture_xp(player, gw, fixture_map, overrides)
         detail = f"{xp:.1f} xP"
     # The available flag is from the FPL API, not a guarantee of starting.
-    status = str(player.get('status', 'a'))
-    flag = '<span class="squad-warning" title="Availability concern">!</span>' if status != 'a' else ''
+    symbol, description = player_status_symbol(player)
+    flag = (f'<span class="squad-warning" title="{html.escape(description, quote=True)}">'
+            f'{symbol}</span>') if symbol else ''
     bench_tag = (f'<span class="bench-number">{html.escape(str(bench_number))}</span>'
                  if bench_number else '')
     return (f'<div class="squad-player">{bench_tag}<div class="squad-photo">'
@@ -397,14 +400,16 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
         detail = (fixture_badge(player, gw, fixture_map, clubs) if display == "Fixture"
                   else f"{player_fixture_xp(player, gw, fixture_map, overrides):.1f} xP")
         role = "captain" if pid == captain_id else "vice" if pid == vice_id else "regular"
-        warning = " ⚠️" if str(player.get("status", "a")) != "a" else ""
+        symbol, description = player_status_symbol(player)
+        warning = f" {symbol}" if symbol else ""
         prefix = f"{bench_no} · " if bench_no else ""
+        instruction = (f"Choose {name} as a substitution target" if awaiting_swap
+                       else f"Show actions for {name}")
         st.button(
             f"{portrait}  \n{prefix}{name}{warning}  \n{detail}",
             key=f"pitch_click_{gw}_{pid}_{role}", use_container_width=True,
             type="primary" if selected_id == pid else "secondary",
-            help=(f"Choose {name} as a substitution target" if awaiting_swap else
-                  f"Show actions for {name}"),
+            help=f"{description} · {instruction}" if symbol else instruction,
             on_click=on_click, args=(pid,),
         )
 
@@ -434,19 +439,45 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
 
 
 # Friendly availability labels for the official FPL player status codes.
-STATUS_LABELS = {
-    "a": "🟢 Available",
-    "d": "🟠 Doubtful",
-    "i": "🔴 Injured",
-    "s": "🔴 Suspended",
-    "u": "⚪ Unavailable",
-    "n": "⚪ Not available",
+# Distinct icons for the statuses returned by the public FPL API.
+# Available players intentionally receive no badge on the pitch.
+STATUS_META = {
+    "a": ("", "Available"),
+    "d": ("❔", "Doubtful"),
+    "i": ("🩹", "Injured"),
+    "s": ("🚫", "Suspended"),
+    "u": ("⛔", "Unavailable"),
+    "n": ("❌", "Not available"),
 }
 
 
-def player_status_label(player: dict) -> str:
+def player_status_symbol(player: dict) -> tuple[str, str]:
     code = str(player.get("status") or "").strip().lower()
-    return STATUS_LABELS.get(code, f"⚪ Unknown ({code})" if code else "⚪ Unknown")
+    if code in STATUS_META:
+        return STATUS_META[code]
+    return ("⚠️", "Unknown status")
+
+
+def player_status_label(player: dict) -> str:
+    symbol, description = player_status_symbol(player)
+    return f"{symbol} {description}" if symbol else "🟢 Available"
+
+
+def availability_legend(squad: list[dict]) -> None:
+    """Small reference legend; always visible, highlights currently flagged players."""
+    active = {str(p.get("status") or "").strip().lower() for p in squad}
+    labels = [("❔", "Doubtful", "d"), ("🩹", "Injured", "i"),
+              ("🚫", "Suspended", "s"), ("⛔", "Unavailable", "u"),
+              ("❌", "Not available", "n")]
+    with st.container():
+        st.caption("**Availability symbols** · shown beside flagged players on the pitch and bench")
+        cols = st.columns(5, gap="small")
+        for col, (symbol, label, code) in zip(cols, labels):
+            with col:
+                st.markdown(f"{symbol} **{label}**" if code in active else f"{symbol} {label}")
+        if any(code and code not in STATUS_META for code in active):
+            st.caption("⚠️ Unknown status — check the latest FPL availability data.")
+        st.caption("No symbol = FPL lists the player as available. Availability does not guarantee a start.")
 
 
 def squad_frame(squad: list[dict], gws: list[int], fixture_map: dict,
@@ -793,6 +824,7 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
                     minutes_overrides, pitch_display or "xP",
                     pending_player_id if pending_player_id is not None else selected_player_id,
                     on_pitch_player_click, awaiting_swap=pending_player_id is not None)
+    availability_legend(squad)
 
     # The action menu appears only after the user clicks a player portrait/card.
     selected_player_id = st.session_state.get(selection_key)
