@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.4 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
+"""AJK Bola Wawei AI v7.5 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -13,6 +13,10 @@ import base64
 from pathlib import Path
 import html
 import re
+from concurrent.futures import ThreadPoolExecutor
+from email.utils import parsedate_to_datetime
+import xml.etree.ElementTree as ET
+from urllib.parse import urlparse
 
 import pandas as pd
 import requests
@@ -24,6 +28,7 @@ from fpl_engine import (
     horizon_xp, join_actuals, num, optimise_chip_squad,
     player_fixture_xp, player_prediction, projected_minutes,
     smart_transfer_plan, team_rating, valid_squad, validate_snapshots,
+    recent_minutes_evidence,
 )
 
 API = "https://fantasy.premierleague.com/api"
@@ -773,6 +778,104 @@ def get_json(path: str) -> dict | list:
     return response.json()
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_recent_player_histories(ids: tuple[int, ...]) -> dict[int, list[dict]]:
+    """Public per-player FPL histories. Cached, bounded and failure tolerant."""
+    if not ids:
+        return {}
+    def one(pid: int) -> tuple[int, list[dict]]:
+        try:
+            response = requests.get(f"{API}/element-summary/{pid}/", headers=HEADERS, timeout=7)
+            response.raise_for_status()
+            data = response.json()
+            return pid, list(data.get("history", []))
+        except (requests.RequestException, ValueError, TypeError):
+            return pid, []
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        return dict(pool.map(one, ids))
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_public_football_headlines() -> tuple[list[dict], str]:
+    """BBC public headlines, advisory only. No automated injury inference."""
+    feed = "https://feeds.bbci.co.uk/sport/football/rss.xml"
+    try:
+        response = requests.get(feed, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+        output = []
+        now = datetime.now(timezone.utc)
+        for item in root.findall("./channel/item")[:70]:
+            title = str(item.findtext("title") or "").strip()
+            url = str(item.findtext("link") or "").strip()
+            published = str(item.findtext("pubDate") or "")
+            try:
+                dt = parsedate_to_datetime(published).astimezone(timezone.utc)
+                age_hours = (now - dt).total_seconds() / 3600
+            except (ValueError, TypeError, AttributeError):
+                continue
+            host = urlparse(url).hostname or ""
+            if not (host == "bbc.co.uk" or host.endswith(".bbc.co.uk")
+                    or host == "bbc.com" or host.endswith(".bbc.com")):
+                continue
+            if title and 0 <= age_hours <= 168:
+                output.append({"title": title, "url": url,
+                               "published": dt.strftime("%d %b %H:%M UTC"),
+                               "age_hours": round(age_hours, 1), "source": "BBC Sport"})
+        return output, ("Available" if output else "No recent headlines")
+    except (requests.RequestException, ET.ParseError, ValueError):
+        return [], "Unavailable"
+
+
+def match_news_for_player(player: dict, headlines: list[dict], squad: list[dict]) -> list[dict]:
+    """Only whole-word *unique* name matches. These are not verified injury reports."""
+    common = {"smith", "jones", "brown", "young", "white", "johnson", "silva", "rice"}
+    surname = str(player.get("second_name") or "").strip().split()[-1:]
+    word = surname[0] if surname else str(player.get("web_name") or "")
+    if len(word) < 5 or word.lower() in common:
+        return []
+    # A shared surname in the current squad is ambiguous: don't assign a story.
+    if sum(1 for other in squad if str(other.get("second_name") or "").strip().split()[-1:]
+           == [word]) > 1:
+        return []
+    regex = re.compile(r"(?<![\w])" + re.escape(word) + r"(?![\w])", flags=re.I)
+    return [article for article in headlines if regex.search(article["title"])][:4]
+
+
+def attach_recent_minutes(squad: list[dict], players: list[dict], fixture_rows: list[dict],
+                          events: list[dict]) -> tuple[int, int]:
+    """Enrich the current 15, maintaining identical values in the draft and pool."""
+    finished = {int(e["id"]) for e in events if e.get("finished")}
+    fixture_counts: dict[int, dict[int, int]] = {}
+    for match in fixture_rows:
+        if not match.get("finished") or match.get("event") is None:
+            continue
+        gw = int(match["event"])
+        for team in (match.get("team_h"), match.get("team_a")):
+            if team is not None:
+                t = fixture_counts.setdefault(int(team), {})
+                t[gw] = t.get(gw, 0) + 1
+    ids = tuple(sorted(int(p["id"]) for p in squad))
+    histories = get_recent_player_histories(ids)
+    index = {int(p["id"]): p for p in players}
+    updated = 0
+    for p in squad:
+        pid = int(p["id"])
+        team = int(p["team"])
+        weeks = sorted((gw for gw in finished if fixture_counts.get(team, {}).get(gw, 0)), reverse=True)[:5]
+        if not histories.get(pid):
+            continue
+        evidence = recent_minutes_evidence(histories[pid], weeks, fixture_counts.get(team, {}))
+        if evidence["matches"] >= 2:
+            p["_ajk_recent_minutes"] = evidence["minutes"]
+            p["_ajk_recent_matches"] = evidence["matches"]
+            p["_ajk_recent_played"] = evidence["played"]
+            index[pid].update({k: p[k] for k in (
+                "_ajk_recent_minutes", "_ajk_recent_matches", "_ajk_recent_played")})
+            updated += 1
+    return updated, len(ids)
+
+
 def money(tenths: int | float) -> str:
     return f"£{num(tenths)/10:.1f}m"
 
@@ -1179,6 +1282,12 @@ if not valid_squad(squad):
     st.error("Your simulated draft is invalid. Re-import your FPL team using Analyse Team above.")
     st.stop()
 
+# External football headlines are advisory only; FPL availability + completed
+# minutes determine model risk. A network failure cannot break the application.
+recent_updated, recent_requested = attach_recent_minutes(squad, players, fixture_rows, events)
+news_headlines, news_state = get_public_football_headlines()
+fpl_checked_at = datetime.now(ZoneInfo("Asia/Kuala_Lumpur")).strftime("%d %b %Y, %H:%M MYT")
+
 # One compact setup panel rather than several full-height rows ahead of the pitch.
 with st.expander("⚙️ Gameweek range & strategy", expanded=False):
     settings_a, settings_b = st.columns(2, gap="small")
@@ -1257,6 +1366,33 @@ with tab_team:
           <div class="ajk-side-metric"><span>🧠 Team status</span><strong>{rating_label}</strong></div>
         </div>""", unsafe_allow_html=True)
         st.caption("Estimated points are forecasts, not guarantees.")
+        st.markdown("<div class='ajk-panel-heading'>🩺 TEAM NEWS & RELIABILITY</div>", unsafe_allow_html=True)
+        at_risk = sorted([p for p in squad if p.get("status", "a") != "a"],
+                         key=lambda p: projected_minutes(p))
+        if at_risk:
+            for p in at_risk[:5]:
+                text_news = str(p.get("news") or "FPL has flagged this player's availability")
+                st.warning(f"**{p.get('web_name','Player')}** · {player_status_label(p)} — {text_news}")
+        else:
+            st.caption("FPL currently lists every player in your squad as available. This does not guarantee a start.")
+        st.caption(f"Detailed minutes: {recent_updated}/{recent_requested} players · Source: FPL completed matches")
+        st.caption(f"FPL data checked: {fpl_checked_at} · FPL responses cached for 15 minutes")
+        with st.expander("Latest football headlines (BBC Sport)", expanded=False):
+            st.caption("Headline matches are unverified context, not confirmed injuries. They do not automatically reduce xP.")
+            mentions = []
+            seen = set()
+            for p in squad:
+                for article in match_news_for_player(p, news_headlines, squad):
+                    if article["url"] not in seen:
+                        seen.add(article["url"])
+                        mentions.append((p["web_name"], article))
+            if mentions:
+                for name, article in mentions[:8]:
+                    st.markdown(f"**{name}:** [{article['title']}]({article['url']})")
+                    st.caption(f"{article['source']} · {article['published']}")
+            else:
+                st.caption("No unambiguous player headlines found in the recent feed." if news_state != "Unavailable"
+                           else "News feed unavailable; FPL data and predictions are still working.")
 
     with upcoming_col:
         st.markdown("<div class='ajk-panel-heading'>▤ MATCH SCHEDULE</div>", unsafe_allow_html=True)
@@ -1673,6 +1809,18 @@ with tab_team:
                 pc1.metric("GW xP", f"{breakdown['xp']:.1f}")
                 pc2.metric("Expected minutes", f"{breakdown['minutes']:.0f}")
                 pc3.metric("Indicative points range", f"{breakdown['lower']:.0f}–{breakdown['upper']:.0f}")
+                recent = selected_player.get("_ajk_recent_minutes")
+                if recent is not None:
+                    st.caption(f"Recent completed matches: {recent:.0f} minutes per fixture over "
+                               f"{selected_player.get('_ajk_recent_matches', 0)} fixtures; "
+                               "blended conservatively with season-wide minutes.")
+                else:
+                    st.caption("Recent detailed history unavailable; season-long minutes model is used.")
+                relevant_news = match_news_for_player(selected_player, news_headlines, squad)
+                for article in relevant_news[:3]:
+                    st.markdown(f"📰 [BBC Sport: {article['title']}]({article['url']})")
+                if relevant_news:
+                    st.caption("News headlines are context only, not automatically used as injury evidence.")
                 if selected_player.get("news"):
                     st.warning(str(selected_player["news"]))
                 if selected_player.get("status", "a") != "a":
@@ -1695,8 +1843,11 @@ with tab_team:
 with tab_transfers:
     st.subheader("🧠 Smart Transfer Advisor")
     st.caption("Looks ahead across your selected Gameweeks. Compares rolling, one transfer and two-transfer combinations, including hits and captaincy.")
+    st.caption(f"Inputs: FPL statistics, completed-match minutes and FPL availability · "
+               f"FPL checked {fpl_checked_at} · BBC headlines shown for context only.")
     settings_key = (st.session_state.loaded_id, tuple(sorted(int(p["id"]) for p in squad)),
-                    bank, ft, tuple(gws), strategy, tuple(sorted(minutes_overrides.items())))
+                    bank, ft, tuple(gws), strategy, tuple(sorted(minutes_overrides.items())),
+                    tuple(sorted((int(p["id"]), p.get("_ajk_recent_minutes")) for p in squad)))
     if st.session_state.get("advisor_key") != settings_key:
         st.session_state.advisor_result = None
 
