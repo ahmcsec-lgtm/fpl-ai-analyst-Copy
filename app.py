@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.2.5 — quick transfers in My Team.
+"""AJK Bola Wawei AI v5.3 — photo-first FPL-style interactive squad layout.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -94,6 +94,57 @@ h1,h2,h3{letter-spacing:-.035em}
 .transfer-faces{background:linear-gradient(100deg,rgba(14,47,51,.85),rgba(18,36,44,.96));border:1px solid rgba(47,200,150,.25)!important;border-radius:18px!important;margin:10px 0!important}
 .transfer-person{padding:8px}.transfer-person strong{color:#f2fff8}.transfer-person small{color:#a8cbbf}.transfer-arrow{color:#33e4a5;font-size:30px!important;font-weight:800}
 @media(max-width:640px){.ajk-hero{padding:17px}.ajk-rating{gap:10px;padding:12px}.ajk-rating .main{font-size:24px}.ajk-rating .circle{width:75px;height:75px}.ajk-rating .inner{width:56px;height:56px;font-size:18px}.pitch-row{margin:11px 0!important}.pitch-player strong{font-size:10px}}
+
+/* v5.3 portrait-first squad pitch: familiar rows without replacing faces */
+.squad-view{margin:14px 0 19px;color:#f8fffa}
+.squad-field{position:relative;isolation:isolate;overflow:hidden;border-radius:18px 18px 4px 4px;
+  background:repeating-linear-gradient(180deg,#008f57 0,#008f57 86px,#009d60 86px,#009d60 172px);
+  padding:40px 9px 22px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
+.squad-field:before{content:"";position:absolute;inset:45px 10px 8px;border:2px solid rgba(255,255,255,.58);pointer-events:none;z-index:0}
+.squad-pitch-topline{position:absolute;top:7px;left:12px;right:12px;display:flex;justify-content:space-between;
+  font-size:12px;font-weight:800;z-index:3;color:#edfff5;text-shadow:0 1px 3px #06412f}
+.squad-goal{position:absolute;top:45px;left:39%;width:22%;height:23px;border:2px solid rgba(255,255,255,.65);border-top:0}
+.squad-penalty{position:absolute;top:45px;left:27%;width:46%;height:76px;border:2px solid rgba(255,255,255,.53);border-top:0}
+.squad-centreline{position:absolute;top:52%;left:10px;right:10px;border-top:2px solid rgba(255,255,255,.45)}
+.squad-centrecircle{position:absolute;top:52%;left:50%;width:110px;height:110px;transform:translate(-50%,-50%);
+  border:2px solid rgba(255,255,255,.45);border-radius:50%}
+.squad-formation-row{position:relative;z-index:1;display:flex;justify-content:space-evenly;align-items:start;
+  gap:clamp(2px,.9vw,10px);margin:12px auto 25px;min-height:123px}
+.squad-formation-row.pos-1{margin-top:0}
+.squad-formation-row.pos-4{margin-bottom:0}
+.squad-player{position:relative;flex:0 1 120px;min-width:0;max-width:140px;text-align:center}
+.squad-photo{position:relative;display:flex;justify-content:center}
+.squad-player .portrait-shell{width:70px;height:75px;margin:0 auto -4px;
+  background:rgba(2,62,45,.32);border:1px solid rgba(235,255,246,.22);border-radius:10px 10px 0 0}
+.squad-player .player-portrait{width:68px;height:73px;object-fit:contain}
+.squad-player-label{position:relative;background:#f8fffa;color:#171e29;border-radius:5px;
+  border:1px solid rgba(5,52,35,.15);box-shadow:0 3px 9px rgba(0,0,0,.18);
+  padding:4px 2px;min-height:37px}
+.squad-player-label strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.squad-player-label small{display:block;color:#1d654b;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.squad-player .captain-marker{display:inline-block;background:#39205c;color:white;border-radius:4px;
+  font-size:9px;margin-left:3px;padding:1px 3px}
+.squad-warning{position:absolute;top:1px;right:18%;background:#f8a83e;color:#16201b;
+  font-size:10px;font-weight:900;width:17px;height:17px;border-radius:50%;z-index:4}
+.squad-bench{background:#153a32;border:1px solid #315a4b;border-top:0;border-radius:0 0 17px 17px;padding:12px 10px 14px}
+.squad-bench-heading{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:0 2px 12px}
+.squad-bench-heading strong{font-size:12px;letter-spacing:.08em}
+.squad-bench-heading span{font-size:10px;color:#acd7c3}
+.squad-bench-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;justify-items:center}
+.squad-bench-row .squad-player{width:100%;max-width:130px}
+.bench-number{position:absolute;left:1px;top:0;background:#dcfce7;color:#123c2d;border-radius:5px;
+  padding:1px 4px;font-weight:800;font-size:10px;z-index:3}
+@media(max-width:640px){
+ .squad-field{padding:34px 4px 14px}.squad-field:before{inset:41px 4px 7px}
+ .squad-formation-row{gap:2px;margin:7px auto 15px;min-height:89px}
+ .squad-player .portrait-shell{width:48px;height:52px}
+ .squad-player .player-portrait{height:51px;width:47px}
+ .squad-player-label{padding:3px 1px;min-height:32px}
+ .squad-player-label strong{font-size:9px}.squad-player-label small{font-size:8px}
+ .squad-bench{padding:10px 5px}.squad-bench-row{gap:4px}
+ .squad-warning{right:7%;font-size:9px;width:15px;height:15px}
+ .squad-bench-heading span{font-size:9px}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,22 +227,84 @@ def load_manager(team_id: int, events: list[dict], player_by_id: dict) -> tuple[
     raise ValueError("Unable to find a complete public 15-player team. Check your Team ID.")
 
 
+def fixture_badge(player: dict, gw: int, fixture_map: dict,
+                  clubs: dict[int, str]) -> str:
+    """One or multiple fixtures for the selected Gameweek, or a blank GW."""
+    games = fixture_map.get((int(gw), int(player.get("team", 0))), [])
+    if not games:
+        return "Blank GW"
+    return " · ".join(
+        f"{html.escape(clubs.get(int(game['opponent']), '?'))} "
+        f"({'H' if game['home'] else 'A'})"
+        for game in games
+    )
+
+
+def pitch_player_card(player: dict, captain_id: int, vice_id: int, gw: int,
+                      fixture_map: dict, clubs: dict, overrides: dict,
+                      display: str = "xP", bench_number: str = "") -> str:
+    """A portrait card shared by the starting pitch and substitutes bench."""
+    pid = int(player["id"])
+    name = html.escape(str(player.get("web_name", "?")))
+    marker = ('<span class="captain-marker">C</span>' if pid == captain_id else
+              '<span class="captain-marker">VC</span>' if pid == vice_id else '')
+    if display == "Fixture":
+        detail = fixture_badge(player, gw, fixture_map, clubs)
+    else:
+        xp = player_fixture_xp(player, gw, fixture_map, overrides)
+        detail = f"{xp:.1f} xP"
+    # The available flag is from the FPL API, not a guarantee of starting.
+    status = str(player.get('status', 'a'))
+    flag = '<span class="squad-warning" title="Availability concern">!</span>' if status != 'a' else ''
+    bench_tag = (f'<span class="bench-number">{html.escape(str(bench_number))}</span>'
+                 if bench_number else '')
+    return (f'<div class="squad-player">{bench_tag}<div class="squad-photo">'
+            f'{player_portrait_html(player)}{flag}</div>'
+            f'<div class="squad-player-label"><strong title="{name}">{name}{marker}</strong>'
+            f'<small title="{html.escape(detail)}">{detail}</small></div></div>')
+
+
 def pitch(xi: list[dict], captain_id: int, vice_id: int, gw: int,
-          fixture_map: dict, clubs: dict, overrides: dict) -> None:
+          fixture_map: dict, clubs: dict, overrides: dict,
+          squad: list[dict] | None = None, display: str = "xP") -> None:
+    """Pitch with portraits, formation rows and a separated four-player bench.
+
+    The lineup is passed in from the established optimiser/manual swap logic;
+    this presentation function never changes selection or transfer state.
+    """
     lines = []
-    for pos in (4, 3, 2, 1):
-        cards = []
-        for player in xi:
-            if int(player["element_type"]) != pos:
-                continue
-            pid = int(player["id"])
-            name = html.escape(str(player.get("web_name", "?")))
-            marker = '<span class="captain-marker">C</span>' if pid == captain_id else ('<span class="captain-marker">VC</span>' if pid == vice_id else "")
-            club = html.escape(clubs.get(int(player["team"]), "?"))
-            xp = player_fixture_xp(player, gw, fixture_map, overrides)
-            cards.append(f'<div class="pitch-player">{player_portrait_html(player)}<strong>{name}{marker}</strong><small>{club} · {xp:.1f} xP</small></div>')
-        lines.append('<div class="pitch-row">' + "".join(cards) + '</div>')
-    st.markdown('<div class="pitch">' + "".join(lines) + '</div>', unsafe_allow_html=True)
+    for pos in (1, 2, 3, 4):
+        group = [p for p in xi if int(p['element_type']) == pos]
+        cards = [pitch_player_card(p, captain_id, vice_id, gw,
+                                   fixture_map, clubs, overrides, display)
+                 for p in group]
+        lines.append(f'<div class="squad-formation-row pos-{pos}">' + ''.join(cards) + '</div>')
+    counts = Counter(int(p['element_type']) for p in xi)
+    formation = f"{counts[2]}-{counts[3]}-{counts[4]}"
+    field = (f'<div class="squad-field"><div class="squad-pitch-topline">'
+             f'<span>GW {gw}</span><span>{formation} · Starting XI</span></div>'
+             '<div class="squad-goal"></div><div class="squad-penalty"></div>'
+             '<div class="squad-centreline"></div><div class="squad-centrecircle"></div>'
+             + ''.join(lines) + '</div>')
+    bench_html = ''
+    if squad is not None:
+        starter_ids = {int(p['id']) for p in xi}
+        bench = [p for p in squad if int(p['id']) not in starter_ids]
+        # Preserve the backup keeper first. Outfield bench order is the
+        # model's xP-ranked preview, not the user's official FPL bench order.
+        keeper = [p for p in bench if int(p['element_type']) == 1]
+        outfield = sorted((p for p in bench if int(p['element_type']) != 1),
+                          key=lambda p: player_fixture_xp(p, gw, fixture_map, overrides), reverse=True)
+        ordered = keeper + outfield
+        cards = [pitch_player_card(p, captain_id, vice_id, gw, fixture_map,
+                                   clubs, overrides, display,
+                                   'GK' if i == 0 and int(p['element_type']) == 1 else str(i))
+                 for i, p in enumerate(ordered)]
+        bench_html = ('<div class="squad-bench"><div class="squad-bench-heading">'
+                      '<strong>SUBSTITUTES</strong><span>Outfield order by projected xP</span>'
+                      '</div><div class="squad-bench-row">' + ''.join(cards) + '</div></div>')
+    st.markdown('<div class="squad-view">' + field + bench_html + '</div>',
+                unsafe_allow_html=True)
 
 
 # Friendly availability labels for the official FPL player status codes.
@@ -487,7 +600,12 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
     if cap not in cap_ids:
         cap = max(xi, key=lambda p: player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides))["id"]
     vice = max((pid for pid in cap_ids if pid != cap), key=lambda pid: gw_xp[pid])
-    pitch(xi, cap, vice, preview_gw, fixture_map, clubs, minutes_overrides)
+    pitch_display = st.radio(
+        "Show on player cards", options=["xP", "Fixture"], horizontal=True,
+        key="squad_pitch_display", label_visibility="collapsed",
+    )
+    pitch(xi, cap, vice, preview_gw, fixture_map, clubs, minutes_overrides,
+          squad=squad, display=pitch_display or "xP")
     c1, c2 = st.columns(2)
     with c1:
         captain = st.selectbox("Captain", cap_ids, index=cap_ids.index(cap),
@@ -737,7 +855,8 @@ with st.expander("✨ Wildcard / Free Hit · Generate a full squad"):
                  f"**Projected xP:** {result['rating']['total_xp']:.1f} · **Bank:** {money(result['bank'])}")
         chip_xi = best_lineup(result["squad"], selected_gw, fixture_map, minutes_overrides)
         pitch(chip_xi["xi"], int(chip_xi["captain"]["id"]), int(chip_xi["vice"]["id"]),
-              selected_gw, fixture_map, clubs, minutes_overrides)
+              selected_gw, fixture_map, clubs, minutes_overrides,
+              squad=result["squad"], display=st.session_state.get("squad_pitch_display", "xP"))
         st.dataframe(squad_frame(result["squad"], chip_gws, fixture_map, clubs, minutes_overrides),
                      hide_index=True, use_container_width=True)
         st.caption("Approximate greedy optimiser. Free Hit is a single-GW simulation, not a chip activation.")
