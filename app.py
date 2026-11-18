@@ -1380,8 +1380,6 @@ with tab_team:
                 st.warning(f"**{p.get('web_name','Player')}** · {player_status_label(p)} — {text_news}")
         else:
             st.caption("FPL currently lists every player in your squad as available. This does not guarantee a start.")
-        st.caption(f"Detailed minutes: {recent_updated}/{recent_requested} players · Source: FPL completed matches")
-        st.caption(f"FPL data checked: {fpl_checked_at} · FPL responses cached for 15 minutes")
         with st.expander("Latest football headlines (BBC Sport)", expanded=False):
             st.caption("Headline matches are unverified context, not confirmed injuries. They do not automatically reduce xP.")
             mentions = []
@@ -1474,23 +1472,6 @@ with tab_team:
             '</div>',
         ])
         st.markdown(''.join(price_html), unsafe_allow_html=True)
-        with st.expander("All 15 squad prices", expanded=False):
-            price_table = []
-            for p in sorted(squad_live, key=lambda p: (int(p.get("element_type", 0)), str(p.get("web_name", "")))):
-                price_table.append({
-                    "Player": p.get("web_name", "?"),
-                    "Current £m": round(num(p.get("now_cost")) / 10, 1),
-                    "GW change £m": round(_gw_price_change(p) / 10, 1),
-                    "Season change £m": round(_season_price_change(p) / 10, 1),
-                })
-            st.dataframe(pd.DataFrame(price_table), hide_index=True, use_container_width=True)
-        st.markdown("<div class='ajk-panel-heading'>⚡ QUICK ACTIONS</div>", unsafe_allow_html=True)
-        st.markdown("""
-        <div class="ajk-sidecard ajk-guide">
-          <div><b>↔ Smart Transfer Advisor</b><small>Open the Smart Transfers tab for the strongest move—or advice to roll.</small></div>
-          <div><b>◇ Wildcard Squad Builder</b><small>Open Wildcard / Free Hit to explore your optimal squad.</small></div>
-          <div><b>⚡ Free Hit Builder</b><small>Plan a one-Gameweek squad without changing your real FPL team.</small></div>
-        </div>""", unsafe_allow_html=True)
 
     with pitch_col:
         with st.container():
@@ -1829,48 +1810,6 @@ with tab_team:
                             else:
                                 st.warning("This replacement would make the squad invalid. Choose someone else.")
 
-            with st.expander("🔎 Player insights · Fixtures, xP & minutes", expanded=False):
-                insight_ids = sorted((int(p["id"]) for p in squad),
-                                     key=lambda pid: horizon_xp(player_by_id[pid], gws, fixture_map, minutes_overrides),
-                                     reverse=True)
-                selected_player_id = st.selectbox("Select a player", insight_ids,
-                    format_func=lambda pid: label(next(p for p in squad if int(p["id"]) == pid), clubs),
-                    key="v52_insight_player")
-                selected_player = next(p for p in squad if int(p["id"]) == selected_player_id)
-                breakdown = player_prediction(selected_player, preview_gw, fixture_map, minutes_overrides)
-                pc1, pc2, pc3 = st.columns(3)
-                pc1.metric("GW xP", f"{breakdown['xp']:.1f}")
-                pc2.metric("Expected minutes", f"{breakdown['minutes']:.0f}")
-                pc3.metric("Indicative points range", f"{breakdown['lower']:.0f}–{breakdown['upper']:.0f}")
-                recent = selected_player.get("_ajk_recent_minutes")
-                if recent is not None:
-                    st.caption(f"Recent completed matches: {recent:.0f} minutes per fixture over "
-                               f"{selected_player.get('_ajk_recent_matches', 0)} fixtures; "
-                               "blended conservatively with season-wide minutes.")
-                else:
-                    st.caption("Recent detailed history unavailable; season-long minutes model is used.")
-                relevant_news = match_news_for_player(selected_player, news_headlines, squad)
-                for article in relevant_news[:3]:
-                    st.markdown(f"📰 [BBC Sport: {article['title']}]({article['url']})")
-                if relevant_news:
-                    st.caption("News headlines are context only, not automatically used as injury evidence.")
-                if selected_player.get("news"):
-                    st.warning(str(selected_player["news"]))
-                if selected_player.get("status", "a") != "a":
-                    st.caption("FPL availability: " + player_status_label(selected_player))
-                per_gw = []
-                for week in gws:
-                    pred = player_prediction(selected_player, week, fixture_map, minutes_overrides)
-                    games = fixture_map.get((week, int(selected_player["team"])), [])
-                    opponent_text = ", ".join(
-                        (clubs.get(int(game["opponent"]), "?") + (" (H)" if game["home"] else " (A)"))
-                        for game in games) if games else "Blank GW"
-                    per_gw.append({"Gameweek": f"GW {week}", "Opponent": opponent_text,
-                                   "Projected points": round(pred["xp"], 2)})
-                st.bar_chart(pd.DataFrame(per_gw).set_index("Gameweek")["Projected points"],
-                             color="#26d8a0", use_container_width=True)
-                st.dataframe(pd.DataFrame(per_gw), hide_index=True, use_container_width=True)
-                st.caption("Ranges are model estimates, not guaranteed outcomes or calibrated probabilities.")
 
 
 with tab_transfers:
