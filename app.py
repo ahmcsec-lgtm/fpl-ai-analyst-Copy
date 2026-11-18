@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5 — minimal My Team + Smart Transfer Advisor.
+"""AJK Bola Wawei AI v5.2 — premium, minimal My Team + Smart Transfer Advisor.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -25,9 +25,9 @@ from fpl_engine import (
 )
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.0 (public FPL data)"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.2 (public FPL data)"}
 
-st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
 .block-container{max-width:1150px;padding-top:1.5rem;padding-bottom:4rem}
@@ -58,6 +58,42 @@ st.markdown("""
   .pitch-row{gap:3px;margin:10px 0}.portrait-shell{height:50px;width:50px}
   .player-portrait{height:48px;width:48px}.pitch-player small{font-size:9px}
   .transfer-person img{width:65px;height:75px}}
+
+/* v5.2 premium styling; keeps native Streamlit controls usable */
+:root{--ajk-green:#20d99a;--ajk-border:rgba(143,179,171,.19)}
+[data-testid="stAppViewContainer"]{background:radial-gradient(ellipse at 85% 0%,rgba(32,217,154,.085),transparent 34%),#0c151a;color:#eaf6f1}
+[data-testid="stHeader"]{background:transparent}
+.block-container{max-width:1160px;padding-top:1.15rem;padding-bottom:4rem}
+h1,h2,h3{letter-spacing:-.035em}
+[data-testid="stMetric"]{background:linear-gradient(135deg,rgba(26,51,53,.9),rgba(12,30,35,.95));border:1px solid var(--ajk-border)!important;border-radius:18px!important;padding:16px!important}
+[data-testid="stMetricLabel"]{color:#a6c3b9}
+[data-testid="stMetricValue"]{font-weight:750;letter-spacing:-.04em}
+[data-testid="stExpander"]{background:rgba(18,34,39,.85);border:1px solid var(--ajk-border);border-radius:16px;margin-bottom:12px}
+[data-testid="stButton"] button[kind="primary"], [data-testid="stFormSubmitButton"] button[kind="primary"]{background:linear-gradient(100deg,#11a977,#21cb91);border:0;color:#061b17;border-radius:12px;font-weight:750}
+[data-testid="stButton"] button{border-radius:12px}
+.ajk-hero{background:linear-gradient(115deg,#133b36,#14232d 65%,#16242a);padding:20px 24px;border:1px solid #285c53;border-radius:22px;margin-bottom:14px;position:relative;overflow:hidden}
+.ajk-hero:before{content:"";position:absolute;right:-45px;top:-75px;height:190px;width:190px;border:1px solid rgba(60,235,165,.22);border-radius:50%}
+.ajk-kicker{color:#76e7bf;font-size:11px;letter-spacing:.18em;font-weight:800;margin-bottom:5px}
+.ajk-hero h1{font-size:clamp(27px,4vw,41px);margin:0;color:#f3fff9;line-height:1.15}
+.ajk-hero p{color:#bbd8cd;font-size:14px;margin:8px 0 0}
+.ajk-rating{display:flex;align-items:center;gap:24px;justify-content:space-between;padding:17px 22px;border-radius:20px;background:linear-gradient(110deg,#12382f,#122630);border:1px solid rgba(55,190,140,.32);margin:12px 0}
+.ajk-rating .main{font-size:31px;font-weight:850;letter-spacing:-1px;color:white}.ajk-rating .sub{color:#a9c9bc;font-size:12px}.ajk-rating .eyebrow{color:#77e5ba;font-size:11px;letter-spacing:1.6px;font-weight:800}
+.ajk-rating .circle{width:100px;height:100px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ajk-rating .inner{width:77px;height:77px;background:#132d2a;border-radius:50%;display:grid;place-items:center;color:#e8fff7;font-size:23px;font-weight:850}
+.ajk-verdict{background:linear-gradient(110deg,rgba(27,77,65,.72),rgba(17,40,48,.95));border-left:4px solid #27d69b;border-radius:15px;padding:16px 19px;margin:12px 0 16px;color:#e5fff4}
+.ajk-verdict .eyebrow{font-size:11px;font-weight:800;color:#71e4b8;letter-spacing:1.4px;margin-bottom:6px}
+.ajk-verdict .explain{color:#b7d3c8;font-size:12px;margin-top:6px}
+.pitch{position:relative;background:repeating-linear-gradient(180deg,rgba(255,255,255,.035) 0,rgba(255,255,255,.035) 76px,transparent 76px,transparent 152px),linear-gradient(150deg,#0e8157,#075943)!important;border:1px solid rgba(122,233,182,.5)!important;border-radius:22px!important;padding:20px 7px!important;overflow:hidden}
+.pitch:before{content:"";pointer-events:none;position:absolute;inset:11px;border:1px solid rgba(255,255,255,.27);border-radius:5px}
+.pitch:after{content:"";pointer-events:none;position:absolute;top:50%;left:50%;width:85px;height:85px;border:1px solid rgba(255,255,255,.2);border-radius:50%;transform:translate(-50%,-50%)}
+.pitch-row{position:relative;z-index:2;margin:17px 0!important}
+.pitch-player{background:rgba(3,39,29,.55)!important;border:1px solid rgba(217,255,231,.20);box-shadow:0 7px 15px rgba(0,0,0,.12);backdrop-filter:blur(4px);padding:8px 3px!important;border-radius:13px!important}
+.pitch-player strong{font-size:12px;color:#fff}.pitch-player small{color:#d4ffea;opacity:.94}
+.pitch-player .portrait-shell{background:rgba(203,255,222,.15)}
+.pitch-player .captain-marker{display:inline-block;background:#eaffab;color:#1e4935;font-size:9px;font-weight:900;border-radius:5px;padding:2px 4px;vertical-align:middle;margin-left:3px}
+.transfer-faces{background:linear-gradient(100deg,rgba(14,47,51,.85),rgba(18,36,44,.96));border:1px solid rgba(47,200,150,.25)!important;border-radius:18px!important;margin:10px 0!important}
+.transfer-person{padding:8px}.transfer-person strong{color:#f2fff8}.transfer-person small{color:#a8cbbf}.transfer-arrow{color:#33e4a5;font-size:30px!important;font-weight:800}
+@media(max-width:640px){.ajk-hero{padding:17px}.ajk-rating{gap:10px;padding:12px}.ajk-rating .main{font-size:24px}.ajk-rating .circle{width:75px;height:75px}.ajk-rating .inner{width:56px;height:56px;font-size:18px}.pitch-row{margin:11px 0!important}.pitch-player strong{font-size:10px}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -110,10 +146,10 @@ def transfer_faces_html(moves: list[dict], player_by_id: dict[int, dict]) -> str
         cards.append(
             '<div class="transfer-faces">'
             f'<div class="transfer-person">{player_portrait_html(out)}'
-            f'<strong>{html.escape(str(out.get("web_name", "?")))}</strong><small>Transfer out</small></div>'
+            f'<strong>{html.escape(str(out.get("web_name", "?")))}</strong><small>OUT · {money(out.get("selling_price",out.get("now_cost",0)))}</small></div>'
             '<span class="transfer-arrow">→</span>'
             f'<div class="transfer-person">{player_portrait_html(incoming)}'
-            f'<strong>{html.escape(str(incoming.get("web_name", "?")))}</strong><small>Transfer in</small></div>'
+            f'<strong>{html.escape(str(incoming.get("web_name", "?")))}</strong><small>IN · {money(incoming.get("now_cost",0))}</small></div>'
             '</div>'
         )
     return "".join(cards)
@@ -149,11 +185,11 @@ def pitch(xi: list[dict], captain_id: int, vice_id: int, gw: int,
             if int(player["element_type"]) != pos:
                 continue
             pid = int(player["id"])
-            suffix = " (C)" if pid == captain_id else " (VC)" if pid == vice_id else ""
-            name = html.escape(str(player.get("web_name", "?")) + suffix)
+            name = html.escape(str(player.get("web_name", "?")))
+            marker = '<span class="captain-marker">C</span>' if pid == captain_id else ('<span class="captain-marker">VC</span>' if pid == vice_id else "")
             club = html.escape(clubs.get(int(player["team"]), "?"))
             xp = player_fixture_xp(player, gw, fixture_map, overrides)
-            cards.append(f'<div class="pitch-player">{player_portrait_html(player)}<strong>{name}</strong><small>{club} · {xp:.1f} xP</small></div>')
+            cards.append(f'<div class="pitch-player">{player_portrait_html(player)}<strong>{name}{marker}</strong><small>{club} · {xp:.1f} xP</small></div>')
         lines.append('<div class="pitch-row">' + "".join(cards) + '</div>')
     st.markdown('<div class="pitch">' + "".join(lines) + '</div>', unsafe_allow_html=True)
 
@@ -207,8 +243,7 @@ def draft_has_changes() -> bool:
             or st.session_state.get("manual_captain") is not None)
 
 
-st.title("⚽ AJK Bola Wawei AI")
-st.caption("My Team + Smart Transfer Advisor · Free, independent FPL projections")
+st.markdown("""<div class="ajk-hero"><div class="ajk-kicker">SMART FPL DECISIONS · FREE</div><h1>⚽ AJK Bola Wawei AI</h1><p>Your squad. Smarter transfers. A premium-feel FPL command centre.</p></div>""", unsafe_allow_html=True)
 
 with st.form("team_import"):
     input_col, button_col = st.columns([3, 1], vertical_alignment="bottom")
@@ -321,11 +356,13 @@ assessment = team_rating(squad, gws, fixture_map, minutes_overrides)
 lineup = best_lineup(squad, selected_gw, fixture_map, minutes_overrides)
 st.subheader(profile.get("name", "My FPL Team"))
 st.caption(f"Imported from GW {st.session_state.from_gw} · Current view: GW {selected_gw} · All changes are simulations only")
-metrics = st.columns(4)
-metrics[0].metric("Team Rating", f"{assessment['rating']}/100")
-metrics[1].metric(f"GW {selected_gw} xP", f"{lineup['total_xp']:.1f}")
-metrics[2].metric(f"{len(gws)}-GW projected", f"{assessment['total_xp']:.1f}")
-metrics[3].metric("Bank", money(bank))
+rating_value = max(0, min(100, int(assessment["rating"])))
+rating_label = "Excellent" if rating_value >= 85 else "Strong" if rating_value >= 70 else "Promising" if rating_value >= 55 else "Needs attention"
+st.markdown(f"""<div class="ajk-rating"><div><div class="eyebrow">AI TEAM RATING</div><div class="main">{rating_label} squad</div><div class="sub">Projected form across {len(gws)} selected Gameweek(s) · independent heuristic rating</div></div><div class="circle" style="background:conic-gradient(#21d99b {rating_value}%,rgba(255,255,255,.10) 0)"><div class="inner">{rating_value}<span style="font-size:10px;opacity:.65">/100</span></div></div></div>""",unsafe_allow_html=True)
+metrics = st.columns(3)
+metrics[0].metric(f"GW {selected_gw} xP", f"{lineup['total_xp']:.1f}")
+metrics[1].metric(f"{len(gws)}-GW projected", f"{assessment['total_xp']:.1f}")
+metrics[2].metric("Bank", money(bank))
 
 if draft_has_changes():
     st.info("You are viewing a simulated draft, not your original FPL squad. "
@@ -338,12 +375,105 @@ else:
     st.caption("✓ Original imported FPL team — no draft transfers applied.")
 
 st.divider()
+with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=True):
+    auto_xi = lineup["xi"]
+    manual_ids = set(st.session_state.get("manual_xi", []))
+    xi = [p for p in squad if int(p["id"]) in manual_ids] if len(manual_ids) == 11 else auto_xi
+    counts = Counter(int(p["element_type"]) for p in xi)
+    if len(xi) != 11 or not (counts[1] == 1 and 3 <= counts[2] <= 5 and 2 <= counts[3] <= 5 and 1 <= counts[4] <= 3):
+        xi = auto_xi
+    cap_ids = [int(p["id"]) for p in xi]
+    cap_default = st.session_state.get("manual_captain")
+    cap = cap_default if cap_default in cap_ids else int(lineup["captain"]["id"])
+    if cap not in cap_ids:
+        cap = max(xi, key=lambda p: player_fixture_xp(p, selected_gw, fixture_map, minutes_overrides))["id"]
+    vice = next(pid for pid in cap_ids if pid != cap)
+    pitch(xi, cap, vice, selected_gw, fixture_map, clubs, minutes_overrides)
+    c1, c2 = st.columns(2)
+    with c1:
+        captain = st.selectbox("Captain", cap_ids, index=cap_ids.index(cap),
+                               format_func=lambda pid: label(player_by_id[pid], clubs))
+        if captain != cap:
+            st.session_state.manual_captain = captain
+            st.rerun()
+    with c2:
+        st.caption("The pitch defaults to the model's best XI. Select a starter and a bench player below to make a manual swap.")
+    benched = [p for p in squad if int(p["id"]) not in set(cap_ids)]
+    col_out, col_in = st.columns(2)
+    bench_out = col_out.selectbox("Starter to bench", cap_ids, format_func=lambda pid: label(player_by_id[pid], clubs))
+    bench_in = col_in.selectbox("Bench player to start", [int(p["id"]) for p in benched],
+                                format_func=lambda pid: label(player_by_id[pid], clubs))
+    if st.button("Swap starting XI"):
+        test_ids = (set(cap_ids) - {bench_out}) | {bench_in}
+        proposed = [p for p in squad if int(p["id"]) in test_ids]
+        c = Counter(int(p["element_type"]) for p in proposed)
+        if len(proposed) == 11 and c[1] == 1 and 3 <= c[2] <= 5 and 2 <= c[3] <= 5 and 1 <= c[4] <= 3:
+            st.session_state.manual_xi = list(test_ids)
+            st.session_state.manual_captain = captain if captain in test_ids else None
+            st.rerun()
+        else:
+            st.warning("Invalid formation. A legal XI needs 1 GKP, 3–5 DEF, 2–5 MID and 1–3 FWD.")
+    if st.button("Restore best XI and captain"):
+        st.session_state.manual_xi = []
+        st.session_state.manual_captain = None
+        st.rerun()
+    st.dataframe(squad_frame(squad, gws, fixture_map, clubs, minutes_overrides),
+                 hide_index=True, use_container_width=True)
+    risky = [p for p in squad if p.get("status", "a") != "a"]
+    if risky:
+        st.warning("Check availability: " + ", ".join(p.get("web_name", "?") for p in risky))
+    with st.expander("🔎 Player insights · Fixtures, xP & minutes", expanded=False):
+        insight_ids = sorted((int(p["id"]) for p in squad),
+                             key=lambda pid: horizon_xp(player_by_id[pid], gws, fixture_map, minutes_overrides),
+                             reverse=True)
+        selected_player_id = st.selectbox("Select a player", insight_ids,
+            format_func=lambda pid: label(next(p for p in squad if int(p["id"]) == pid), clubs),
+            key="v52_insight_player")
+        selected_player = next(p for p in squad if int(p["id"]) == selected_player_id)
+        breakdown = player_prediction(selected_player, selected_gw, fixture_map, minutes_overrides)
+        pc1, pc2, pc3 = st.columns(3)
+        pc1.metric("GW xP", f"{breakdown['xp']:.1f}")
+        pc2.metric("Expected minutes", f"{breakdown['minutes']:.0f}")
+        pc3.metric("Indicative points range", f"{breakdown['lower']:.0f}–{breakdown['upper']:.0f}")
+        if selected_player.get("news"):
+            st.warning(str(selected_player["news"]))
+        if selected_player.get("status", "a") != "a":
+            st.caption("Availability flag from FPL: " + str(selected_player.get("status")))
+        per_gw = []
+        for week in gws:
+            pred = player_prediction(selected_player, week, fixture_map, minutes_overrides)
+            games = fixture_map.get((week, int(selected_player["team"])), [])
+            opponent_text = ", ".join(
+                (clubs.get(int(game["opponent"]), "?") + (" (H)" if game["home"] else " (A)"))
+                for game in games) if games else "Blank GW"
+            per_gw.append({"Gameweek": f"GW {week}", "Opponent": opponent_text,
+                           "Projected points": round(pred["xp"], 2)})
+        st.bar_chart(pd.DataFrame(per_gw).set_index("Gameweek")["Projected points"],
+                     color="#26d8a0", use_container_width=True)
+        st.dataframe(pd.DataFrame(per_gw), hide_index=True, use_container_width=True)
+        st.caption("Ranges are model estimates, not guaranteed outcomes or calibrated probabilities.")
+
+
+st.divider()
 st.subheader("🧠 Smart Transfer Advisor")
 st.caption("Looks ahead across your selected Gameweeks. Compares rolling, one transfer and two-transfer combinations, including hits and captaincy.")
 settings_key = (st.session_state.loaded_id, tuple(sorted(int(p["id"]) for p in squad)),
                 bank, ft, tuple(gws), strategy, tuple(sorted(minutes_overrides.items())))
 if st.session_state.get("advisor_key") != settings_key:
     st.session_state.advisor_result = None
+
+current_advice = st.session_state.get("advisor_result")
+if current_advice and st.session_state.get("advisor_key") == settings_key:
+    if current_advice["action"] == "ROLL":
+        verdict_text = "Roll your free transfer"
+        verdict_reason = "The optimiser prefers waiting across your selected Gameweeks, after accounting for projected XI points, captaincy and hits."
+    else:
+        verdict_text = "A transfer could improve your squad"
+        verdict_reason = f"The current proposed plan estimates {current_advice['expected_gain']:+.1f} net points versus no transfers across the horizon. Check the recommendations below."
+else:
+    verdict_text = "Your squad is ready for analysis"
+    verdict_reason = "Run the Smart Transfer Advisor to compare transfers against rolling. The verdict will use your actual imported squad and selected settings."
+st.markdown(f'<div class="ajk-verdict"><div class="eyebrow">✦ AI MANAGER’S VERDICT</div><strong>{html.escape(verdict_text)}</strong><div class="explain">{html.escape(verdict_reason)}</div></div>', unsafe_allow_html=True)
 
 if st.button("✨ Find my best transfer strategy", type="primary", use_container_width=True):
     try:
@@ -399,54 +529,6 @@ if advice and st.session_state.get("advisor_key") == settings_key:
                      f"-{row['hits']} hit · {row['free_transfers_after']} FT next GW · Bank {money(row['bank'])}")
         st.caption("Future transfers use today's prices and availability; re-run after every deadline or price change. The bounded search may miss a better plan.")
 
-st.divider()
-with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=True):
-    auto_xi = lineup["xi"]
-    manual_ids = set(st.session_state.get("manual_xi", []))
-    xi = [p for p in squad if int(p["id"]) in manual_ids] if len(manual_ids) == 11 else auto_xi
-    counts = Counter(int(p["element_type"]) for p in xi)
-    if len(xi) != 11 or not (counts[1] == 1 and 3 <= counts[2] <= 5 and 2 <= counts[3] <= 5 and 1 <= counts[4] <= 3):
-        xi = auto_xi
-    cap_ids = [int(p["id"]) for p in xi]
-    cap_default = st.session_state.get("manual_captain")
-    cap = cap_default if cap_default in cap_ids else int(lineup["captain"]["id"])
-    if cap not in cap_ids:
-        cap = max(xi, key=lambda p: player_fixture_xp(p, selected_gw, fixture_map, minutes_overrides))["id"]
-    vice = next(pid for pid in cap_ids if pid != cap)
-    pitch(xi, cap, vice, selected_gw, fixture_map, clubs, minutes_overrides)
-    c1, c2 = st.columns(2)
-    with c1:
-        captain = st.selectbox("Captain", cap_ids, index=cap_ids.index(cap),
-                               format_func=lambda pid: label(player_by_id[pid], clubs))
-        if captain != cap:
-            st.session_state.manual_captain = captain
-            st.rerun()
-    with c2:
-        st.caption("The pitch defaults to the model's best XI. Select a starter and a bench player below to make a manual swap.")
-    benched = [p for p in squad if int(p["id"]) not in set(cap_ids)]
-    col_out, col_in = st.columns(2)
-    bench_out = col_out.selectbox("Starter to bench", cap_ids, format_func=lambda pid: label(player_by_id[pid], clubs))
-    bench_in = col_in.selectbox("Bench player to start", [int(p["id"]) for p in benched],
-                                format_func=lambda pid: label(player_by_id[pid], clubs))
-    if st.button("Swap starting XI"):
-        test_ids = (set(cap_ids) - {bench_out}) | {bench_in}
-        proposed = [p for p in squad if int(p["id"]) in test_ids]
-        c = Counter(int(p["element_type"]) for p in proposed)
-        if len(proposed) == 11 and c[1] == 1 and 3 <= c[2] <= 5 and 2 <= c[3] <= 5 and 1 <= c[4] <= 3:
-            st.session_state.manual_xi = list(test_ids)
-            st.session_state.manual_captain = captain if captain in test_ids else None
-            st.rerun()
-        else:
-            st.warning("Invalid formation. A legal XI needs 1 GKP, 3–5 DEF, 2–5 MID and 1–3 FWD.")
-    if st.button("Restore best XI and captain"):
-        st.session_state.manual_xi = []
-        st.session_state.manual_captain = None
-        st.rerun()
-    st.dataframe(squad_frame(squad, gws, fixture_map, clubs, minutes_overrides),
-                 hide_index=True, use_container_width=True)
-    risky = [p for p in squad if p.get("status", "a") != "a"]
-    if risky:
-        st.warning("Check availability: " + ", ".join(p.get("web_name", "?") for p in risky))
 
 with st.expander("🔁 Manual Transfer · Compare and edit your draft"):
     options = {int(p["id"]): label(p, clubs) for p in squad}
