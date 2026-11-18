@@ -414,6 +414,53 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
         st.rerun()
     st.caption(f"GW {preview_gw} preview · {len(gws)} Gameweek(s) in your Look Ahead range. "
                "Squad transfers are not automatically applied in future weeks.")
+    # Re-evaluate *all* valid formations for the previewed GW using that GW's xP.
+    # Keeping these results separate from manual overrides makes it obvious when
+    # a saved manual XI is masking a different automatic recommendation.
+    gw_xp = {int(p["id"]): player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides)
+             for p in squad}
+    by_pos = {pos: sorted([p for p in squad if int(p["element_type"]) == pos],
+                          key=lambda p: gw_xp[int(p["id"])], reverse=True)
+              for pos in (1, 2, 3, 4)}
+    formation_options = []
+    for defs in range(3, 6):
+        for mids in range(2, 6):
+            fwds = 10 - defs - mids
+            if not (1 <= fwds <= 3):
+                continue
+            candidate = (by_pos[1][:1] + by_pos[2][:defs]
+                         + by_pos[3][:mids] + by_pos[4][:fwds])
+            if len(candidate) != 11:
+                continue
+            xi_points = sum(gw_xp[int(p["id"])] for p in candidate)
+            captain_points = max(gw_xp[int(p["id"])] for p in candidate)
+            formation_options.append({"Formation": f"{defs}-{mids}-{fwds}",
+                                      "XI + captain xP": round(xi_points + captain_points, 2),
+                                      "XI xP": round(xi_points, 2), "players": candidate})
+    formation_options.sort(key=lambda x: x["XI + captain xP"], reverse=True)
+    ai_formation = formation_options[0]["Formation"]
+    st.success(f"AI best for GW {preview_gw}: **{ai_formation}** · "
+               f"**{formation_options[0]['XI + captain xP']:.2f} predicted points** (captain included)")
+    with st.expander("Compare all formations for this Gameweek", expanded=False):
+        st.caption("Calculated separately for this GW using current squad, fixture and minutes forecasts. "
+                   "A formation can legitimately be best in multiple consecutive GWs.")
+        st.dataframe(pd.DataFrame([{"Formation": f["Formation"],
+                                   "XI + captain xP": f["XI + captain xP"],
+                                   "Difference vs best": round(f["XI + captain xP"] - formation_options[0]["XI + captain xP"], 2)}
+                                  for f in formation_options]), hide_index=True, use_container_width=True)
+        selected_formation = st.selectbox(
+            "Try a formation", [f["Formation"] for f in formation_options],
+            key=f"formation_select_{st.session_state.loaded_id}_{preview_gw}")
+        if st.button(f"Apply {selected_formation} to GW {preview_gw} draft XI",
+                     key=f"apply_formation_{preview_gw}"):
+            selected_players = next(f["players"] for f in formation_options
+                                    if f["Formation"] == selected_formation)
+            st.session_state.setdefault("manual_xi_by_gw", {})[preview_gw] = [int(p["id"]) for p in selected_players]
+            st.session_state.setdefault("manual_captain_by_gw", {}).pop(preview_gw, None)
+            if preview_gw == selected_gw:
+                st.session_state.manual_xi = [int(p["id"]) for p in selected_players]
+                st.session_state.manual_captain = None
+            st.rerun()
     auto_xi = lineup["xi"]
     weekly_xi = st.session_state.get("manual_xi_by_gw", {})
     manual_ids = set(weekly_xi.get(preview_gw, st.session_state.get("manual_xi", []) if preview_gw == selected_gw else []))
@@ -421,6 +468,12 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
     counts = Counter(int(p["element_type"]) for p in xi)
     if len(xi) != 11 or not (counts[1] == 1 and 3 <= counts[2] <= 5 and 2 <= counts[3] <= 5 and 1 <= counts[4] <= 3):
         xi = auto_xi
+    active_formation = f"{counts[2]}-{counts[3]}-{counts[4]}"
+    if {int(p["id"]) for p in xi} != {int(p["id"]) for p in auto_xi}:
+        st.info(f"Viewing a manual GW {preview_gw} XI ({active_formation}). "
+                f"The AI recommends {ai_formation}. Click 'Restore best XI and captain' below to switch back.")
+    else:
+        st.caption(f"Pitch formation: **{active_formation}** · AI-optimal XI for GW {preview_gw}")
     cap_ids = [int(p["id"]) for p in xi]
     cap_default = st.session_state.get("manual_captain_by_gw", {}).get(
         preview_gw, st.session_state.get("manual_captain") if preview_gw == selected_gw else None
@@ -428,7 +481,7 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
     cap = cap_default if cap_default in cap_ids else int(lineup["captain"]["id"])
     if cap not in cap_ids:
         cap = max(xi, key=lambda p: player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides))["id"]
-    vice = next(pid for pid in cap_ids if pid != cap)
+    vice = max((pid for pid in cap_ids if pid != cap), key=lambda pid: gw_xp[pid])
     pitch(xi, cap, vice, preview_gw, fixture_map, clubs, minutes_overrides)
     c1, c2 = st.columns(2)
     with c1:
