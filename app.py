@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v6.5 — three-column premium dashboard with preserved planning tools.
+"""AJK Bola Wawei AI v6.6 — combined fixture and xP player cards with preserved planning tools.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -509,11 +509,11 @@ def pitch_player_card(player: dict, captain_id: int, vice_id: int, gw: int,
               if pid == captain_id else
               '<span class="captain-marker captain-marker--vc" title="Vice-captain">◆ VC</span>'
               if pid == vice_id else '')
-    if display == "Fixture":
-        detail = fixture_badge(player, gw, fixture_map, clubs)
-    else:
-        xp = player_fixture_xp(player, gw, fixture_map, overrides)
-        detail = f"{xp:.1f} xP"
+    # Show fixture and projected points together on every player card.
+    fixture = fixture_badge(player, gw, fixture_map, clubs)
+    xp = player_fixture_xp(player, gw, fixture_map, overrides)
+    detail = f"{fixture} · {xp:.1f} xP"
+    fixture_text = html.escape(fixture)
     # The available flag is from the FPL API, not a guarantee of starting.
     symbol, description = player_status_symbol(player)
     flag = (f'<span class="squad-warning" title="{html.escape(description, quote=True)}">'
@@ -523,7 +523,8 @@ def pitch_player_card(player: dict, captain_id: int, vice_id: int, gw: int,
     return (f'<div class="squad-player">{bench_tag}<div class="squad-photo">'
             f'{player_portrait_html(player)}{flag}</div>'
             f'<div class="squad-player-label"><strong title="{name}">{name}{marker}</strong>'
-            f'<small title="{html.escape(detail)}">{detail}</small></div></div>')
+            f'<small title="{html.escape(detail)}">{fixture_text}</small>'
+            f'<small>{xp:.1f} xP</small></div></div>')
 
 
 def pitch(xi: list[dict], captain_id: int, vice_id: int, gw: int,
@@ -588,8 +589,9 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
         name = str(player.get("web_name", "?"))
         photo = player_photo_url(player)
         portrait = f"![photo]({photo})" if photo else "👤"
-        detail = (fixture_badge(player, gw, fixture_map, clubs) if display == "Fixture"
-                  else f"{player_fixture_xp(player, gw, fixture_map, overrides):.1f} xP")
+        fixture = fixture_badge(player, gw, fixture_map, clubs)
+        xp = player_fixture_xp(player, gw, fixture_map, overrides)
+        detail = f"{fixture}  \n{xp:.1f} xP"
         role = "captain" if pid == captain_id else "vice" if pid == vice_id else "regular"
         symbol, description = player_status_symbol(player)
         warning = f" {symbol}" if symbol else ""
@@ -985,10 +987,6 @@ with tab_team:
                     restore_original_team()
                     st.rerun()
 
-            pitch_display = st.radio(
-                "Show on player cards", options=["xP", "Fixture"], horizontal=True,
-                key="squad_pitch_display", label_visibility="collapsed",
-            )
             selection_key = f"pitch_action_selected_{st.session_state.loaded_id}_{preview_gw}"
             pending_key = f"pitch_action_swap_{st.session_state.loaded_id}_{preview_gw}"
             selected_player_id = st.session_state.get(selection_key)
@@ -1065,7 +1063,7 @@ with tab_team:
             if st.session_state.get("pitch_swap_message"):
                 st.caption(st.session_state.pop("pitch_swap_message"))
             clickable_pitch(xi, squad, cap, vice, preview_gw, fixture_map, clubs,
-                            minutes_overrides, pitch_display or "xP",
+                            minutes_overrides, "Combined",
                             pending_player_id if pending_player_id is not None else selected_player_id,
                             on_pitch_player_click, awaiting_swap=pending_player_id is not None)
             availability_legend(squad)
@@ -1393,7 +1391,7 @@ with tab_chips:
         chip_xi = best_lineup(result["squad"], selected_gw, fixture_map, minutes_overrides)
         pitch(chip_xi["xi"], int(chip_xi["captain"]["id"]), int(chip_xi["vice"]["id"]),
               selected_gw, fixture_map, clubs, minutes_overrides,
-              squad=result["squad"], display=st.session_state.get("squad_pitch_display", "xP"))
+              squad=result["squad"], display="Combined")
         st.dataframe(squad_frame(result["squad"], chip_gws, fixture_map, clubs, minutes_overrides),
                      hide_index=True, use_container_width=True)
         st.caption("Approximate greedy optimiser. Free Hit is a single-GW simulation, not a chip activation.")
