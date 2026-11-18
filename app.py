@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v6 — focused My Team, Transfers and Chips.
+"""AJK Bola Wawei AI v6.1 — focused My Team, Transfers and Chips.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -685,7 +685,7 @@ tab_team, tab_transfers, tab_chips = st.tabs(
 with tab_team:
     if draft_has_changes():
         st.info("You are viewing a simulated draft, not your original FPL squad. "
-                "Reset restores the 15 imported players, bank balance, XI and captain.")
+                "Reset restores your imported 15-player squad and bank balance, and clears manual lineups, captaincy, and simulated transfers for all GWs.")
         if st.button("↩️ Reset to Original FPL Team", key="reset_team_main",
                      use_container_width=True, type="secondary"):
             restore_original_team()
@@ -713,14 +713,6 @@ with tab_team:
         ai_formation = f"{ai_counts[2]}-{ai_counts[3]}-{ai_counts[4]}"
         st.success(f"AI best for GW {preview_gw}: **{ai_formation}** · "
                    f"**{lineup['total_xp']:.2f} predicted points** (captain included)")
-        if st.button("✨ Apply AI best XI for all selected GWs", key="apply_best_all_gws",
-                     use_container_width=True):
-            st.session_state.manual_xi_by_gw = {}
-            st.session_state.manual_captain_by_gw = {}
-            st.session_state.manual_vice_by_gw = {}
-            st.session_state.manual_xi = []
-            st.session_state.manual_captain = None
-            st.rerun()
         # One-time migration: the previous version saved chosen formations as manual
         # overrides. Clear them once so upgrading immediately enables auto-XI for every GW.
         if not st.session_state.get("auto_formations_v524_initialized", False):
@@ -741,7 +733,7 @@ with tab_team:
         active_formation = f"{counts[2]}-{counts[3]}-{counts[4]}"
         if {int(p["id"]) for p in xi} != {int(p["id"]) for p in auto_xi}:
             st.info(f"Viewing a manual GW {preview_gw} XI ({active_formation}). "
-                    f"The AI recommends {ai_formation}. Click 'Restore best XI and captain' below to switch back.")
+                    f"The AI recommends {ai_formation}. Use Reset to Original FPL Team above to discard all draft changes.")
         else:
             st.caption(f"✅ Automatically selected: **{active_formation}** · AI best XI and captain for GW {preview_gw}")
         cap_ids = [int(p["id"]) for p in xi]
@@ -890,16 +882,6 @@ with tab_team:
                 if st.button("Close player actions", key=f"close_action_{preview_gw}"):
                     st.session_state.pop(selection_key, None)
                     st.rerun()
-        if st.button(f"Restore best XI and captain for GW {preview_gw}"):
-            st.session_state.setdefault("manual_xi_by_gw", {}).pop(preview_gw, None)
-            st.session_state.setdefault("manual_captain_by_gw", {}).pop(preview_gw, None)
-            st.session_state.setdefault("manual_vice_by_gw", {}).pop(preview_gw, None)
-            st.session_state.pop(selection_key, None)
-            st.session_state.pop(pending_key, None)
-            if preview_gw == selected_gw:
-                st.session_state.manual_xi = []
-                st.session_state.manual_captain = None
-            st.rerun()
         # v5.8: A transfer begins from the player's own pitch action menu.
         # Do not show the old select-player-to-sell dropdown or an always-visible panel.
         transfer_out_id = st.session_state.get("quick_transfer_out")
