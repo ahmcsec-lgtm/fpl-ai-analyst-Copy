@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.3 — photo-first FPL-style interactive squad layout.
+"""AJK Bola Wawei AI v5.4 — click-to-sub photo-first FPL squad layout.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -25,7 +25,7 @@ from fpl_engine import (
 )
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.2 (public FPL data)"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.4 (public FPL data)"}
 
 st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -144,6 +144,35 @@ h1,h2,h3{letter-spacing:-.035em}
  .squad-bench{padding:10px 5px}.squad-bench-row{gap:4px}
  .squad-warning{right:7%;font-size:9px;width:15px;height:15px}
  .squad-bench-heading span{font-size:9px}
+}
+
+/* v5.4 native Streamlit clickable squad cards, with photos retained. */
+.st-key-ajk_click_pitch{padding:15px 8px 12px;border:1px solid #5bc99d;border-radius:18px 18px 4px 4px;
+ background:repeating-linear-gradient(180deg,rgba(255,255,255,.045) 0,rgba(255,255,255,.045) 92px,transparent 92px,transparent 184px),linear-gradient(165deg,#008b53,#006d4c)}
+.st-key-ajk_click_pitch .stMarkdown p{margin-bottom:0}
+.st-key-ajk_click_pitch [data-testid="stButton"] button,
+.st-key-ajk_click_bench [data-testid="stButton"] button{
+ width:100%;height:auto;min-height:109px;padding:6px 2px;white-space:normal;
+ background:rgba(8,53,43,.7);border:1px solid rgba(226,255,240,.30);color:#fff;
+ box-shadow:0 3px 10px rgba(0,0,0,.14);line-height:1.22;font-size:11px;}
+.st-key-ajk_click_pitch [data-testid="stButton"] button:hover,
+.st-key-ajk_click_bench [data-testid="stButton"] button:hover{border-color:#a0f7ca;background:rgba(14,92,65,.87)}
+.st-key-ajk_click_pitch [data-testid="stButton"] button[kind="primary"],
+.st-key-ajk_click_bench [data-testid="stButton"] button[kind="primary"]{
+ border:2px solid #fdef77!important;background:#154f40!important;color:#fff!important;}
+.st-key-ajk_click_pitch [data-testid="stButton"] button img,
+.st-key-ajk_click_bench [data-testid="stButton"] button img{
+ height:57px!important;max-height:none!important;width:auto!important;max-width:90%!important;object-fit:contain;vertical-align:middle;display:block;margin:0 auto 4px;}
+.st-key-ajk_click_pitch [data-testid="stHorizontalBlock"]{gap:clamp(2px,.8vw,12px)}
+.st-key-ajk_click_pitch .stColumn,
+.st-key-ajk_click_bench .stColumn{min-width:0}
+.st-key-ajk_click_bench{padding:12px 8px;background:#123d33;border:1px solid #315a4b;border-radius:0 0 17px 17px}
+@media(max-width:640px){
+ .st-key-ajk_click_pitch{padding:9px 3px}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button,
+ .st-key-ajk_click_bench [data-testid="stButton"] button{font-size:9px;min-height:88px;padding:4px 1px}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button img,
+ .st-key-ajk_click_bench [data-testid="stButton"] button img{height:43px!important}
 }
 </style>
 """, unsafe_allow_html=True)
@@ -307,6 +336,66 @@ def pitch(xi: list[dict], captain_id: int, vice_id: int, gw: int,
                 unsafe_allow_html=True)
 
 
+def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
+                    vice_id: int, gw: int, fixture_map: dict,
+                    clubs: dict, overrides: dict, display: str,
+                    selected_id: int | None, on_click) -> None:
+    """Native click-to-sub Streamlit pitch. No HTML-to-Python messaging required."""
+    starters = {int(p["id"]) for p in xi}
+    bench = [p for p in squad if int(p["id"]) not in starters]
+    keeper = [p for p in bench if int(p["element_type"]) == 1]
+    outfield = sorted(
+        (p for p in bench if int(p["element_type"]) != 1),
+        key=lambda p: player_fixture_xp(p, gw, fixture_map, overrides), reverse=True,
+    )
+
+    def player_button(player: dict, *, is_bench: bool, bench_no: str = "") -> None:
+        pid = int(player["id"])
+        name = str(player.get("web_name", "?"))
+        photo = player_photo_url(player)
+        portrait = f"![photo]({photo})" if photo else "👤"
+        if display == "Fixture":
+            detail = fixture_badge(player, gw, fixture_map, clubs)
+        else:
+            detail = f"{player_fixture_xp(player, gw, fixture_map, overrides):.1f} xP"
+        badges = (" ©" if pid == captain_id else " ⓥ" if pid == vice_id else "")
+        warning = " ⚠️" if str(player.get("status", "a")) != "a" else ""
+        prefix = f"{bench_no} · " if bench_no else ""
+        card = f"{portrait}  \n{prefix}{name}{badges}{warning}  \n{detail}"
+        st.button(
+            card, key=f"pitch_click_{gw}_{pid}", use_container_width=True,
+            type="primary" if selected_id == pid else "secondary",
+            help=(f"{name} — {'selected; click again to cancel' if selected_id == pid else 'click to select for substitution'}"),
+            on_click=on_click, args=(pid, ),
+        )
+
+    counts = Counter(int(p["element_type"]) for p in xi)
+    formation = f"{counts[2]}-{counts[3]}-{counts[4]}"
+    with st.container(key="ajk_click_pitch"):
+        st.markdown(f"**GW {gw} · {formation} · Starting XI**")
+        for position in (1, 2, 3, 4):
+            group = [p for p in xi if int(p["element_type"]) == position]
+            if not group:
+                continue
+            # Center narrow rows (GK / forwards) using small invisible spacer columns.
+            total = max(5, len(group))
+            side = (total - len(group)) / 2
+            widths = ([side] if side else []) + [1] * len(group) + ([side] if side else [])
+            cols = st.columns(widths, gap="small", vertical_alignment="top")
+            offset = 1 if side else 0
+            for i, player in enumerate(group):
+                with cols[i + offset]:
+                    player_button(player, is_bench=False)
+    with st.container(key="ajk_click_bench"):
+        st.markdown("**SUBSTITUTES** · Tap a starter, then tap a substitute to swap")
+        ordered = keeper + outfield
+        cols = st.columns(4, gap="small")
+        for i, player in enumerate(ordered):
+            with cols[i]:
+                bench_no = "GK" if int(player["element_type"]) == 1 else str(i)
+                player_button(player, is_bench=True, bench_no=bench_no)
+
+
 # Friendly availability labels for the official FPL player status codes.
 STATUS_LABELS = {
     "a": "🟢 Available",
@@ -362,6 +451,9 @@ def restore_original_team() -> None:
     st.session_state.chip_result = None
     st.session_state.advisor_result = None
     st.session_state.advisor_key = None
+    for key in list(st.session_state):
+        if str(key).startswith("pitch_swap_selected_"):
+            st.session_state.pop(key, None)
 
 
 def draft_has_changes() -> bool:
@@ -527,42 +619,14 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
         st.rerun()
     st.caption(f"GW {preview_gw} preview · {len(gws)} Gameweek(s) in your Look Ahead range. "
                "Squad transfers are not automatically applied in future weeks.")
-    # Re-evaluate *all* valid formations for the previewed GW using that GW's xP.
-    # Keeping these results separate from manual overrides makes it obvious when
-    # a saved manual XI is masking a different automatic recommendation.
+    # The engine selects the optimal legal XI for this GW. No alternative-formation UI.
     gw_xp = {int(p["id"]): player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides)
              for p in squad}
-    by_pos = {pos: sorted([p for p in squad if int(p["element_type"]) == pos],
-                          key=lambda p: gw_xp[int(p["id"])], reverse=True)
-              for pos in (1, 2, 3, 4)}
-    formation_options = []
-    for defs in range(3, 6):
-        for mids in range(2, 6):
-            fwds = 10 - defs - mids
-            if not (1 <= fwds <= 3):
-                continue
-            candidate = (by_pos[1][:1] + by_pos[2][:defs]
-                         + by_pos[3][:mids] + by_pos[4][:fwds])
-            if len(candidate) != 11:
-                continue
-            xi_points = sum(gw_xp[int(p["id"])] for p in candidate)
-            captain_points = max(gw_xp[int(p["id"])] for p in candidate)
-            formation_options.append({"Formation": f"{defs}-{mids}-{fwds}",
-                                      "XI + captain xP": round(xi_points + captain_points, 2),
-                                      "XI xP": round(xi_points, 2), "players": candidate})
-    formation_options.sort(key=lambda x: x["XI + captain xP"], reverse=True)
-    ai_formation = formation_options[0]["Formation"]
+    auto_xi = lineup["xi"]
+    ai_counts = Counter(int(p["element_type"]) for p in auto_xi)
+    ai_formation = f"{ai_counts[2]}-{ai_counts[3]}-{ai_counts[4]}"
     st.success(f"AI best for GW {preview_gw}: **{ai_formation}** · "
-               f"**{formation_options[0]['XI + captain xP']:.2f} predicted points** (captain included)")
-    # Best formation is applied automatically for every previewed Gameweek.
-    # Optional comparisons are read-only: no formation picker or manual apply button.
-    with st.expander("See alternative formations", expanded=False):
-        st.caption("Ranked independently for this Gameweek. The top formation is already active unless you manually changed your XI.")
-        st.dataframe(pd.DataFrame([{
-            "Formation": f["Formation"],
-            "XI + captain xP": f["XI + captain xP"],
-            "Difference vs best": round(f["XI + captain xP"] - formation_options[0]["XI + captain xP"], 2),
-        } for f in formation_options]), hide_index=True, use_container_width=True)
+               f"**{lineup['total_xp']:.2f} predicted points** (captain included)")
     if st.button("✨ Apply AI best XI for all selected GWs", key="apply_best_all_gws",
                  use_container_width=True):
         st.session_state.manual_xi_by_gw = {}
@@ -604,38 +668,73 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
         "Show on player cards", options=["xP", "Fixture"], horizontal=True,
         key="squad_pitch_display", label_visibility="collapsed",
     )
-    pitch(xi, cap, vice, preview_gw, fixture_map, clubs, minutes_overrides,
-          squad=squad, display=pitch_display or "xP")
-    c1, c2 = st.columns(2)
-    with c1:
-        captain = st.selectbox("Captain", cap_ids, index=cap_ids.index(cap),
-                               format_func=lambda pid: label(player_by_id[pid], clubs),
-                               key=f"captain_preview_{st.session_state.loaded_id}_{preview_gw}")
-        if captain != cap:
-            st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = captain
-            if preview_gw == selected_gw:
-                st.session_state.manual_captain = captain
-            st.rerun()
-    with c2:
-        st.caption("The pitch defaults to the model's best XI. Select a starter and a bench player below to make a manual swap.")
-    benched = [p for p in squad if int(p["id"]) not in set(cap_ids)]
-    col_out, col_in = st.columns(2)
-    bench_out = col_out.selectbox("Starter to bench", cap_ids, format_func=lambda pid: label(player_by_id[pid], clubs))
-    bench_in = col_in.selectbox("Bench player to start", [int(p["id"]) for p in benched],
-                                format_func=lambda pid: label(player_by_id[pid], clubs))
-    if st.button("Swap starting XI"):
-        test_ids = (set(cap_ids) - {bench_out}) | {bench_in}
-        proposed = [p for p in squad if int(p["id"]) in test_ids]
-        c = Counter(int(p["element_type"]) for p in proposed)
-        if len(proposed) == 11 and c[1] == 1 and 3 <= c[2] <= 5 and 2 <= c[3] <= 5 and 1 <= c[4] <= 3:
-            st.session_state.setdefault("manual_xi_by_gw", {})[preview_gw] = list(test_ids)
-            st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = captain if captain in test_ids else None
-            if preview_gw == selected_gw:
-                st.session_state.manual_xi = list(test_ids)
-                st.session_state.manual_captain = captain if captain in test_ids else None
-            st.rerun()
-        else:
-            st.warning("Invalid formation. A legal XI needs 1 GKP, 3–5 DEF, 2–5 MID and 1–3 FWD.")
+    # Each click selects a player; a click on the opposite side makes the swap.
+    click_state_key = f"pitch_swap_selected_{st.session_state.loaded_id}_{preview_gw}"
+    selected_for_swap = st.session_state.get(click_state_key)
+    available_ids = {int(p["id"]) for p in squad}
+    if selected_for_swap not in available_ids:
+        selected_for_swap = None
+        st.session_state.pop(click_state_key, None)
+
+    def on_pitch_player_click(clicked_id: int) -> None:
+        chosen = st.session_state.get(click_state_key)
+        if chosen is None:
+            st.session_state[click_state_key] = clicked_id
+            return
+        if chosen == clicked_id:
+            st.session_state.pop(click_state_key, None)
+            return
+        current_starters = {int(p["id"]) for p in xi}
+        if (chosen in current_starters) == (clicked_id in current_starters):
+            # Click another starter/bench player to change your selection.
+            st.session_state[click_state_key] = clicked_id
+            return
+        outgoing_id = chosen if chosen in current_starters else clicked_id
+        incoming_id = clicked_id if chosen in current_starters else chosen
+        proposed_ids = (current_starters - {outgoing_id}) | {incoming_id}
+        proposed = [p for p in squad if int(p["id"]) in proposed_ids]
+        ct = Counter(int(p["element_type"]) for p in proposed)
+        st.session_state.pop(click_state_key, None)
+        if not (len(proposed) == 11 and ct[1] == 1 and
+                3 <= ct[2] <= 5 and 2 <= ct[3] <= 5 and 1 <= ct[4] <= 3):
+            st.session_state["pitch_swap_message"] = (
+                "⚠️ That substitution would create an invalid formation. "
+                "Choose a different substitute (1 GKP, 3–5 DEF, 2–5 MID, 1–3 FWD)."
+            )
+            return
+        st.session_state.setdefault("manual_xi_by_gw", {})[preview_gw] = list(proposed_ids)
+        current_captain = st.session_state.get("manual_captain_by_gw", {}).get(preview_gw, cap)
+        if current_captain not in proposed_ids:
+            current_captain = max(proposed_ids, key=lambda pid: gw_xp[pid])
+        st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = current_captain
+        if preview_gw == selected_gw:
+            st.session_state.manual_xi = list(proposed_ids)
+            st.session_state.manual_captain = current_captain
+        st.session_state["pitch_swap_message"] = "✅ Substitution applied to your GW preview."
+
+    if selected_for_swap is None:
+        st.caption("👆 Tap any starter or substitute, then tap a player on the opposite side to swap. "
+                   "Illegal formations are blocked automatically.")
+    else:
+        chosen_player = player_by_id.get(int(selected_for_swap), {})
+        st.info(f"Selected: **{chosen_player.get('web_name', '?')}**. "
+                "Tap a player on the opposite side to complete the substitution, "
+                "or tap the selected player again to cancel.")
+    if st.session_state.get("pitch_swap_message"):
+        st.caption(st.session_state.pop("pitch_swap_message"))
+    clickable_pitch(xi, squad, cap, vice, preview_gw, fixture_map, clubs,
+                    minutes_overrides, pitch_display or "xP",
+                    selected_for_swap, on_pitch_player_click)
+    captain = st.selectbox(
+        "Captain", cap_ids, index=cap_ids.index(cap),
+        format_func=lambda pid: label(player_by_id[pid], clubs),
+        key=f"captain_preview_{st.session_state.loaded_id}_{preview_gw}",
+    )
+    if captain != cap:
+        st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = captain
+        if preview_gw == selected_gw:
+            st.session_state.manual_captain = captain
+        st.rerun()
     if st.button(f"Restore best XI and captain for GW {preview_gw}"):
         st.session_state.setdefault("manual_xi_by_gw", {}).pop(preview_gw, None)
         st.session_state.setdefault("manual_captain_by_gw", {}).pop(preview_gw, None)
