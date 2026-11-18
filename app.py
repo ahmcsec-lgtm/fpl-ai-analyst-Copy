@@ -183,6 +183,30 @@ def reset_draft(team_id: int, profile: dict, squad: list[dict], bank: int, from_
     st.session_state.chip_result = None
 
 
+def restore_original_team() -> None:
+    """Undo all draft transfers/chip simulations, retaining the imported snapshot."""
+    st.session_state.draft = [dict(p) for p in st.session_state.original_squad]
+    st.session_state.bank = int(st.session_state.original_bank)
+    st.session_state.draft_moves = []
+    st.session_state.manual_xi = []
+    st.session_state.manual_captain = None
+    st.session_state.chip_result = None
+    st.session_state.advisor_result = None
+    st.session_state.advisor_key = None
+
+
+def draft_has_changes() -> bool:
+    original = st.session_state.original_squad
+    draft = st.session_state.draft
+    original_ids = sorted(int(p["id"]) for p in original)
+    draft_ids = sorted(int(p["id"]) for p in draft)
+    return (original_ids != draft_ids
+            or int(st.session_state.bank) != int(st.session_state.original_bank)
+            or bool(st.session_state.get("draft_moves"))
+            or bool(st.session_state.get("manual_xi"))
+            or st.session_state.get("manual_captain") is not None)
+
+
 st.title("⚽ AJK Bola Wawei AI")
 st.caption("My Team + Smart Transfer Advisor · Free, independent FPL projections")
 
@@ -274,12 +298,8 @@ with st.expander("⚙️ Planning settings", expanded=False):
             minutes_overrides[pid] = st.slider(label(p, clubs), 0, 90,
                                                 value=int(round(projected_minutes(p) / 5) * 5), step=5,
                                                 key=f"mins_{st.session_state.loaded_id}_{pid}")
-    if st.button("Restore original imported squad", use_container_width=True):
-        st.session_state.draft = [dict(p) for p in st.session_state.original_squad]
-        st.session_state.bank = st.session_state.original_bank
-        st.session_state.draft_moves = []
-        st.session_state.manual_xi = []
-        st.session_state.manual_captain = None
+    if st.button("Reset to Original FPL Team", key="reset_team_settings", use_container_width=True):
+        restore_original_team()
         st.rerun()
 
 # Stable defaults on the first render, independent of the optional expander.
@@ -309,6 +329,16 @@ metrics[0].metric("Team Rating", f"{assessment['rating']}/100")
 metrics[1].metric(f"GW {selected_gw} xP", f"{lineup['total_xp']:.1f}")
 metrics[2].metric(f"{len(gws)}-GW projected", f"{assessment['total_xp']:.1f}")
 metrics[3].metric("Bank", money(bank))
+
+if draft_has_changes():
+    st.info("You are viewing a simulated draft, not your original FPL squad. "
+            "Reset restores the 15 imported players, bank balance, XI and captain.")
+    if st.button("↩️ Reset to Original FPL Team", key="reset_team_main",
+                 use_container_width=True, type="secondary"):
+        restore_original_team()
+        st.rerun()
+else:
+    st.caption("✓ Original imported FPL team — no draft transfers applied.")
 
 st.divider()
 st.subheader("🧠 Smart Transfer Advisor")
