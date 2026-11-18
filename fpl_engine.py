@@ -5,6 +5,8 @@ No paid model, no official xP claim. All monetary amounts are FPL tenths.
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime, timezone
+from statistics import mean
 from itertools import combinations
 from typing import Any
 
@@ -42,7 +44,7 @@ def fixture_lookup(fixtures: list[dict]) -> dict[tuple[int, int], list[dict]]:
 
 # Match-derived team strength and per-GW projections are cached for fast optimiser runs.
 # Streamlit configures this once per rerun using current FPL public data.
-_MODEL = {"attack": {}, "defence": {}, "league_goals": 1.42, "games": {}, "cache": {}}
+_MODEL = {"attack": {}, "defence": {}, "league_goals": 1.42, "games": {}, "cache": {}, "calibration": {}, "calibration_n": 0, "residual_width": {}}
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -223,12 +225,19 @@ def player_prediction(player: dict, gw: int, fixtures: dict,
                      + 9 * comp["assist_expectation"]
                      + ({1: 4, 2: 4, 3: 1, 4: 0}[pos] ** 2) *
                      comp["cs_probability"] * (1 - comp["cs_probability"]) + 2.0)
-    xp = max(0.0, sum(totals[k] for k in totals if k not in ("goal_expectation", "assist_expectation")))
+    raw_xp = max(0.0, sum(totals[k] for k in totals if k not in ("goal_expectation", "assist_expectation")))
+    correction = calibration_adjustment(pos, raw_xp) if games else 0.0
+    xp = max(0.0, raw_xp + correction)
     # This is a Poisson/ Bernoulli approximation, NOT a calibrated forecast interval.
     std = variance ** .5
+    # Empirical 80%-ish residual width from *earlier* captured forecasts only.
+    empirical_width = _MODEL["residual_width"].get(pos)
+    width = empirical_width if empirical_width is not None else 1.28 * std
     output = {**{k: round(v, 2) for k, v in totals.items()},
-              "xp": round(xp, 2), "lower": round(max(0, xp - 1.28 * std), 1),
-              "upper": round(xp + 1.28 * std, 1), "minutes": minutes,
+              "xp": round(xp, 2), "raw_xp": round(raw_xp, 2),
+              "calibration": round(xp - raw_xp, 2),
+              "lower": round(max(0, xp - width), 1),
+              "upper": round(xp + width, 1), "minutes": minutes,
               "fixtures_count": len(games), "cs_probability": round(sum(cs_probs), 3)}
     _MODEL["cache"][key] = output
     return output
@@ -406,3 +415,173 @@ def optimise_chip_squad(player_pool: list[dict], gameweeks: list[int], fixtures:
         chosen, spent = best_squad, best_spent
     return {"squad": chosen, "spent": spent, "bank": int(budget_tenths) - spent,
             "rating": team_rating(chosen, gameweeks, fixtures, minutes_overrides)}
+
+
+# --- v4: honest forecast logging, walk-forward calibration and accuracy metrics ---
+# The CSV input is *pre-deadline forecasts*, not recalculations from today's season stats.
+SNAPSHOT_FIELDS = (
+    "season", "gw", "player_id", "name", "position", "team_id", "created_utc",
+    "deadline_utc", "model_version", "raw_xp", "predicted_xp", "expected_minutes",
+    "fixtures_count",
+)
+
+
+def make_snapshot(players: list[dict], gw: int, fixtures: dict,
+                  deadline_utc: str, season: str,
+                  minutes_overrides: dict[int, float] | None = None,
+                  now: datetime | None = None) -> list[dict]:
+    """Make a reproducible record only *before* the selected GW deadline.
+
+    Capture one row per player with a fixture; the caller must export the CSV.
+    """
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError("Capture time must have timezone information")
+    try:
+        deadline = datetime.fromisoformat(deadline_utc.replace("Z", "+00:00"))
+    except (ValueError, AttributeError) as exc:
+        raise ValueError("No valid UTC deadline for this Gameweek") from exc
+    if deadline.tzinfo is None or now >= deadline:
+        raise ValueError("Forecast snapshots must be captured before the FPL deadline")
+    created = now.astimezone(timezone.utc).isoformat()
+    rows = []
+    for p in players:
+        forecast = player_prediction(p, gw, fixtures, minutes_overrides)
+        if forecast["fixtures_count"] == 0:
+            continue
+        rows.append({
+            "season": str(season), "gw": int(gw), "player_id": int(p["id"]),
+            "name": str(p.get("web_name", "?")), "position": int(p["element_type"]),
+            "team_id": int(p["team"]), "created_utc": created,
+            "deadline_utc": deadline.astimezone(timezone.utc).isoformat(),
+            "model_version": "v4", "raw_xp": forecast["raw_xp"],
+            "predicted_xp": forecast["xp"], "expected_minutes": forecast["minutes"],
+            "fixtures_count": forecast["fixtures_count"],
+        })
+    return rows
+
+
+def validate_snapshots(rows: list[dict], expected_season: str | None = None) -> list[dict]:
+    """Reject invalid, non-predeadline or duplicated forecasts, not silently trusting CSVs."""
+    clean, seen = [], set()
+    for row in rows:
+        try:
+            gw, pid, pos = int(row["gw"]), int(row["player_id"]), int(row["position"])
+            created = datetime.fromisoformat(str(row["created_utc"]).replace("Z", "+00:00"))
+            deadline = datetime.fromisoformat(str(row["deadline_utc"]).replace("Z", "+00:00"))
+            raw, pred = float(row["raw_xp"]), float(row["predicted_xp"])
+            season = str(row["season"])
+            if expected_season is not None and season != expected_season:
+                continue
+            if not (1 <= gw <= 38 and 1 <= pos <= 4 and pid > 0 and
+                    created.tzinfo and deadline.tzinfo and created < deadline and
+                    0 <= raw <= 60 and 0 <= pred <= 60):
+                continue
+            key = (season, gw, pid)
+            # For duplicates prefer the earliest valid snapshot from that GW.
+            if key in seen:
+                continue
+            seen.add(key)
+            clean.append({"season": season, "gw": gw, "player_id": pid,
+                          "position": pos, "raw_xp": raw, "predicted_xp": pred,
+                          "expected_minutes": max(0.0, min(180.0, num(row.get("expected_minutes")))),
+                          "created_utc": created.isoformat(),
+                          "deadline_utc": deadline.isoformat()})
+        except (KeyError, ValueError, TypeError, OverflowError):
+            continue
+    return sorted(clean, key=lambda r: (r["gw"], r["player_id"]))
+
+
+def _quantile(values: list[float], q: float) -> float:
+    if not values:
+        return 0.0
+    values = sorted(values)
+    index = (len(values) - 1) * q
+    low = int(index)
+    high = min(low + 1, len(values) - 1)
+    return values[low] + (values[high] - values[low]) * (index - low)
+
+
+def fit_calibration(completed: list[dict]) -> dict:
+    """Shrink position mean errors toward zero to reduce overfitting.
+
+    Every input must be an already-finalized captured forecast + actual points.
+    """
+    groups = {k: [] for k in range(1, 5)}
+    for row in completed:
+        if "actual_points" in row:
+            groups[int(row["position"])].append(float(row["actual_points"]) - float(row["raw_xp"]))
+    corrections, widths = {}, {}
+    for pos, errors in groups.items():
+        if errors:
+            # 120-observation regularizer; max adjustment 1 point per player.
+            corrections[pos] = clamp(sum(errors) / (len(errors) + 120), -1, 1)
+            if len(errors) >= 80:
+                widths[pos] = clamp(_quantile([abs(e - corrections[pos]) for e in errors], .80), 1.0, 18.0)
+    return {"corrections": corrections, "widths": widths,
+            "count": sum(len(g) for g in groups.values())}
+
+
+def calibration_adjustment(position: int, raw_xp: float) -> float:
+    return float(_MODEL["calibration"].get(int(position), 0.0))
+
+
+def configure_calibration(completed: list[dict], target_gw: int) -> dict:
+    """Strictly train on GW < target GW; never use outcomes from target GW."""
+    earlier = [r for r in completed if int(r["gw"]) < int(target_gw)]
+    fitted = fit_calibration(earlier)
+    _MODEL["calibration"] = fitted["corrections"]
+    _MODEL["residual_width"] = fitted["widths"]
+    _MODEL["calibration_n"] = fitted["count"]
+    _MODEL["cache"] = {}
+    return fitted
+
+
+def join_actuals(snapshots: list[dict], actuals_by_gw: dict[int, dict[int, int]],
+                 finalized_gws: set[int]) -> list[dict]:
+    """Only join against finalized gameweeks (avoid live provisional scores)."""
+    completed = []
+    for row in snapshots:
+        gw, pid = int(row["gw"]), int(row["player_id"])
+        if gw not in finalized_gws or pid not in actuals_by_gw.get(gw, {}):
+            continue
+        completed.append({**row, "actual_points": int(actuals_by_gw[gw][pid])})
+    return completed
+
+
+def backtest_report(completed: list[dict]) -> tuple[dict, list[dict], list[dict]]:
+    """Evaluate captured forecast MAE/bias and walk-forward-calibrated predictions.
+
+    Each historical GW's adjustment is fitted from *strictly earlier* GW records.
+    """
+    if not completed:
+        return {}, [], []
+    evaluated = []
+    # Fit just once per GW, making calibration linear in the number of rows.
+    past_rows: list[dict] = []
+    for gw in sorted({int(r["gw"]) for r in completed}):
+        model = fit_calibration(past_rows)
+        current = [r for r in completed if int(r["gw"]) == gw]
+        for row in current:
+            correction = model["corrections"].get(int(row["position"]), 0)
+            raw = float(row["raw_xp"])
+            actual = float(row["actual_points"])
+            captured = float(row["predicted_xp"])
+            walk_forward = max(0, raw + correction)
+            evaluated.append({**row, "walk_forward_xp": round(walk_forward, 2),
+                              "raw_error": round(raw - actual, 2),
+                              "captured_error": round(captured - actual, 2),
+                              "wf_error": round(walk_forward - actual, 2)})
+        past_rows.extend(current)
+    def summarize(rows):
+        return {"count": len(rows),
+                "raw_mae": round(mean(abs(r["raw_error"]) for r in rows), 3),
+                "captured_mae": round(mean(abs(r["captured_error"]) for r in rows), 3),
+                "walk_forward_mae": round(mean(abs(r["wf_error"]) for r in rows), 3),
+                "bias": round(mean(r["captured_error"] for r in rows), 3)}
+    overall = summarize(evaluated)
+    by_position = [{"Position": POSITION_NAMES[pos], **summarize([r for r in evaluated if r["position"] == pos])}
+                   for pos in range(1, 5) if any(r["position"] == pos for r in evaluated)]
+    by_gw = [{"GW": gw, **summarize([r for r in evaluated if r["gw"] == gw])}
+             for gw in sorted({r["gw"] for r in evaluated})]
+    return overall, by_position, by_gw

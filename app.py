@@ -5,7 +5,8 @@ Requires: streamlit, pandas, requests (see requirements.txt).
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime
+from io import BytesIO
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -16,10 +17,12 @@ from fpl_engine import (
     POSITION_NAMES, QUOTAS, best_lineup, configure_projection_context, fixture_lookup, horizon_xp,
     num, optimise_chip_squad, player_fixture_xp, projected_minutes,
     suggest_transfers, team_rating, valid_squad, player_prediction,
+    SNAPSHOT_FIELDS, make_snapshot, validate_snapshots, join_actuals,
+    configure_calibration, backtest_report,
 )
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/2.0 (public FPL data)"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/4.0 (public FPL data)"}
 MY_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 
 st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide")
@@ -131,7 +134,7 @@ def legal_starting_xi(xi: list[dict]) -> bool:
 
 
 st.title("⚽ AJK Bola Wawei AI")
-st.caption("My Team • AI-style Team Rating • Transfers • Wildcard / Free Hit | 100% free data and transparent estimates")
+st.caption("My Team • AI Transfers • Wildcard / Free Hit • Accuracy Lab | Free open-data forecasts")
 
 try:
     bootstrap = get_json("bootstrap-static/")
@@ -168,8 +171,39 @@ with st.sidebar:
     horizon_max = min(5, len(upcoming_gws) - start_index)
     horizon = st.slider("Planning horizon (GWs)", 1, horizon_max, min(3, horizon_max))
     gws = upcoming_gws[start_index:start_index + horizon]
+    st.divider()
+    st.subheader("Accuracy data")
+    snapshot_files = st.file_uploader(
+        "Restore saved pre-deadline forecast CSVs", type="csv",
+        accept_multiple_files=True, key="accuracy_snapshot_upload",
+        help="Upload your previously downloaded AJK prediction snapshots. Streamlit Cloud storage is temporary.")
     free_transfers = st.number_input("Available free transfers", min_value=0, max_value=5, value=1)
     st.caption("FPL manager imports are read-only. Changes here are planning drafts and are never submitted to FPL.")
+
+# Train only on previously captured forecasts from finalized earlier GWs.
+# No historical reconstruction is performed using present-day season aggregates.
+first_deadline = next((e.get("deadline_time") for e in events if int(e.get("id", 0)) == 1), None)
+season_start = int(str(first_deadline)[:4]) if first_deadline else datetime.now(timezone.utc).year
+season_id = f"{season_start}-{str(season_start + 1)[-2:]}"
+
+uploaded_rows = []
+for uploaded in snapshot_files or []:
+    try:
+        frame = pd.read_csv(BytesIO(uploaded.getvalue()))
+        if len(frame) > 4000 or not set(SNAPSHOT_FIELDS).issubset(frame.columns):
+            st.sidebar.warning(f"Skipped {uploaded.name}: missing fields or too many rows")
+            continue
+        uploaded_rows.extend(frame.to_dict("records"))
+    except (ValueError, pd.errors.ParserError, UnicodeDecodeError) as exc:
+        st.sidebar.warning(f"Skipped {uploaded.name}: {exc}")
+
+all_saved = uploaded_rows + st.session_state.get("saved_snapshots", [])
+validated_snapshots = validate_snapshots(all_saved, season_id)
+finalized_gws = {int(e["id"]) for e in events
+                 if e.get("finished") and e.get("data_checked")}
+actuals_by_gw = st.session_state.get("accuracy_actuals", {})
+completed_rows = join_actuals(validated_snapshots, actuals_by_gw, finalized_gws)
+calibration_state = configure_calibration(completed_rows, selected_gw)
 
 # Load the imported manager exactly once per selected ID, unless reset is requested.
 if import_team or st.session_state.get("loaded_id") != int(fpl_id):
@@ -222,18 +256,22 @@ metric_cols[1].metric("GW Rating", f"{assessment['gw_rating']}/100")
 metric_cols[2].metric(f"GW {selected_gw} xP", f"{lineup['total_xp']:.1f}")
 metric_cols[3].metric(f"{horizon}-GW xP", f"{assessment['total_xp']:.1f}")
 metric_cols[4].metric("In the Bank", pounds(bank))
-st.caption("AJK independent projections use expected goals/assists, estimated minutes, team match results, clean sheets, saves, defensive contributions and bonus. Ratings use a fixed benchmark; no paid-model accuracy is claimed.")
+st.caption("Model v4: xG/xA, minutes, team goals, clean sheets, saves, defensive contributions and bonus. "
+           f"Calibration examples from earlier finalized GWs: {calibration_state['count']}. "
+           "Ratings remain heuristic; no paid-model equivalence is claimed.")
 with st.expander("📊 How the upgraded prediction model works", expanded=False):
-    st.markdown("""**Model v3 — open-data, component-based expected points.**
+    st.markdown("""**Model v4 — open-data expected points with walk-forward evaluation.**
     - Goals and assists: season xG/xA rates, shrunk toward positional priors for small samples.
     - Fixtures: offensive/defensive strength estimated from completed league matches, combined with FPL fixture difficulty and home advantage.
     - Minutes: regular-start history, injury availability and optional manager overrides.
     - Other points: appearance, clean sheets, goalkeeper saves, bonus, defensive contributions and expected conceded-goal/card deductions.
     - Double GWs are added; blank GWs return zero.
 
-    **Limits:** Predicted points and 80% ranges are *approximations*, not calibrated probabilities. We do not have paid bookmaker odds, private team news, confirmed lineups, or a trained historical backtest. The 0–100 rating is an independent heuristic, not a percentile or Hub score.""")
+    **Calibration:** Position-level bias adjustments learned only from your saved, pre-deadline predictions in earlier finalized GWs. At least 80 historical observations per position are needed before using an empirical uncertainty width.
 
-my_team_tab, transfers_tab, chip_tab = st.tabs(["🏟️ My Team", "🔁 AI Transfers", "✨ Wildcard / Free Hit"])
+    **Limits:** Uncertainty ranges are only empirical when enough historical data exists, and even then are approximate, not guaranteed coverage. No private team news or paid bookmaker odds. The 0–100 rating is a heuristic, not a percentile or Hub score. CSV records are user-supplied and cannot be independently verified as pre-deadline exports.""")
+
+my_team_tab, transfers_tab, chip_tab, accuracy_tab = st.tabs(["🏟️ My Team", "🔁 AI Transfers", "✨ Wildcard / Free Hit", "📈 Accuracy Lab"])
 
 with my_team_tab:
     left, right = st.columns([1.5, 1], gap="large")
@@ -425,6 +463,93 @@ with chip_tab:
             st.session_state.moves = []
             st.session_state.chip_result = None
             st.rerun()
+
+with accuracy_tab:
+    st.markdown("### Forecast History & Honest Backtesting")
+    st.info("Save predictions **before each FPL deadline**, then upload the saved CSV after the GW is finalized. "
+            "The dashboard compares those predictions against actual FPL points. "
+            "Recreating old predictions from today's player statistics would leak future data.")
+    col1, col2 = st.columns([1.1, 1])
+    current_event = next((e for e in events if int(e["id"]) == selected_gw), {})
+    deadline_string = current_event.get("deadline_time", "")
+    can_capture = False
+    try:
+        capture_deadline = datetime.fromisoformat(deadline_string.replace("Z", "+00:00"))
+        can_capture = datetime.now(timezone.utc) < capture_deadline
+    except (ValueError, AttributeError):
+        pass
+    with col1:
+        st.markdown("**1. Capture a pre-deadline prediction**")
+        st.write(f"Selected GW: **{selected_gw}** · Deadline: **{deadline_string or 'unknown'}**")
+        st.caption("Captures projections for all players scheduled to play, not only your own squad. "
+                   "The generated CSV is your forecast audit trail.")
+        if st.button("Capture predictions for this GW", disabled=not can_capture, type="primary"):
+            try:
+                new_rows = make_snapshot(players, selected_gw, fixture_map,
+                                         deadline_string, season_id, minutes_overrides)
+                st.session_state.saved_snapshots = [r for r in st.session_state.get("saved_snapshots", [])
+                                                    if int(r["gw"]) != selected_gw] + new_rows
+                st.success(f"Captured {len(new_rows)} predictions. Download the CSV below.")
+            except ValueError as exc:
+                st.error(str(exc))
+        if not can_capture:
+            st.warning("This GW deadline has passed (or is unknown). New snapshots are disabled.")
+        saved = [r for r in st.session_state.get("saved_snapshots", [])
+                 if int(r["gw"]) == selected_gw]
+        if saved:
+            data = pd.DataFrame(saved, columns=list(SNAPSHOT_FIELDS))
+            st.download_button("⬇ Download forecast CSV — keep this file", data.to_csv(index=False).encode("utf-8"),
+                               file_name=f"ajk_forecast_{season_id}_gw{selected_gw}.csv",
+                               mime="text/csv")
+    with col2:
+        st.markdown("**2. Load final GW points**")
+        st.caption("Upload past forecast CSV files in the sidebar. Click below to obtain official final scores "
+                   "for their gameweeks. No API score is considered final until FPL marks the event data checked.")
+        to_load = sorted({r["gw"] for r in validated_snapshots if r["gw"] in finalized_gws})
+        st.write(f"Valid archived forecasts: **{len(validated_snapshots)}** player-GW rows, "
+                 f"across **{len(set(r['gw'] for r in validated_snapshots))}** GWs")
+        if st.button("Load finalized FPL actual points", disabled=not to_load):
+            fetched = dict(st.session_state.get("accuracy_actuals", {}))
+            errors = []
+            for gw in to_load:
+                try:
+                    live = get_json(f"event/{gw}/live/")
+                    fetched[gw] = {int(e["id"]): int(e.get("stats", {}).get("total_points", 0))
+                                   for e in live.get("elements", [])}
+                except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+                    errors.append(f"GW {gw}: {exc}")
+            st.session_state.accuracy_actuals = fetched
+            if errors:
+                st.warning("Unable to fetch: " + "; ".join(errors[:4]))
+            else:
+                st.success("Final gameweek points loaded. The calibration will update on rerun.")
+            st.rerun()
+        st.metric("Finalized, matched predictions", len(completed_rows))
+        st.metric("Earlier-GW training examples", calibration_state["count"])
+    st.divider()
+    if completed_rows:
+        overall, by_position, by_gw = backtest_report(completed_rows)
+        st.markdown("### Accuracy results")
+        x1, x2, x3, x4 = st.columns(4)
+        x1.metric("Captured forecast MAE", f"{overall['captured_mae']:.2f} pts")
+        x2.metric("Uncalibrated MAE", f"{overall['raw_mae']:.2f} pts")
+        x3.metric("Walk-forward MAE", f"{overall['walk_forward_mae']:.2f} pts")
+        x4.metric("Forecast bias", f"{overall['bias']:+.2f} pts")
+        st.caption("MAE = mean absolute error, lower is better. Bias = predicted − actual; "
+                   "positive means overprediction. Walk-forward estimates each GW using *only earlier* finalized GWs. "
+                   "Captured MAE reflects the actual saved model predictions; walk-forward MAE is a retrospective calibration simulation.")
+        st.markdown("**By position**")
+        st.dataframe(pd.DataFrame(by_position), hide_index=True, use_container_width=True)
+        st.markdown("**By gameweek**")
+        chart_df = pd.DataFrame(by_gw).set_index("GW")
+        st.line_chart(chart_df[["captured_mae", "raw_mae", "walk_forward_mae"]])
+        st.dataframe(pd.DataFrame(by_gw), hide_index=True, use_container_width=True)
+        st.caption("A single GW is too little to establish predictive superiority. "
+                   "At least several finalized GWs are needed for meaningful comparisons. "
+                   "Current forecasts may include minutes overrides; saved values are evaluated as originally captured.")
+    else:
+        st.info("No saved pre-deadline forecasts with finalized scores yet. "
+                "Capture the next GW, download the CSV, then return after FPL has finalized it.")
 
 st.divider()
 st.caption("Data: official Fantasy Premier League public API. Player projections, ratings, transfer scores and optimisation are independent AJK estimates; no affiliation with Fantasy Football Hub or the Premier League. Use the official FPL site to make actual transfers or activate chips.")
