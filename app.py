@@ -13,9 +13,9 @@ import requests
 import streamlit as st
 
 from fpl_engine import (
-    POSITION_NAMES, QUOTAS, best_lineup, fixture_lookup, horizon_xp,
+    POSITION_NAMES, QUOTAS, best_lineup, configure_projection_context, fixture_lookup, horizon_xp,
     num, optimise_chip_squad, player_fixture_xp, projected_minutes,
-    suggest_transfers, team_rating, valid_squad,
+    suggest_transfers, team_rating, valid_squad, player_prediction,
 )
 
 API = "https://fantasy.premierleague.com/api"
@@ -145,6 +145,7 @@ clubs = {int(t["id"]): t.get("short_name", t.get("name", "?")) for t in bootstra
 player_by_id = {int(p["id"]): p for p in players}
 labels = player_options(players, clubs)
 fixture_map = fixture_lookup(fixtures_raw)
+configure_projection_context(bootstrap.get("teams", []), fixtures_raw)
 events = bootstrap.get("events", [])
 next_event = next((e for e in events if e.get("is_next")), None)
 if next_event is None:
@@ -221,7 +222,16 @@ metric_cols[1].metric("GW Rating", f"{assessment['gw_rating']}/100")
 metric_cols[2].metric(f"GW {selected_gw} xP", f"{lineup['total_xp']:.1f}")
 metric_cols[3].metric(f"{horizon}-GW xP", f"{assessment['total_xp']:.1f}")
 metric_cols[4].metric("In the Bank", pounds(bank))
-st.caption("Ratings are AJK heuristic scores against a 65 xP/GW benchmark, not Fantasy Football Hub ratings. xP are estimates, not guaranteed points.")
+st.caption("AJK independent projections use expected goals/assists, estimated minutes, team match results, clean sheets, saves, defensive contributions and bonus. Ratings use a fixed benchmark; no paid-model accuracy is claimed.")
+with st.expander("📊 How the upgraded prediction model works", expanded=False):
+    st.markdown("""**Model v3 — open-data, component-based expected points.**
+    - Goals and assists: season xG/xA rates, shrunk toward positional priors for small samples.
+    - Fixtures: offensive/defensive strength estimated from completed league matches, combined with FPL fixture difficulty and home advantage.
+    - Minutes: regular-start history, injury availability and optional manager overrides.
+    - Other points: appearance, clean sheets, goalkeeper saves, bonus, defensive contributions and expected conceded-goal/card deductions.
+    - Double GWs are added; blank GWs return zero.
+
+    **Limits:** Predicted points and 80% ranges are *approximations*, not calibrated probabilities. We do not have paid bookmaker odds, private team news, confirmed lineups, or a trained historical backtest. The 0–100 rating is an independent heuristic, not a percentile or Hub score.""")
 
 my_team_tab, transfers_tab, chip_tab = st.tabs(["🏟️ My Team", "🔁 AI Transfers", "✨ Wildcard / Free Hit"])
 
@@ -282,6 +292,21 @@ with my_team_tab:
         for p in risk_players:
             st.warning(f"{short_name(p, clubs)} · FPL status {p.get('status')} · {p.get('news') or 'Check latest news'}")
 
+    st.markdown("### Projection Confidence & Components")
+    focus_id = st.selectbox("Inspect player projection", [int(p["id"]) for p in squad],
+                            format_func=lambda pid: labels[pid], key="projection_inspect")
+    focus = next(p for p in squad if int(p["id"]) == focus_id)
+    detail = player_prediction(focus, selected_gw, fixture_map, minutes_overrides)
+    a, b, c = st.columns(3)
+    a.metric("Predicted xP", f"{detail['xp']:.1f}")
+    b.metric("Approx. 80% range", f"{detail['lower']:.1f}–{detail['upper']:.1f}")
+    c.metric("Expected minutes", f"{detail['minutes']:.0f}")
+    components = [(key.replace("_", " ").title(), detail[key]) for key in
+                  ("appearance", "goals", "assists", "clean_sheet", "saves", "bonus",
+                   "defensive_contributions", "goals_conceded", "discipline")]
+    st.dataframe(pd.DataFrame(components, columns=["xP component", "Expected points"]),
+                 use_container_width=True, hide_index=True)
+    st.caption("The 80% interval is an indicative uncertainty band, not a validated coverage guarantee.")
     st.markdown("### Your Full Squad")
     st.dataframe(squad_table(squad, gws, fixture_map, clubs, minutes_overrides),
                  hide_index=True, use_container_width=True)

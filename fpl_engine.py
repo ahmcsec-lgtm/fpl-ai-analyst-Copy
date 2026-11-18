@@ -35,62 +35,208 @@ def fixture_lookup(fixtures: list[dict]) -> dict[tuple[int, int], list[dict]]:
                 continue
             result.setdefault((int(gw), int(team_id)), []).append({
                 "opponent": int(opponent_id), "home": home,
-                "difficulty": int(fixture.get("team_a_difficulty" if home else "team_h_difficulty") or 3),
+                "difficulty": int(fixture.get("team_h_difficulty" if home else "team_a_difficulty") or 3),
             })
     return result
 
 
+# Match-derived team strength and per-GW projections are cached for fast optimiser runs.
+# Streamlit configures this once per rerun using current FPL public data.
+_MODEL = {"attack": {}, "defence": {}, "league_goals": 1.42, "games": {}, "cache": {}}
+
+
+def clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def configure_projection_context(teams: list[dict], fixtures_raw: list[dict]) -> None:
+    """Learn shrunk home/away attacking/defensive strengths from completed fixtures.
+
+    Strengths are descriptive and not fitted to future results; low-sample data
+    is pulled toward league average. Clear cached xP when source data changes.
+    """
+    gf: dict[int, float] = {}
+    ga: dict[int, float] = {}
+    matches: dict[int, int] = {}
+    total_goals, finished = 0, 0
+    for match in fixtures_raw:
+        if not match.get("finished"):
+            continue
+        hs, aws = match.get("team_h_score"), match.get("team_a_score")
+        home, away = match.get("team_h"), match.get("team_a")
+        if None in (hs, aws, home, away):
+            continue
+        home, away = int(home), int(away)
+        for t, goals_for, goals_against in ((home, hs, aws), (away, aws, hs)):
+            gf[t] = gf.get(t, 0) + float(goals_for)
+            ga[t] = ga.get(t, 0) + float(goals_against)
+            matches[t] = matches.get(t, 0) + 1
+        total_goals += int(hs) + int(aws)
+        finished += 1
+    league = clamp(total_goals / (2 * finished), 1.1, 1.9) if finished else 1.42
+    attack, defence = {}, {}
+    for t in teams:
+        tid = int(t["id"])
+        count = matches.get(tid, 0)
+        # Eight-match equivalent prior, avoiding noisy early-season rankings.
+        attack[tid] = clamp((gf.get(tid, 0) + 8 * league) / ((count + 8) * league), .67, 1.48)
+        defence[tid] = clamp((ga.get(tid, 0) + 8 * league) / ((count + 8) * league), .67, 1.48)
+    _MODEL.update({"attack": attack, "defence": defence, "league_goals": league,
+                   "games": matches, "cache": {}})
+
+
 def availability(player: dict) -> float:
     status = player.get("status", "a")
-    status_factor = {"a": 1.0, "d": .78, "i": .10, "s": 0.0, "u": .1, "n": 0.0}.get(status, .65)
     chance = player.get("chance_of_playing_next_round")
+    factor = {"a": 1.0, "d": .68, "i": .12, "s": 0.0, "u": .08, "n": 0.0}.get(status, .6)
     if chance is not None:
-        status_factor = min(status_factor, max(0.0, num(chance) / 100))
-    return status_factor
+        factor = min(factor, clamp(num(chance) / 100, 0, 1))
+    return factor
 
 
 def projected_minutes(player: dict) -> float:
-    starts = num(player.get("starts"))
+    """Unconditional expected minutes per fixture, including non-start risk."""
     appearances = num(player.get("appearances"))
-    total_minutes = num(player.get("minutes"))
-    if appearances:
-        average = total_minutes / appearances
+    starts = num(player.get("starts"))
+    played = num(player.get("minutes"))
+    team_games = _MODEL["games"].get(int(player.get("team", 0)), 0)
+    if team_games >= 3:
+        # Recent-season minutes per team match, with small prior for new signings.
+        prior = 16 if appearances == 0 else 48
+        effective = (played + 2 * prior) / (team_games + 2)
+    elif appearances:
+        effective = (played / appearances) * clamp(appearances / max(3, team_games), .35, 1)
     elif starts:
-        average = total_minutes / starts
+        effective = played / starts
     else:
-        average = 60 if player.get("status", "a") == "a" else 25
-    return max(0.0, min(90.0, average * availability(player)))
+        effective = 40 if num(player.get("now_cost")) <= 45 else 57
+    # Cap noisy season samples; availability is separate from fitness/rotation.
+    return round(clamp(effective * availability(player), 0, 90), 1)
+
+
+def _poisson_at_least(k: int, lam: float) -> float:
+    if lam <= 0:
+        return 0.0
+    term = __import__("math").exp(-lam)
+    cdf = term
+    for n in range(1, k):
+        term *= lam / n
+        cdf += term
+    return clamp(1 - cdf, 0, 1)
+
+
+def _smooth_rate(player: dict, field: str, total_field: str,
+                 prior: float, prior_minutes: float = 720) -> float:
+    mins = num(player.get("minutes"))
+    if mins < 1:
+        return prior
+    total = num(player.get(total_field), -1)
+    if total >= 0:
+        return clamp((total * 90 + prior * prior_minutes) / (mins + prior_minutes), 0, 3)
+    rate = num(player.get(field), -1)
+    if rate < 0:
+        return prior
+    return clamp((rate * mins + prior * prior_minutes) / (mins + prior_minutes), 0, 3)
+
+
+def _fixture_components(player: dict, opponent: int, home: bool,
+                        minutes: float, difficulty: int) -> dict[str, float]:
+    from math import exp
+    pos = int(player.get("element_type", 3))
+    team = int(player.get("team", 0))
+    a = _MODEL["attack"]
+    d = _MODEL["defence"]
+    # Factor opponent defence and own attack; cap and mix in FPL difficulty.
+    opponent_factor = (a.get(team, 1) * d.get(opponent, 1)) ** .58
+    fixture_factor = clamp(1.03 - .065 * (difficulty - 3), .80, 1.20)
+    attack_factor = clamp(opponent_factor * fixture_factor * (1.08 if home else .94), .62, 1.48)
+    expected_opp_goals = clamp(_MODEL["league_goals"] *
+                              a.get(opponent, 1) * d.get(team, 1) *
+                              (0.94 if home else 1.08), .45, 2.9)
+    played_fraction = clamp(minutes / 90, 0, 1)
+    # Expected share of matches in which the player reaches 60 minutes.
+    chance_60 = clamp((minutes - 14) / 70, 0, 1)
+    chance_any = clamp(minutes / 58, 0, 1)
+    prior_goals = {1: .006, 2: .045, 3: .15, 4: .27}[pos]
+    prior_assists = {1: .006, 2: .075, 3: .13, 4: .11}[pos]
+    xg = _smooth_rate(player, "expected_goals_per_90", "expected_goals", prior_goals)
+    xa = _smooth_rate(player, "expected_assists_per_90", "expected_assists", prior_assists)
+    goal_exp = xg * played_fraction * attack_factor
+    assist_exp = xa * played_fraction * attack_factor
+    appearance = chance_any + chance_60
+    goal_pts = {1: 10, 2: 6, 3: 5, 4: 4}[pos]
+    goals = goal_pts * goal_exp
+    assists = 3 * assist_exp
+    cs_probability = exp(-expected_opp_goals)
+    cs_pts = {1: 4, 2: 4, 3: 1, 4: 0}[pos] * cs_probability * chance_60
+    # GK saves per 90 and conceded goals are season-wide public FPL values.
+    saves_rate = _smooth_rate(player, "saves_per_90", "saves", 2.9, 540) if pos == 1 else 0
+    saves = (saves_rate / 3) * played_fraction if pos == 1 else 0
+    # Expected floor penalty from conceding two+ goals, with rough minute scaling.
+    conceding = 0.0
+    if pos in (1, 2):
+        lam = expected_opp_goals * played_fraction
+        conceding = -.60 * max(0, lam - (1 - exp(-lam)))
+    bonus_rate = _smooth_rate(player, "bonus_per_90", "bonus", .32, 900)
+    bonus = clamp(bonus_rate * played_fraction * (0.85 + .15 * attack_factor), 0, 1.7)
+    dc = 0.0
+    if pos in (2, 3, 4):
+        prior_dc = {2: 6.4, 3: 5.2, 4: 2.8}[pos]
+        dc_rate = _smooth_rate(player, "defensive_contribution_per_90",
+                               "defensive_contribution", prior_dc, 720)
+        threshold = 10 if pos == 2 else 12
+        dc = 2 * _poisson_at_least(threshold, dc_rate * played_fraction)
+    # Yellow-card probabilities inferred from season card rates (crude).
+    yellow_rate = _smooth_rate(player, "yellow_per_90", "yellow_cards", .10, 900)
+    discipline = -.9 * yellow_rate * played_fraction
+    return {"appearance": appearance, "goals": goals, "assists": assists,
+            "clean_sheet": cs_pts, "saves": saves, "goals_conceded": conceding,
+            "bonus": bonus, "defensive_contributions": dc, "discipline": discipline,
+            "goal_expectation": goal_exp, "assist_expectation": assist_exp,
+            "cs_probability": cs_probability * chance_60, "expected_minutes": minutes}
+
+
+def player_prediction(player: dict, gw: int, fixtures: dict,
+                      minutes_overrides: dict[int, float] | None = None) -> dict:
+    """Return explainable projected FPL points and an approximate 80% range."""
+    pid = int(player["id"])
+    override = (minutes_overrides or {}).get(pid)
+    minutes = clamp(num(override, projected_minutes(player)), 0, 90)
+    key = (pid, int(gw), round(minutes, 2), id(fixtures))
+    cached = _MODEL["cache"].get(key)
+    if cached is not None:
+        return cached
+    games = fixtures.get((int(gw), int(player.get("team", 0))), [])
+    totals = {k: 0.0 for k in ("appearance", "goals", "assists", "clean_sheet", "saves",
+                                  "goals_conceded", "bonus", "defensive_contributions", "discipline",
+                                  "goal_expectation", "assist_expectation")}
+    cs_probs = []
+    variance = 0.0
+    pos = int(player.get("element_type", 3))
+    for match in games:
+        comp = _fixture_components(player, int(match["opponent"]), bool(match["home"]),
+                                   minutes, int(match.get("difficulty", 3)))
+        for k in totals:
+            totals[k] += comp[k]
+        cs_probs.append(comp["cs_probability"])
+        variance += ({1: 10, 2: 6, 3: 5, 4: 4}[pos] ** 2 * comp["goal_expectation"]
+                     + 9 * comp["assist_expectation"]
+                     + ({1: 4, 2: 4, 3: 1, 4: 0}[pos] ** 2) *
+                     comp["cs_probability"] * (1 - comp["cs_probability"]) + 2.0)
+    xp = max(0.0, sum(totals[k] for k in totals if k not in ("goal_expectation", "assist_expectation")))
+    # This is a Poisson/ Bernoulli approximation, NOT a calibrated forecast interval.
+    std = variance ** .5
+    output = {**{k: round(v, 2) for k, v in totals.items()},
+              "xp": round(xp, 2), "lower": round(max(0, xp - 1.28 * std), 1),
+              "upper": round(xp + 1.28 * std, 1), "minutes": minutes,
+              "fixtures_count": len(games), "cs_probability": round(sum(cs_probs), 3)}
+    _MODEL["cache"][key] = output
+    return output
 
 
 def player_fixture_xp(player: dict, gw: int, fixtures: dict,
                       minutes_overrides: dict[int, float] | None = None) -> float:
-    """Heuristic gameweek xP. Sum fixtures for doubles; zero for blanks."""
-    team_id = int(player.get("team", 0))
-    games = fixtures.get((int(gw), team_id), [])
-    if not games:
-        return 0.0
-    pid = int(player["id"])
-    mins = max(0.0, min(90.0, num((minutes_overrides or {}).get(pid), projected_minutes(player))))
-    pos = int(player.get("element_type", 3))
-    ppg = num(player.get("points_per_game"))
-    form = num(player.get("form"))
-    ict = num(player.get("ict_index"))
-    goals = num(player.get("expected_goals_per_90"))
-    assists = num(player.get("expected_assists_per_90"))
-    clean = num(player.get("expected_goals_conceded_per_90"), 1.4)
-    attacking = goals * ({1: 10, 2: 6, 3: 5, 4: 4}[pos]) + assists * 3
-    baseline = (max(0.0, ppg) * .45 + max(0.0, form) * .25 +
-                max(0.0, attacking) * .24 + min(10, ict / 30) * .06)
-    if ppg <= 0 and form <= 0:
-        baseline = max(baseline, {1: 2.3, 2: 2.5, 3: 2.8, 4: 2.7}[pos])
-    defensive_bonus = max(0, 1.6 - clean) * {1: 1.0, 2: 1.0, 3: .25, 4: 0.0}[pos]
-    total = 0.0
-    for match in games:
-        difficulty = match["difficulty"]
-        multiplier = max(.65, min(1.25, 1.13 - .09 * (difficulty - 2)))
-        home_bonus = 1.04 if match["home"] else .97
-        total += (baseline + defensive_bonus + .8) * (mins / 85) * multiplier * home_bonus
-    return round(max(0.0, total), 2)
+    return player_prediction(player, gw, fixtures, minutes_overrides)["xp"]
 
 
 def horizon_xp(player: dict, gameweeks: list[int], fixtures: dict,
