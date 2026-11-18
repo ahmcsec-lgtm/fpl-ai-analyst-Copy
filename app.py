@@ -194,6 +194,22 @@ def pitch(xi: list[dict], captain_id: int, vice_id: int, gw: int,
     st.markdown('<div class="pitch">' + "".join(lines) + '</div>', unsafe_allow_html=True)
 
 
+# Friendly availability labels for the official FPL player status codes.
+STATUS_LABELS = {
+    "a": "🟢 Available",
+    "d": "🟠 Doubtful",
+    "i": "🔴 Injured",
+    "s": "🔴 Suspended",
+    "u": "⚪ Unavailable",
+    "n": "⚪ Not available",
+}
+
+
+def player_status_label(player: dict) -> str:
+    code = str(player.get("status") or "").strip().lower()
+    return STATUS_LABELS.get(code, f"⚪ Unknown ({code})" if code else "⚪ Unknown")
+
+
 def squad_frame(squad: list[dict], gws: list[int], fixture_map: dict,
                 clubs: dict, overrides: dict) -> pd.DataFrame:
     return pd.DataFrame([{
@@ -201,7 +217,7 @@ def squad_frame(squad: list[dict], gws: list[int], fixture_map: dict,
         "GW xP": round(player_fixture_xp(p, gws[0], fixture_map, overrides), 2),
         "Horizon xP": round(horizon_xp(p, gws, fixture_map, overrides), 2),
         "Sell price": money(p.get("selling_price", p.get("now_cost", 0))),
-        "Status": p.get("status", "?"),
+        "Status": player_status_label(p),
     } for p in squad])
 
 
@@ -438,7 +454,7 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
         if selected_player.get("news"):
             st.warning(str(selected_player["news"]))
         if selected_player.get("status", "a") != "a":
-            st.caption("Availability flag from FPL: " + str(selected_player.get("status")))
+            st.caption("FPL availability: " + player_status_label(selected_player))
         per_gw = []
         for week in gws:
             pred = player_prediction(selected_player, week, fixture_map, minutes_overrides)
