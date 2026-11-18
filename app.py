@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.2.4 — automatic best formation per Gameweek.
+"""AJK Bola Wawei AI v5.2.5 — quick transfers in My Team.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -525,6 +525,83 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
             st.session_state.manual_xi = []
             st.session_state.manual_captain = None
         st.rerun()
+    with st.expander("🔁 Change a player · Quick manual transfer", expanded=False):
+        st.caption("Replace one squad player with an affordable player in the same position. "
+                   "This updates your simulated draft for every previewed GW; it does not make an actual FPL transfer.")
+        owned_ids = {int(p["id"]) for p in squad}
+        out_ids = sorted(owned_ids, key=lambda pid: (
+            int(player_by_id[pid]["element_type"]),
+            str(player_by_id[pid].get("web_name", ""))
+        ))
+        sell_id = st.selectbox(
+            "1 · Select a player to replace", out_ids,
+            format_func=lambda pid: label(next(p for p in squad if int(p["id"]) == pid), clubs),
+            key="my_team_transfer_out",
+        )
+        outgoing = next(p for p in squad if int(p["id"]) == sell_id)
+        sell_price = int(outgoing.get("selling_price", outgoing.get("now_cost", 0)))
+        budget = bank + sell_price
+        # Pre-filter club quota and position before displaying candidates.
+        club_counts = Counter(int(p["team"]) for p in squad if int(p["id"]) != sell_id)
+        candidates = [p for p in players
+                      if int(p["id"]) not in owned_ids
+                      and int(p["element_type"]) == int(outgoing["element_type"])
+                      and int(p["now_cost"]) <= budget
+                      and club_counts[int(p["team"])] < 3]
+        candidates.sort(
+            key=lambda p: (horizon_xp(p, gws, fixture_map, minutes_overrides),
+                           player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides)),
+            reverse=True,
+        )
+        st.caption(f"Available budget: **{money(budget)}** (selling price {money(sell_price)} + bank {money(bank)})"
+                   f" · {len(candidates)} eligible replacements · Sorted by projected {len(gws)}-GW points")
+        if not candidates:
+            st.warning("No affordable, legal replacements for this player. Choose a different player to replace.")
+        else:
+            candidate_ids = [int(p["id"]) for p in candidates]
+            buy_id = st.selectbox(
+                "2 · Choose a replacement", candidate_ids,
+                format_func=lambda pid: (
+                    f"{label(player_by_id[pid], clubs)} · "
+                    f"{horizon_xp(player_by_id[pid], gws, fixture_map, minutes_overrides):.1f} xP"
+                ),
+                key="my_team_transfer_in",
+            )
+            incoming = player_by_id[buy_id]
+            revised = [p for p in squad if int(p["id"]) != sell_id] + [
+                {**incoming, "selling_price": int(incoming["now_cost"])}
+            ]
+            remaining_bank = budget - int(incoming["now_cost"])
+            if valid_squad(revised) and remaining_bank >= 0:
+                old_gw_xp = player_fixture_xp(outgoing, preview_gw, fixture_map, minutes_overrides)
+                new_gw_xp = player_fixture_xp(incoming, preview_gw, fixture_map, minutes_overrides)
+                revised_rating = team_rating(revised, gws, fixture_map, minutes_overrides)
+                gain = revised_rating["total_xp"] - assessment["total_xp"]
+                st.markdown(transfer_faces_html([{"out": sell_id, "in": buy_id}], player_by_id),
+                            unsafe_allow_html=True)
+                a, b, c = st.columns(3)
+                a.metric(f"GW {preview_gw} player xP change", f"{new_gw_xp - old_gw_xp:+.1f}")
+                b.metric(f"{len(gws)}-GW squad xP change", f"{gain:+.1f}")
+                c.metric("Bank after transfer", money(remaining_bank))
+                st.caption("Squad xP includes optimised lineups and captaincy. "
+                           "The gain shown is before any transfer hit; check your free transfers in Planning settings.")
+                if st.button("3 · Apply player change to My Team draft", type="primary",
+                             use_container_width=True, key="my_team_transfer_apply"):
+                    st.session_state.draft = revised
+                    st.session_state.bank = remaining_bank
+                    st.session_state.setdefault("draft_moves", []).append({"out": sell_id, "in": buy_id})
+                    # An incoming player may invalidate an old manually chosen XI.
+                    # Reset only lineup overrides; the user's original imported squad stays intact.
+                    st.session_state.manual_xi = []
+                    st.session_state.manual_captain = None
+                    st.session_state.manual_xi_by_gw = {}
+                    st.session_state.manual_captain_by_gw = {}
+                    st.session_state.advisor_result = None
+                    st.session_state.advisor_key = None
+                    st.rerun()
+            else:
+                st.warning("This player change would create an invalid squad. Try another replacement.")
+
     st.dataframe(squad_frame(squad, [preview_gw] + [gw for gw in gws if gw != preview_gw], fixture_map, clubs, minutes_overrides),
                  hide_index=True, use_container_width=True)
     risky = [p for p in squad if p.get("status", "a") != "a"]
@@ -639,37 +716,6 @@ if advice and st.session_state.get("advisor_key") == settings_key:
                      f"-{row['hits']} hit · {row['free_transfers_after']} FT next GW · Bank {money(row['bank'])}")
         st.caption("Future transfers use today's prices and availability; re-run after every deadline or price change. The bounded search may miss a better plan.")
 
-
-with st.expander("🔁 Manual Transfer · Compare and edit your draft"):
-    options = {int(p["id"]): label(p, clubs) for p in squad}
-    sell = st.selectbox("Transfer out", list(options), format_func=lambda pid: options[pid])
-    departing = next(p for p in squad if int(p["id"]) == sell)
-    owned_ids = {int(p["id"]) for p in squad}
-    affordability = bank + int(departing.get("selling_price", departing["now_cost"]))
-    candidates = [p for p in players if int(p["element_type"]) == int(departing["element_type"])
-                  and int(p["id"]) not in owned_ids and int(p["now_cost"]) <= affordability]
-    candidates.sort(key=lambda p: horizon_xp(p, gws, fixture_map, minutes_overrides), reverse=True)
-    new_id = st.selectbox("Transfer in", [int(p["id"]) for p in candidates],
-                          format_func=lambda pid: label(player_by_id[pid], clubs)) if candidates else None
-    if new_id is not None:
-        incoming = player_by_id[new_id]
-        proposal = [p for p in squad if int(p["id"]) != sell] + [incoming]
-        if valid_squad(proposal):
-            delta = team_rating(proposal, gws, fixture_map, minutes_overrides)["total_xp"] - assessment["total_xp"]
-            post_bank = affordability - int(incoming["now_cost"])
-            st.write(f"**Projected improvement:** {delta:+.1f} xP before transfer hits · **Bank afterward:** {money(post_bank)}")
-            if st.button("Apply manual transfer to draft"):
-                st.session_state.draft = [p for p in squad if int(p["id"]) != sell] + [
-                    {**incoming, "selling_price": int(incoming["now_cost"])}]
-                st.session_state.bank = post_bank
-                st.session_state.draft_moves.append({"out": sell, "in": new_id})
-                st.session_state.manual_xi = []
-                st.session_state.manual_captain = None
-                st.session_state.manual_xi_by_gw = {}
-                st.session_state.manual_captain_by_gw = {}
-                st.rerun()
-        else:
-            st.warning("That transfer exceeds the maximum three players per club.")
 
 with st.expander("✨ Wildcard / Free Hit · Generate a full squad"):
     chip = st.radio("Simulation", ["Wildcard", "Free Hit"], horizontal=True)
