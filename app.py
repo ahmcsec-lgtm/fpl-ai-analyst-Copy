@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.2 — premium, minimal My Team + Smart Transfer Advisor.
+"""AJK Bola Wawei AI v5.2.2 — premium, minimal My Team + Smart Transfer Advisor.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -231,6 +231,8 @@ def reset_draft(team_id: int, profile: dict, squad: list[dict], bank: int, from_
     st.session_state.from_gw = from_gw
     st.session_state.manual_xi = []
     st.session_state.manual_captain = None
+    st.session_state.manual_xi_by_gw = {}
+    st.session_state.manual_captain_by_gw = {}
     st.session_state.draft_moves = []
     st.session_state.chip_result = None
 
@@ -242,6 +244,8 @@ def restore_original_team() -> None:
     st.session_state.draft_moves = []
     st.session_state.manual_xi = []
     st.session_state.manual_captain = None
+    st.session_state.manual_xi_by_gw = {}
+    st.session_state.manual_captain_by_gw = {}
     st.session_state.chip_result = None
     st.session_state.advisor_result = None
     st.session_state.advisor_key = None
@@ -256,7 +260,9 @@ def draft_has_changes() -> bool:
             or int(st.session_state.bank) != int(st.session_state.original_bank)
             or bool(st.session_state.get("draft_moves"))
             or bool(st.session_state.get("manual_xi"))
-            or st.session_state.get("manual_captain") is not None)
+            or st.session_state.get("manual_captain") is not None
+            or bool(st.session_state.get("manual_xi_by_gw"))
+            or bool(st.session_state.get("manual_captain_by_gw")))
 
 
 st.markdown("""<div class="ajk-hero"><div class="ajk-kicker">SMART FPL DECISIONS · FREE</div><h1>⚽ AJK Bola Wawei AI</h1><p>Your squad. Smarter transfers. A premium-feel FPL command centre.</p></div>""", unsafe_allow_html=True)
@@ -317,7 +323,7 @@ if missing_session_keys:
     # Discard incompatible draft data rather than accessing partial state.
     # The manager must re-import once to rebuild a consistent v5 session.
     for key in required_session_keys + (
-        "manual_xi", "manual_captain", "draft_moves", "chip_result",
+        "manual_xi", "manual_captain", "manual_xi_by_gw", "manual_captain_by_gw", "draft_moves", "chip_result",
         "advisor_key", "advisor_result",
     ):
         st.session_state.pop(key, None)
@@ -368,15 +374,20 @@ actuals = st.session_state.get("accuracy_actuals", {})
 completed = join_actuals(validated, actuals, finalized)
 calibration = configure_calibration(completed, selected_gw)
 
+# The forecast horizon and the displayed pitch GW are deliberately independent.
+# Changing preview_gw never changes optimiser input or the simulated 15-player squad.
+if st.session_state.get("preview_gw") not in gws:
+    st.session_state.preview_gw = gws[0]
+preview_gw = int(st.session_state.preview_gw)
 assessment = team_rating(squad, gws, fixture_map, minutes_overrides)
-lineup = best_lineup(squad, selected_gw, fixture_map, minutes_overrides)
+lineup = best_lineup(squad, preview_gw, fixture_map, minutes_overrides)
 st.subheader(profile.get("name", "My FPL Team"))
-st.caption(f"Imported from GW {st.session_state.from_gw} · Current view: GW {selected_gw} · All changes are simulations only")
+st.caption(f"Imported from GW {st.session_state.from_gw} · Pitch preview: GW {preview_gw} · Planning: GW {gws[0]}–{gws[-1]} · All changes are simulations only")
 rating_value = max(0, min(100, int(assessment["rating"])))
 rating_label = "Excellent" if rating_value >= 85 else "Strong" if rating_value >= 70 else "Promising" if rating_value >= 55 else "Needs attention"
 st.markdown(f"""<div class="ajk-rating"><div><div class="eyebrow">AI TEAM RATING</div><div class="main">{rating_label} squad</div><div class="sub">Projected form across {len(gws)} selected Gameweek(s) · independent heuristic rating</div></div><div class="circle" style="background:conic-gradient(#21d99b {rating_value}%,rgba(255,255,255,.10) 0)"><div class="inner">{rating_value}<span style="font-size:10px;opacity:.65">/100</span></div></div></div>""",unsafe_allow_html=True)
 metrics = st.columns(3)
-metrics[0].metric(f"GW {selected_gw} xP", f"{lineup['total_xp']:.1f}")
+metrics[0].metric(f"GW {preview_gw} xP", f"{lineup['total_xp']:.1f}")
 metrics[1].metric(f"{len(gws)}-GW projected", f"{assessment['total_xp']:.1f}")
 metrics[2].metric("Bank", money(bank))
 
@@ -392,25 +403,42 @@ else:
 
 st.divider()
 with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=True):
+    st.markdown("**Preview your squad across the selected Gameweeks**")
+    preview_gw = st.select_slider(
+        "Preview Gameweek", options=gws, value=preview_gw,
+        format_func=lambda gw: f"GW {gw}",
+    )
+    # Streamlit widgets update on rerun; changing the preview only changes this view.
+    if int(preview_gw) != int(st.session_state.preview_gw):
+        st.session_state.preview_gw = int(preview_gw)
+        st.rerun()
+    st.caption(f"GW {preview_gw} preview · {len(gws)} Gameweek(s) in your Look Ahead range. "
+               "Squad transfers are not automatically applied in future weeks.")
     auto_xi = lineup["xi"]
-    manual_ids = set(st.session_state.get("manual_xi", []))
+    weekly_xi = st.session_state.get("manual_xi_by_gw", {})
+    manual_ids = set(weekly_xi.get(preview_gw, st.session_state.get("manual_xi", []) if preview_gw == selected_gw else []))
     xi = [p for p in squad if int(p["id"]) in manual_ids] if len(manual_ids) == 11 else auto_xi
     counts = Counter(int(p["element_type"]) for p in xi)
     if len(xi) != 11 or not (counts[1] == 1 and 3 <= counts[2] <= 5 and 2 <= counts[3] <= 5 and 1 <= counts[4] <= 3):
         xi = auto_xi
     cap_ids = [int(p["id"]) for p in xi]
-    cap_default = st.session_state.get("manual_captain")
+    cap_default = st.session_state.get("manual_captain_by_gw", {}).get(
+        preview_gw, st.session_state.get("manual_captain") if preview_gw == selected_gw else None
+    )
     cap = cap_default if cap_default in cap_ids else int(lineup["captain"]["id"])
     if cap not in cap_ids:
-        cap = max(xi, key=lambda p: player_fixture_xp(p, selected_gw, fixture_map, minutes_overrides))["id"]
+        cap = max(xi, key=lambda p: player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides))["id"]
     vice = next(pid for pid in cap_ids if pid != cap)
-    pitch(xi, cap, vice, selected_gw, fixture_map, clubs, minutes_overrides)
+    pitch(xi, cap, vice, preview_gw, fixture_map, clubs, minutes_overrides)
     c1, c2 = st.columns(2)
     with c1:
         captain = st.selectbox("Captain", cap_ids, index=cap_ids.index(cap),
-                               format_func=lambda pid: label(player_by_id[pid], clubs))
+                               format_func=lambda pid: label(player_by_id[pid], clubs),
+                               key=f"captain_preview_{st.session_state.loaded_id}_{preview_gw}")
         if captain != cap:
-            st.session_state.manual_captain = captain
+            st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = captain
+            if preview_gw == selected_gw:
+                st.session_state.manual_captain = captain
             st.rerun()
     with c2:
         st.caption("The pitch defaults to the model's best XI. Select a starter and a bench player below to make a manual swap.")
@@ -424,16 +452,22 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
         proposed = [p for p in squad if int(p["id"]) in test_ids]
         c = Counter(int(p["element_type"]) for p in proposed)
         if len(proposed) == 11 and c[1] == 1 and 3 <= c[2] <= 5 and 2 <= c[3] <= 5 and 1 <= c[4] <= 3:
-            st.session_state.manual_xi = list(test_ids)
-            st.session_state.manual_captain = captain if captain in test_ids else None
+            st.session_state.setdefault("manual_xi_by_gw", {})[preview_gw] = list(test_ids)
+            st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = captain if captain in test_ids else None
+            if preview_gw == selected_gw:
+                st.session_state.manual_xi = list(test_ids)
+                st.session_state.manual_captain = captain if captain in test_ids else None
             st.rerun()
         else:
             st.warning("Invalid formation. A legal XI needs 1 GKP, 3–5 DEF, 2–5 MID and 1–3 FWD.")
-    if st.button("Restore best XI and captain"):
-        st.session_state.manual_xi = []
-        st.session_state.manual_captain = None
+    if st.button(f"Restore best XI and captain for GW {preview_gw}"):
+        st.session_state.setdefault("manual_xi_by_gw", {}).pop(preview_gw, None)
+        st.session_state.setdefault("manual_captain_by_gw", {}).pop(preview_gw, None)
+        if preview_gw == selected_gw:
+            st.session_state.manual_xi = []
+            st.session_state.manual_captain = None
         st.rerun()
-    st.dataframe(squad_frame(squad, gws, fixture_map, clubs, minutes_overrides),
+    st.dataframe(squad_frame(squad, [preview_gw] + [gw for gw in gws if gw != preview_gw], fixture_map, clubs, minutes_overrides),
                  hide_index=True, use_container_width=True)
     risky = [p for p in squad if p.get("status", "a") != "a"]
     if risky:
@@ -446,7 +480,7 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
             format_func=lambda pid: label(next(p for p in squad if int(p["id"]) == pid), clubs),
             key="v52_insight_player")
         selected_player = next(p for p in squad if int(p["id"]) == selected_player_id)
-        breakdown = player_prediction(selected_player, selected_gw, fixture_map, minutes_overrides)
+        breakdown = player_prediction(selected_player, preview_gw, fixture_map, minutes_overrides)
         pc1, pc2, pc3 = st.columns(3)
         pc1.metric("GW xP", f"{breakdown['xp']:.1f}")
         pc2.metric("Expected minutes", f"{breakdown['minutes']:.0f}")
@@ -533,6 +567,8 @@ if advice and st.session_state.get("advisor_key") == settings_key:
                 st.session_state.draft_moves += advice["first_moves"]
                 st.session_state.manual_xi = []
                 st.session_state.manual_captain = None
+                st.session_state.manual_xi_by_gw = {}
+                st.session_state.manual_captain_by_gw = {}
                 st.session_state.advisor_result = None
                 st.rerun()
             except (ValueError, StopIteration, KeyError) as exc:
@@ -571,6 +607,8 @@ with st.expander("🔁 Manual Transfer · Compare and edit your draft"):
                 st.session_state.draft_moves.append({"out": sell, "in": new_id})
                 st.session_state.manual_xi = []
                 st.session_state.manual_captain = None
+                st.session_state.manual_xi_by_gw = {}
+                st.session_state.manual_captain_by_gw = {}
                 st.rerun()
         else:
             st.warning("That transfer exceeds the maximum three players per club.")
@@ -604,6 +642,8 @@ with st.expander("✨ Wildcard / Free Hit · Generate a full squad"):
             st.session_state.bank = result["bank"]
             st.session_state.manual_xi = []
             st.session_state.manual_captain = None
+            st.session_state.manual_xi_by_gw = {}
+            st.session_state.manual_captain_by_gw = {}
             st.session_state.draft_moves = []
             st.session_state.chip_result = None
             st.rerun()
