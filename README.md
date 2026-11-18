@@ -1,6 +1,6 @@
 # FPL AI Analyst — upgraded free core
 
-A Streamlit app for FPL manager `1645144`, with a public Team ID analyzer.
+A Streamlit app for FPL manager, with a public Team ID analyzer.
 
 ## Included features
 
