@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v6.6 — combined fixture and xP player cards with preserved planning tools.
+"""AJK Bola Wawei AI v6.7 — stadium background and combined fixture/xP cards with preserved planning tools.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
+import base64
+from pathlib import Path
 import html
 import re
 
@@ -406,6 +408,57 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
 
 </style>
 """, unsafe_allow_html=True)
+
+
+# v6.7: Use a locally bundled stadium photo as the page background.
+# Keeping it as an asset (rather than an external URL) avoids dependency on
+# another website and allows the CSS gradient to remain a fallback.
+@st.cache_data(show_spinner=False)
+def stadium_background_css() -> str:
+    image_path = Path(__file__).resolve().parent / "stadium_bg.webp"
+    if not image_path.is_file():
+        return ""  # Gradient background above remains available.
+    try:
+        image_data = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    except OSError:
+        return ""
+    return f"""
+    <style>
+    [data-testid="stAppViewContainer"] {{
+      background-color: #061321 !important;
+      background-image:
+        linear-gradient(180deg,
+          rgba(3, 13, 26, .46) 0%,
+          rgba(3, 13, 26, .57) 40%,
+          rgba(3, 13, 26, .68) 100%),
+        url('data:image/webp;base64,{image_data}') !important;
+      background-size: cover !important;
+      background-position: center center !important;
+      background-attachment: fixed !important;
+      background-repeat: no-repeat !important;
+    }}
+    /* Previous synthetic stadium effects shouldn't obscure the photograph. */
+    [data-testid="stAppViewContainer"]::before,
+    [data-testid="stAppViewContainer"]::after {{
+      opacity: 0 !important;
+    }}
+    [data-testid="stHeader"] {{
+      background: rgba(3, 13, 26, .20) !important;
+    }}
+    @media (max-width: 780px) {{
+      [data-testid="stAppViewContainer"] {{
+        background-attachment: scroll !important;
+        background-position: center top !important;
+        background-size: auto 100vh !important;
+      }}
+    }}
+    </style>
+    """
+
+
+_stadium_css = stadium_background_css()
+if _stadium_css:
+    st.markdown(_stadium_css, unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=900, show_spinner=False)
