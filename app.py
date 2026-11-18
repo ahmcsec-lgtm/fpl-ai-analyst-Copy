@@ -1077,6 +1077,96 @@ def load_manager(team_id: int, events: list[dict], player_by_id: dict) -> tuple[
     raise ValueError("Unable to find a complete public 15-player team. Check your Team ID.")
 
 
+
+def estimate_public_free_transfers(history: dict, transfers: list[dict],
+                                   upcoming_gw: int) -> tuple[int | None, str]:
+    """Estimate current FT balance from public FPL history (never claim exactness).
+
+    The authenticated /my-team/ endpoint is needed for the definitive live balance.
+    Current transfers may be pending and current-chip activation may be invisible.
+    """
+    rows = sorted(
+        (row for row in history.get("current", [])
+         if row.get("event") is not None),
+        key=lambda row: int(row["event"]),
+    )
+    if not rows:
+        return None, "No completed manager history yet"
+
+    first_recorded = int(rows[0]["event"])
+    if upcoming_gw <= first_recorded:
+        return None, "Opening Gameweek or insufficient transfer history"
+
+    by_event = {int(row["event"]): row for row in rows}
+    chips = {
+        int(chip["event"]): str(chip.get("name", "")).lower()
+        for chip in history.get("chips", []) if chip.get("event") is not None
+    }
+    transfer_counts = Counter(
+        int(move["event"]) for move in transfers
+        if move.get("event") is not None
+    )
+
+    # A new team has unlimited transfers before its first deadline. The next
+    # Gameweek starts with one standard free transfer.
+    available = 1
+    for gw in range(first_recorded + 1, upcoming_gw):
+        row = by_event.get(gw)
+        if row is None:
+            return None, f"Missing historical records for GW {gw}"
+        if chips.get(gw) in {"wildcard", "freehit"}:
+            # WC/FH use that GW's newly awarded FT; previously banked FTs
+            # carry into the following week (official 2026/27 rules).
+            continue
+        count = int(row.get("event_transfers", transfer_counts.get(gw, 0)) or 0)
+        available = min(5, max(0, available - count) + 1)
+
+    if chips.get(upcoming_gw) in {"wildcard", "freehit"}:
+        return available, "Chip use may affect the live balance"
+
+    # /entry/{id}/transfers/ includes already-confirmed transfers for the
+    # upcoming GW that won't appear in finished Gameweek history yet.
+    already_made = transfer_counts.get(upcoming_gw, 0)
+    remaining = max(0, available - already_made)
+    return remaining, (f"Estimated for GW {upcoming_gw} from public transfer history"
+                       + (f"; {already_made} confirmed move(s) counted" if already_made else ""))
+
+
+def fetch_free_transfer_estimate(team_id: int, upcoming_gw: int) -> tuple[int | None, str]:
+    """Fail gracefully; public APIs do not expose the exact authenticated balance."""
+    try:
+        history = get_json(f"entry/{team_id}/history/")
+        transfers = get_json(f"entry/{team_id}/transfers/")
+        if not isinstance(history, dict) or not isinstance(transfers, list):
+            return None, "Public transfer history unavailable"
+        return estimate_public_free_transfers(history, transfers, upcoming_gw)
+    except (requests.RequestException, TypeError, ValueError, KeyError):
+        return None, "Could not load public transfer history"
+
+
+def free_transfer_was_edited() -> None:
+    # Streamlit invokes this only on a user change to the +/- input.
+    st.session_state.ajk_ft_manual_override = True
+
+
+def update_estimated_ft(team_id: int, upcoming_gw: int, *, force: bool = False) -> None:
+    """Refresh on import/new GW but never overwrite a user's correction."""
+    marker = (int(team_id), int(upcoming_gw))
+    if (not force and st.session_state.get("ajk_ft_marker") == marker
+            and st.session_state.get("ajk_ft_manual_override")):
+        return
+    estimate, note = fetch_free_transfer_estimate(team_id, upcoming_gw)
+    previous_marker = st.session_state.get("ajk_ft_marker")
+    st.session_state.ajk_ft_marker = marker
+    st.session_state.ajk_ft_estimate = estimate
+    st.session_state.ajk_ft_note = note
+    if (force or previous_marker != marker
+            or not st.session_state.get("ajk_ft_manual_override", False)):
+        # Fallback is intentionally editable; no claim of an exact balance.
+        st.session_state.ajk_free_transfers = int(estimate) if estimate is not None else 1
+        st.session_state.ajk_ft_manual_override = False
+
+
 def fixture_badge(player: dict, gw: int, fixture_map: dict,
                   clubs: dict[int, str]) -> str:
     """One or multiple fixtures for the selected Gameweek, or a blank GW."""
@@ -1342,6 +1432,10 @@ if not available_gws or first_gw == 0:
     st.info("No upcoming Gameweek is currently published by FPL.")
     st.stop()
 
+# Auto-fill free transfers for an already loaded manager, including after a redeploy.
+if st.session_state.get("loaded_id"):
+    update_estimated_ft(int(st.session_state.loaded_id), first_gw)
+
 # One small panel for importing a team and editing every planning preference.
 # Streamlit keeps the form field empty by default: no personal Team ID is embedded.
 previous_profile = st.session_state.get("manager_profile") or {}
@@ -1404,9 +1498,18 @@ with st.expander(
             )
         with ft_col:
             ft = st.number_input(
-                "Free transfers available (check your FPL account)",
-                min_value=0, max_value=5, value=1, key="ajk_free_transfers",
+                "Free transfers available (−/+ to correct)",
+                min_value=0, max_value=5, step=1,
+                key="ajk_free_transfers", on_change=free_transfer_was_edited,
             )
+            estimate = st.session_state.get("ajk_ft_estimate")
+            if st.session_state.get("ajk_ft_manual_override"):
+                st.caption("✏️ Manually adjusted · Your value takes priority.")
+            elif estimate is not None:
+                st.caption(f"🔄 Estimated from public FPL history: {estimate} FT · "
+                           "Verify against your official Transfers page.")
+            else:
+                st.caption("Public balance couldn't be estimated. Please set it with −/+.")
         st.caption("Projections are estimates, not guaranteed outcomes.")
     else:
         strategy = st.session_state.get("ajk_strategy", "Balanced")
@@ -1420,6 +1523,7 @@ if submitted:
         try:
             profile, imported, cash, loaded_gw = load_manager(int(value), events, player_by_id)
             reset_draft(int(value), profile, imported, cash, loaded_gw)
+            update_estimated_ft(int(value), first_gw, force=True)
             st.rerun()
         except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
             st.error(f"Team could not be imported: {exc}")
