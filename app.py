@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.6 — click-to-captain / vice-captain pitch controls.
+"""AJK Bola Wawei AI v5.7 — player action panel on click.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -24,7 +24,7 @@ from fpl_engine import (
 )
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.5.1 (public FPL data)"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.7 (public FPL data)"}
 
 st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -378,8 +378,9 @@ def pitch(xi: list[dict], captain_id: int, vice_id: int, gw: int,
 def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
                     vice_id: int, gw: int, fixture_map: dict,
                     clubs: dict, overrides: dict, display: str,
-                    selected_id: int | None, on_click, click_mode: str = "Substitute") -> None:
-    """Native interactive pitch with substitution and captaincy click modes."""
+                    selected_id: int | None, on_click,
+                    awaiting_swap: bool = False) -> None:
+    """Clickable portrait pitch: select a player, then choose an action below."""
     starters = {int(p["id"]) for p in xi}
     bench = [p for p in squad if int(p["id"]) not in starters]
     keeper = [p for p in bench if int(p["element_type"]) == 1]
@@ -388,32 +389,22 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
         key=lambda p: player_fixture_xp(p, gw, fixture_map, overrides), reverse=True,
     )
 
-    def player_button(player: dict, *, is_bench: bool, bench_no: str = "") -> None:
+    def player_button(player: dict, *, bench_no: str = "") -> None:
         pid = int(player["id"])
         name = str(player.get("web_name", "?"))
         photo = player_photo_url(player)
         portrait = f"![photo]({photo})" if photo else "👤"
-        if display == "Fixture":
-            detail = fixture_badge(player, gw, fixture_map, clubs)
-        else:
-            detail = f"{player_fixture_xp(player, gw, fixture_map, overrides):.1f} xP"
+        detail = (fixture_badge(player, gw, fixture_map, clubs) if display == "Fixture"
+                  else f"{player_fixture_xp(player, gw, fixture_map, overrides):.1f} xP")
         role = "captain" if pid == captain_id else "vice" if pid == vice_id else "regular"
         warning = " ⚠️" if str(player.get("status", "a")) != "a" else ""
         prefix = f"{bench_no} · " if bench_no else ""
-        card = f"{portrait}  \n{prefix}{name}{warning}  \n{detail}"
-        if click_mode == "Captain":
-            hint = ("Bench players cannot be captains" if is_bench
-                    else f"Set {name} as captain")
-        elif click_mode == "Vice-Captain":
-            hint = ("Bench players cannot be vice-captains" if is_bench
-                    else f"Set {name} as vice-captain")
-        else:
-            hint = ("Click again to cancel selection" if selected_id == pid
-                    else f"Select {name} for substitution")
         st.button(
-            card, key=f"pitch_click_{gw}_{pid}_{role}", use_container_width=True,
-            type="primary" if selected_id == pid and click_mode == "Substitute" else "secondary",
-            help=hint, disabled=is_bench and click_mode != "Substitute",
+            f"{portrait}  \n{prefix}{name}{warning}  \n{detail}",
+            key=f"pitch_click_{gw}_{pid}_{role}", use_container_width=True,
+            type="primary" if selected_id == pid else "secondary",
+            help=(f"Choose {name} as a substitution target" if awaiting_swap else
+                  f"Show actions for {name}"),
             on_click=on_click, args=(pid,),
         )
 
@@ -425,7 +416,6 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
             group = [p for p in xi if int(p["element_type"]) == position]
             if not group:
                 continue
-            # Center narrow rows (GK / forwards) using small invisible spacer columns.
             total = max(5, len(group))
             side = (total - len(group)) / 2
             widths = ([side] if side else []) + [1] * len(group) + ([side] if side else [])
@@ -433,17 +423,14 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
             offset = 1 if side else 0
             for i, player in enumerate(group):
                 with cols[i + offset]:
-                    player_button(player, is_bench=False)
+                    player_button(player)
     with st.container(key="ajk_click_bench"):
-        bench_hint = ("Tap a starter, then tap a substitute to swap" if click_mode == "Substitute"
-                      else "Captain and vice-captain must be in the starting XI")
-        st.markdown(f"**SUBSTITUTES** · {bench_hint}")
-        ordered = keeper + outfield
+        st.markdown("**SUBSTITUTES** · Click any player to see available actions")
         cols = st.columns(4, gap="small")
-        for i, player in enumerate(ordered):
+        for i, player in enumerate(keeper + outfield):
             with cols[i]:
                 bench_no = "GK" if int(player["element_type"]) == 1 else str(i)
-                player_button(player, is_bench=True, bench_no=bench_no)
+                player_button(player, bench_no=bench_no)
 
 
 # Friendly availability labels for the official FPL player status codes.
@@ -473,6 +460,13 @@ def squad_frame(squad: list[dict], gws: list[int], fixture_map: dict,
     } for p in squad])
 
 
+def clear_pitch_actions() -> None:
+    """Close old player menus and pending substitutions after squad-wide edits."""
+    for key in list(st.session_state):
+        if str(key).startswith(("pitch_action_selected_", "pitch_action_swap_", "pitch_swap_selected_")):
+            st.session_state.pop(key, None)
+
+
 def reset_draft(team_id: int, profile: dict, squad: list[dict], bank: int, from_gw: int) -> None:
     st.session_state.loaded_id = team_id
     st.session_state.manager_profile = profile
@@ -488,6 +482,7 @@ def reset_draft(team_id: int, profile: dict, squad: list[dict], bank: int, from_
     st.session_state.manual_vice_by_gw = {}
     st.session_state.draft_moves = []
     st.session_state.chip_result = None
+    clear_pitch_actions()
 
 
 def restore_original_team() -> None:
@@ -503,9 +498,7 @@ def restore_original_team() -> None:
     st.session_state.chip_result = None
     st.session_state.advisor_result = None
     st.session_state.advisor_key = None
-    for key in list(st.session_state):
-        if str(key).startswith("pitch_swap_selected_"):
-            st.session_state.pop(key, None)
+    clear_pitch_actions()
 
 
 def draft_has_changes() -> bool:
@@ -717,78 +710,37 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
     vice_override = st.session_state.get("manual_vice_by_gw", {}).get(preview_gw)
     vice = (vice_override if vice_override in cap_ids and vice_override != cap
             else max((pid for pid in cap_ids if pid != cap), key=lambda pid: gw_xp[pid]))
-    st.radio(
-        "When I click a player", ["Substitute", "Captain", "Vice-Captain"],
-        horizontal=True, key="pitch_click_mode",
-    )
-    click_mode = st.session_state.pitch_click_mode
     pitch_display = st.radio(
         "Show on player cards", options=["xP", "Fixture"], horizontal=True,
         key="squad_pitch_display", label_visibility="collapsed",
     )
-    # Each click selects a player; a click on the opposite side makes the swap.
-    click_state_key = f"pitch_swap_selected_{st.session_state.loaded_id}_{preview_gw}"
-    selected_for_swap = st.session_state.get(click_state_key)
+    selection_key = f"pitch_action_selected_{st.session_state.loaded_id}_{preview_gw}"
+    pending_key = f"pitch_action_swap_{st.session_state.loaded_id}_{preview_gw}"
+    selected_player_id = st.session_state.get(selection_key)
+    pending_player_id = st.session_state.get(pending_key)
     available_ids = {int(p["id"]) for p in squad}
-    if selected_for_swap not in available_ids:
-        selected_for_swap = None
-        st.session_state.pop(click_state_key, None)
+    current_starters = {int(p["id"]) for p in xi}
+    if selected_player_id not in available_ids:
+        st.session_state.pop(selection_key, None)
+        selected_player_id = None
+    if pending_player_id not in available_ids:
+        st.session_state.pop(pending_key, None)
+        pending_player_id = None
 
-    def on_pitch_player_click(clicked_id: int) -> None:
-        # Streamlit executes button callbacks before re-rendering the page.
-        # Captaincy changes are per-GW and never alter the imported FPL account.
-        if st.session_state.get("pitch_click_mode", "Substitute") in ("Captain", "Vice-Captain"):
-            current_starters = {int(p["id"]) for p in xi}
-            if clicked_id not in current_starters:
-                return
-            current_mode = st.session_state.pitch_click_mode
-            if current_mode == "Captain":
-                if clicked_id == cap:
-                    st.session_state["pitch_swap_message"] = "👑 This player is already your captain."
-                    return
-                st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = clicked_id
-                # If the former vice is promoted to captain, give vice to former captain.
-                if clicked_id == vice:
-                    st.session_state.setdefault("manual_vice_by_gw", {})[preview_gw] = cap
-                if preview_gw == selected_gw:
-                    st.session_state.manual_captain = clicked_id
-                st.session_state["pitch_swap_message"] = "👑 Captain updated for GW " + str(preview_gw) + "."
-            else:
-                if clicked_id == vice:
-                    st.session_state["pitch_swap_message"] = "◆ This player is already your vice-captain."
-                    return
-                st.session_state.setdefault("manual_vice_by_gw", {})[preview_gw] = clicked_id
-                # Vice-captain cannot be captain simultaneously; exchange roles.
-                if clicked_id == cap:
-                    st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = vice
-                    if preview_gw == selected_gw:
-                        st.session_state.manual_captain = vice
-                st.session_state["pitch_swap_message"] = "◆ Vice-captain updated for GW " + str(preview_gw) + "."
-            st.session_state.pop(click_state_key, None)
+    def make_substitution(first_id: int, second_id: int) -> None:
+        """Safely swap a starter and bench player within this GW only."""
+        if (first_id in current_starters) == (second_id in current_starters):
+            st.session_state["pitch_swap_message"] = "Choose one starter and one bench player."
             return
-        chosen = st.session_state.get(click_state_key)
-        if chosen is None:
-            st.session_state[click_state_key] = clicked_id
-            return
-        if chosen == clicked_id:
-            st.session_state.pop(click_state_key, None)
-            return
-        current_starters = {int(p["id"]) for p in xi}
-        if (chosen in current_starters) == (clicked_id in current_starters):
-            # Click another starter/bench player to change your selection.
-            st.session_state[click_state_key] = clicked_id
-            return
-        outgoing_id = chosen if chosen in current_starters else clicked_id
-        incoming_id = clicked_id if chosen in current_starters else chosen
+        outgoing_id = first_id if first_id in current_starters else second_id
+        incoming_id = second_id if first_id in current_starters else first_id
         proposed_ids = (current_starters - {outgoing_id}) | {incoming_id}
         proposed = [p for p in squad if int(p["id"]) in proposed_ids]
         ct = Counter(int(p["element_type"]) for p in proposed)
-        st.session_state.pop(click_state_key, None)
         if not (len(proposed) == 11 and ct[1] == 1 and
                 3 <= ct[2] <= 5 and 2 <= ct[3] <= 5 and 1 <= ct[4] <= 3):
             st.session_state["pitch_swap_message"] = (
-                "⚠️ That substitution would create an invalid formation. "
-                "Choose a different substitute (1 GKP, 3–5 DEF, 2–5 MID, 1–3 FWD)."
+                "⚠️ Invalid FPL formation. Select a different bench/starter pairing."
             )
             return
         st.session_state.setdefault("manual_xi_by_gw", {})[preview_gw] = list(proposed_ids)
@@ -804,30 +756,93 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
         if preview_gw == selected_gw:
             st.session_state.manual_xi = list(proposed_ids)
             st.session_state.manual_captain = current_captain
-        st.session_state["pitch_swap_message"] = "✅ Substitution applied to your GW preview."
+        st.session_state["pitch_swap_message"] = "✅ Substitution applied to GW " + str(preview_gw) + "."
 
-    if click_mode == "Captain":
-        st.caption("👑 Tap the picture of any starter to set your captain. The gold badge moves automatically.")
-    elif click_mode == "Vice-Captain":
-        st.caption("◆ Tap the picture of any starter to set your vice-captain. The silver badge moves automatically.")
-    elif selected_for_swap is None:
-        st.caption("👆 Tap a starter or substitute, then tap a player on the opposite side to swap. "
-                   "Illegal formations are blocked automatically.")
+    def on_pitch_player_click(clicked_id: int) -> None:
+        pending = st.session_state.get(pending_key)
+        if pending is not None:
+            if pending == clicked_id:
+                st.session_state.pop(pending_key, None)
+                st.session_state.pop(selection_key, None)
+                return
+            if (pending in current_starters) == (clicked_id in current_starters):
+                st.session_state["pitch_swap_message"] = "Choose a player on the other side of the bench."
+                return
+            make_substitution(pending, clicked_id)
+            st.session_state.pop(pending_key, None)
+            st.session_state.pop(selection_key, None)
+            return
+        if st.session_state.get(selection_key) == clicked_id:
+            st.session_state.pop(selection_key, None)
+        else:
+            st.session_state[selection_key] = clicked_id
+
+    if pending_player_id is not None:
+        chosen = next(p for p in squad if int(p["id"]) == pending_player_id)
+        direction = "bench player" if pending_player_id in current_starters else "starter"
+        st.info(f"🔄 Substituting **{chosen.get('web_name', '?')}** — click a {direction} on the pitch to complete the swap.")
+        if st.button("Cancel substitution", key=f"cancel_swap_{preview_gw}"):
+            st.session_state.pop(pending_key, None)
+            st.session_state.pop(selection_key, None)
+            st.rerun()
     else:
-        chosen_player = player_by_id.get(int(selected_for_swap), {})
-        st.info(f"Selected: **{chosen_player.get('web_name', '?')}**. "
-                "Tap a player on the opposite side to swap, or tap again to cancel.")
+        st.caption("👆 Click a player's photo to open their actions. Select Captain, Vice-Captain, or Substitute.")
     if st.session_state.get("pitch_swap_message"):
         st.caption(st.session_state.pop("pitch_swap_message"))
     clickable_pitch(xi, squad, cap, vice, preview_gw, fixture_map, clubs,
                     minutes_overrides, pitch_display or "xP",
-                    selected_for_swap if click_mode == "Substitute" else None,
-                    on_pitch_player_click, click_mode)
+                    pending_player_id if pending_player_id is not None else selected_player_id,
+                    on_pitch_player_click, awaiting_swap=pending_player_id is not None)
+
+    # The action menu appears only after the user clicks a player portrait/card.
+    selected_player_id = st.session_state.get(selection_key)
+    if pending_player_id is None and selected_player_id in available_ids:
+        chosen = next(p for p in squad if int(p["id"]) == selected_player_id)
+        is_starter = selected_player_id in current_starters
+        with st.container(key="ajk_player_actions"):
+            st.markdown(f"**{html.escape(str(chosen.get('web_name', '?')))} · Player actions**")
+            if is_starter:
+                a, b, c = st.columns(3, gap="small")
+                with a:
+                    if st.button("👑 Captain", key=f"action_captain_{preview_gw}",
+                                 use_container_width=True, disabled=selected_player_id == cap):
+                        st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = selected_player_id
+                        if selected_player_id == vice:
+                            st.session_state.setdefault("manual_vice_by_gw", {})[preview_gw] = cap
+                        if preview_gw == selected_gw:
+                            st.session_state.manual_captain = selected_player_id
+                        st.session_state.pop(selection_key, None)
+                        st.rerun()
+                with b:
+                    if st.button("◆ Vice-Captain", key=f"action_vice_{preview_gw}",
+                                 use_container_width=True, disabled=selected_player_id == vice):
+                        st.session_state.setdefault("manual_vice_by_gw", {})[preview_gw] = selected_player_id
+                        if selected_player_id == cap:
+                            st.session_state.setdefault("manual_captain_by_gw", {})[preview_gw] = vice
+                            if preview_gw == selected_gw:
+                                st.session_state.manual_captain = vice
+                        st.session_state.pop(selection_key, None)
+                        st.rerun()
+                with c:
+                    if st.button("🔄 Substitute", key=f"action_sub_{preview_gw}", use_container_width=True):
+                        st.session_state[pending_key] = selected_player_id
+                        st.session_state.pop(selection_key, None)
+                        st.rerun()
+            else:
+                st.caption("Bench players can be substituted into the XI. Captaincy is available after they become starters.")
+                if st.button("🔄 Substitute In", key=f"action_sub_in_{preview_gw}", use_container_width=True):
+                    st.session_state[pending_key] = selected_player_id
+                    st.session_state.pop(selection_key, None)
+                    st.rerun()
+            if st.button("Close player actions", key=f"close_action_{preview_gw}"):
+                st.session_state.pop(selection_key, None)
+                st.rerun()
     if st.button(f"Restore best XI and captain for GW {preview_gw}"):
         st.session_state.setdefault("manual_xi_by_gw", {}).pop(preview_gw, None)
         st.session_state.setdefault("manual_captain_by_gw", {}).pop(preview_gw, None)
         st.session_state.setdefault("manual_vice_by_gw", {}).pop(preview_gw, None)
-        st.session_state.pop(click_state_key, None)
+        st.session_state.pop(selection_key, None)
+        st.session_state.pop(pending_key, None)
         if preview_gw == selected_gw:
             st.session_state.manual_xi = []
             st.session_state.manual_captain = None
@@ -906,6 +921,7 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
                     st.session_state.manual_vice_by_gw = {}
                     st.session_state.advisor_result = None
                     st.session_state.advisor_key = None
+                    clear_pitch_actions()
                     st.rerun()
             else:
                 st.warning("This player change would create an invalid squad. Try another replacement.")
@@ -1014,6 +1030,7 @@ if advice and st.session_state.get("advisor_key") == settings_key:
                 st.session_state.manual_captain_by_gw = {}
                 st.session_state.manual_vice_by_gw = {}
                 st.session_state.advisor_result = None
+                clear_pitch_actions()
                 st.rerun()
             except (ValueError, StopIteration, KeyError) as exc:
                 st.error(str(exc))
