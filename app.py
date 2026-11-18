@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.2.2 — premium, minimal My Team + Smart Transfer Advisor.
+"""AJK Bola Wawei AI v5.2.4 — automatic best formation per Gameweek.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -441,26 +441,30 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
     ai_formation = formation_options[0]["Formation"]
     st.success(f"AI best for GW {preview_gw}: **{ai_formation}** · "
                f"**{formation_options[0]['XI + captain xP']:.2f} predicted points** (captain included)")
-    with st.expander("Compare all formations for this Gameweek", expanded=False):
-        st.caption("Calculated separately for this GW using current squad, fixture and minutes forecasts. "
-                   "A formation can legitimately be best in multiple consecutive GWs.")
-        st.dataframe(pd.DataFrame([{"Formation": f["Formation"],
-                                   "XI + captain xP": f["XI + captain xP"],
-                                   "Difference vs best": round(f["XI + captain xP"] - formation_options[0]["XI + captain xP"], 2)}
-                                  for f in formation_options]), hide_index=True, use_container_width=True)
-        selected_formation = st.selectbox(
-            "Try a formation", [f["Formation"] for f in formation_options],
-            key=f"formation_select_{st.session_state.loaded_id}_{preview_gw}")
-        if st.button(f"Apply {selected_formation} to GW {preview_gw} draft XI",
-                     key=f"apply_formation_{preview_gw}"):
-            selected_players = next(f["players"] for f in formation_options
-                                    if f["Formation"] == selected_formation)
-            st.session_state.setdefault("manual_xi_by_gw", {})[preview_gw] = [int(p["id"]) for p in selected_players]
-            st.session_state.setdefault("manual_captain_by_gw", {}).pop(preview_gw, None)
-            if preview_gw == selected_gw:
-                st.session_state.manual_xi = [int(p["id"]) for p in selected_players]
-                st.session_state.manual_captain = None
-            st.rerun()
+    # Best formation is applied automatically for every previewed Gameweek.
+    # Optional comparisons are read-only: no formation picker or manual apply button.
+    with st.expander("See alternative formations", expanded=False):
+        st.caption("Ranked independently for this Gameweek. The top formation is already active unless you manually changed your XI.")
+        st.dataframe(pd.DataFrame([{
+            "Formation": f["Formation"],
+            "XI + captain xP": f["XI + captain xP"],
+            "Difference vs best": round(f["XI + captain xP"] - formation_options[0]["XI + captain xP"], 2),
+        } for f in formation_options]), hide_index=True, use_container_width=True)
+    if st.button("✨ Apply AI best XI for all selected GWs", key="apply_best_all_gws",
+                 use_container_width=True):
+        st.session_state.manual_xi_by_gw = {}
+        st.session_state.manual_captain_by_gw = {}
+        st.session_state.manual_xi = []
+        st.session_state.manual_captain = None
+        st.rerun()
+    # One-time migration: the previous version saved chosen formations as manual
+    # overrides. Clear them once so upgrading immediately enables auto-XI for every GW.
+    if not st.session_state.get("auto_formations_v524_initialized", False):
+        st.session_state.manual_xi_by_gw = {}
+        st.session_state.manual_captain_by_gw = {}
+        st.session_state.manual_xi = []
+        st.session_state.manual_captain = None
+        st.session_state.auto_formations_v524_initialized = True
     auto_xi = lineup["xi"]
     weekly_xi = st.session_state.get("manual_xi_by_gw", {})
     manual_ids = set(weekly_xi.get(preview_gw, st.session_state.get("manual_xi", []) if preview_gw == selected_gw else []))
@@ -468,12 +472,13 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
     counts = Counter(int(p["element_type"]) for p in xi)
     if len(xi) != 11 or not (counts[1] == 1 and 3 <= counts[2] <= 5 and 2 <= counts[3] <= 5 and 1 <= counts[4] <= 3):
         xi = auto_xi
+    counts = Counter(int(p["element_type"]) for p in xi)
     active_formation = f"{counts[2]}-{counts[3]}-{counts[4]}"
     if {int(p["id"]) for p in xi} != {int(p["id"]) for p in auto_xi}:
         st.info(f"Viewing a manual GW {preview_gw} XI ({active_formation}). "
                 f"The AI recommends {ai_formation}. Click 'Restore best XI and captain' below to switch back.")
     else:
-        st.caption(f"Pitch formation: **{active_formation}** · AI-optimal XI for GW {preview_gw}")
+        st.caption(f"✅ Automatically selected: **{active_formation}** · AI best XI and captain for GW {preview_gw}")
     cap_ids = [int(p["id"]) for p in xi]
     cap_default = st.session_state.get("manual_captain_by_gw", {}).get(
         preview_gw, st.session_state.get("manual_captain") if preview_gw == selected_gw else None
