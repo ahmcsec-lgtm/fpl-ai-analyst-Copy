@@ -515,6 +515,55 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
  .ajk-sidecard{backdrop-filter:none}
 }
 
+
+/* v6.9: mockup-first desktop composition; all original Streamlit interactions remain native. */
+:root{--mock-ink:#041725;--mock-card:rgba(4,24,40,.87);--mock-line:rgba(83,198,203,.30);--mock-mint:#25e5a3}
+.block-container{max-width: min(96vw, 1820px)!important;width:100%!important;padding:0.65rem clamp(12px,1.2vw,25px) 4rem!important}
+[data-testid="stMainBlockContainer"]{max-width:min(96vw,1820px)!important}
+[data-testid="stAppViewContainer"]{background-position:center top!important}
+/* Full-bleed branding and readable technology-meets-stadium look. */
+.ajk-hero{max-width:1440px!important;margin:0 auto 13px!important;background:linear-gradient(90deg,rgba(1,17,33,.55),rgba(2,24,40,.24) 50%,rgba(3,21,37,.55))!important;border:0!important;box-shadow:none!important;padding:12px 25px 19px!important;min-height:142px!important}
+.ajk-hero:before{display:none!important}
+.ajk-hero .ajk-brandline{justify-content:center!important;gap:18px!important}
+.ajk-hero .ajk-logo-mark{width:112px!important;height:112px!important;filter:drop-shadow(0 0 20px rgba(43,237,169,.42))!important}
+.ajk-hero .ajk-kicker{font-size:12px!important;letter-spacing:.27em!important;color:#8bd7e8!important;text-align:center!important}
+.ajk-hero h1{font-size:clamp(34px,4.0vw,68px)!important;letter-spacing:-.04em!important;font-weight:850!important;text-shadow:0 5px 22px rgba(0,0,0,.46)!important}
+.ajk-hero h1 span{color:#26f3a5!important}
+.ajk-hero p{font-size:clamp(11px,.95vw,16px)!important;letter-spacing:.12em!important;text-align:center!important;text-transform:uppercase!important}
+/* Compact team import remains accessible, but no longer dominates the dashboard. */
+[data-testid="stForm"]{background:rgba(2,23,39,.76)!important;border:1px solid var(--mock-line)!important;box-shadow:0 10px 30px rgba(0,0,0,.15)!important;border-radius:15px!important;padding:10px 15px!important}
+[data-testid="stForm"] label{font-size:11px!important}
+[data-testid="stTextInput"] input{min-height:38px!important}
+[data-testid="stSelectbox"] div[data-baseweb="select"]>div{min-height:38px!important}
+[data-testid="stButton"] button[kind="primary"],[data-testid="stFormSubmitButton"] button[kind="primary"]{background:linear-gradient(110deg,#12d897,#039964)!important;color:#05281d!important;font-weight:850!important}
+/* Primary navigation should look like the large game tabs in the reference. */
+[data-testid="stTabs"] [data-baseweb="tab-list"]{width:min(100%,930px)!important;margin:8px auto 22px!important;display:flex!important;justify-content:center!important;gap:0!important;padding:4px!important;background:linear-gradient(120deg,rgba(5,26,44,.95),rgba(6,35,54,.90))!important;border:1px solid rgba(67,173,204,.52)!important;border-radius:19px!important;box-shadow:0 12px 32px rgba(0,0,0,.3)!important}
+[data-testid="stTabs"] [data-baseweb="tab"]{flex:1 1 0!important;display:flex!important;justify-content:center!important;align-items:center!important;border-radius:15px!important;min-height:58px!important;padding:12px 7px!important;font-size:clamp(12px,1.3vw,21px)!important;font-weight:800!important;background:transparent!important;border:0!important;color:#effffb!important}
+[data-testid="stTabs"] [aria-selected="true"]{background:linear-gradient(105deg,#15da94,#05946d)!important;color:white!important;box-shadow:0 0 18px rgba(27,232,151,.26)!important}
+[data-testid="stTabs"] [data-baseweb="tab-highlight"],[data-testid="stTabs"] [data-baseweb="tab-border"]{display:none!important}
+[data-testid="stTabs"] [data-baseweb="tab-panel"]{padding-top:6px!important}
+/* Side panels: larger typography and softer glass panels. */
+.ajk-panel-heading{font-size:clamp(13px,1.18vw,20px)!important;letter-spacing:0!important;font-weight:850!important;color:#f8ffff!important;margin:8px 0 13px!important}
+.ajk-sidecard{background:var(--mock-card)!important;border:1px solid var(--mock-line)!important;border-radius:20px!important;padding:clamp(12px,1.5vw,22px)!important;box-shadow:0 16px 44px rgba(0,5,15,.38),inset 0 1px rgba(150,238,229,.05)!important;backdrop-filter:blur(8px)!important}
+.ajk-side-kicker{font-size:clamp(10px,.85vw,14px)!important;color:#65f8bc!important}
+.ajk-side-rating{font-size:clamp(30px,2.3vw,46px)!important}
+.ajk-side-metric{padding:clamp(9px,1vw,16px) 0!important}
+.ajk-side-metric span{font-size:clamp(11px,1vw,15px)!important}
+.ajk-side-metric strong{font-size:clamp(13px,1.13vw,19px)!important}
+.ajk-fixture-row{padding:clamp(11px,.9vw,16px) 0!important;font-size:clamp(11px,.9vw,16px)!important}
+/* Put the full squad first: keep gameweek choices compact and let pitch be hero. */
+.ajk-best-xi{border-radius:16px!important;background:linear-gradient(100deg,rgba(0,95,65,.90),rgba(1,57,52,.87))!important;min-height:51px!important}
+.ajk-best-xi strong{color:#6bffc6!important}
+.st-key-ajk_click_pitch{padding:22px 13px 28px!important;border:2px solid #15e995!important;border-radius:25px 25px 0 0!important;box-shadow:0 15px 47px rgba(0,0,0,.36),0 0 40px rgba(13,210,133,.22)!important;background:repeating-linear-gradient(180deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 125px,rgba(0,0,0,.02) 125px,rgba(0,0,0,.02) 250px),linear-gradient(150deg,#07985b,#007846)!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button{background:linear-gradient(180deg,rgba(5,64,53,.36),rgba(2,36,35,.87))!important;min-height:clamp(122px,10vw,172px)!important;padding:8px 2px!important;border:1px solid rgba(185,255,226,.20)!important;border-radius:13px!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button img{max-height:clamp(70px,6.5vw,110px)!important;max-width:100%!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button p{font-size:clamp(9px,.9vw,14px)!important;line-height:1.3!important}
+.st-key-ajk_click_bench{padding:12px!important;background:rgba(2,44,43,.95)!important;border:2px solid #15e995!important;border-top:0!important;border-radius:0 0 24px 24px!important}
+.st-key-ajk_click_bench [data-testid="stButton"] button{min-height:clamp(99px,7.5vw,140px)!important}
+/* At tablet widths, favor native stacking and preserve touch targets. */
+@media(max-width:1100px){.ajk-hero{min-height:98px!important}.ajk-hero .ajk-logo-mark{width:76px!important;height:76px!important}.ajk-hero h1{font-size:clamp(24px,4vw,42px)!important}.ajk-sidecard{padding:12px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:102px!important}}
+@media(max-width:700px){.block-container{max-width:100%!important;padding:0.65rem 9px 3rem!important}.ajk-hero{padding:10px 4px!important;min-height:0!important}.ajk-hero .ajk-brandline{justify-content:center!important;gap:9px!important}.ajk-hero .ajk-logo-mark{width:51px!important;height:51px!important}.ajk-hero h1{font-size:clamp(20px,5.2vw,31px)!important}.ajk-hero .ajk-kicker{font-size:8px!important}.ajk-hero p{font-size:9px!important;letter-spacing:0!important}[data-testid="stTabs"] [data-baseweb="tab-list"]{margin-bottom:10px!important}[data-testid="stTabs"] [data-baseweb="tab"]{font-size:11px!important;min-height:46px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:90px!important;padding:3px 1px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button img{max-height:58px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button p{font-size:9px!important}.ajk-sidecard{backdrop-filter:none!important}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -1035,7 +1084,7 @@ tab_team, tab_transfers, tab_chips = st.tabs(
 with tab_team:
     # Desktop: team/AI overview | full interactive squad | fixtures/decision support.
     # Streamlit's columns stack naturally on narrow/mobile screens.
-    overview_col, pitch_col, upcoming_col = st.columns([1.02, 2.5, 1.02], gap="medium")
+    overview_col, pitch_col, upcoming_col = st.columns([1.03, 2.62, 1.03], gap="medium")
     with overview_col:
         st.markdown("<div class='ajk-panel-heading'>◈ TEAM OVERVIEW</div>", unsafe_allow_html=True)
         st.markdown(f"""
@@ -1061,7 +1110,7 @@ with tab_team:
         st.caption("Estimated points are forecasts, not guarantees.")
 
     with upcoming_col:
-        st.markdown("<div class='ajk-panel-heading'>▤ UPCOMING GAMEWEEKS</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ajk-panel-heading'>▤ UPCOMING FIXTURES</div>", unsafe_allow_html=True)
         # Display fixtures for the AI-recommended captain across the horizon.
         captain_team_id = int(automatic_captain.get("team", 0)) if automatic_captain else 0
         fixtures_rows = []
@@ -1093,7 +1142,7 @@ with tab_team:
 
     with pitch_col:
         with st.container():
-            st.markdown("**Gameweek Preview**")
+            st.markdown("### My Team · Gameweek Preview")
             preview_gw = st.radio(
                 "Preview Gameweek", options=gws, index=gws.index(preview_gw),
                 horizontal=True, format_func=lambda gw: f"GW {gw}",
