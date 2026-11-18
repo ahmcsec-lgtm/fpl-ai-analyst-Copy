@@ -123,7 +123,7 @@ def player_projection(
     bonus = clamp(bonus_rate * 0.30 * mins_factor, 0, 1.0)
 
     baseline = (
-        num(player.get("points_per_game)) * 0.20
+        num(player.get("points_per_game")) * 0.20
         + num(player.get("form")) * 0.10
     ) * mins_factor
 
