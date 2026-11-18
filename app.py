@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.4 — click-to-sub photo-first FPL squad layout.
+"""AJK Bola Wawei AI v5.5 — premium captain and vice-captain badges.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -25,7 +25,7 @@ from fpl_engine import (
 )
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.4 (public FPL data)"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.5 (public FPL data)"}
 
 st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -174,6 +174,44 @@ h1,h2,h3{letter-spacing:-.035em}
  .st-key-ajk_click_pitch [data-testid="stButton"] button img,
  .st-key-ajk_click_bench [data-testid="stButton"] button img{height:43px!important}
 }
+
+/* v5.5 premium captain and vice-captain insignia for native clickable cards. */
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"] button,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"] button{position:relative;overflow:visible}
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_captain"] button,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_captain"] button{
+  border-color:#f4cb65!important;box-shadow:0 0 0 1px rgba(255,215,114,.33),0 6px 16px rgba(0,0,0,.17)}
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_vice"] button,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_vice"] button{
+  border-color:#b9d8ec!important;box-shadow:0 0 0 1px rgba(197,222,245,.22),0 6px 16px rgba(0,0,0,.14)}
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_captain"] button::after,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_captain"] button::after,
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_vice"] button::after,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_vice"] button::after{
+  position:absolute;top:-9px;right:-5px;z-index:4;display:block;
+  border-radius:999px;padding:3px 7px;font-size:9px;font-weight:900;letter-spacing:.03em;
+  border:1px solid rgba(255,255,255,.52);white-space:nowrap;
+  box-shadow:0 3px 9px rgba(0,0,0,.34)}
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_captain"] button::after,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_captain"] button::after{
+  content:"👑 C";background:linear-gradient(120deg,#fff2a2,#e9b43b);color:#382600}
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_vice"] button::after,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_vice"] button::after{
+  content:"◆ VC";background:linear-gradient(120deg,#eff8ff,#a7c3df);color:#16334c}
+/* Static pitch cards (used elsewhere) receive matching insignia. */
+.squad-player .captain-marker{position:absolute;right:-6px;top:-8px;z-index:5;
+  border-radius:999px;font-size:9px;font-weight:900;padding:3px 6px;
+  border:1px solid #fff7cd;box-shadow:0 3px 8px rgba(0,0,0,.25)}
+.squad-player .captain-marker--c{background:linear-gradient(120deg,#fff2a2,#e9b43b);color:#382600}
+.squad-player .captain-marker--vc{background:linear-gradient(120deg,#eff8ff,#a7c3df);color:#16334c}
+@media(max-width:640px){
+ .st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_captain"] button::after,
+ .st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_vice"] button::after,
+ .st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_captain"] button::after,
+ .st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_vice"] button::after{
+   top:-7px;right:-3px;font-size:8px;padding:2px 4px}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -275,8 +313,10 @@ def pitch_player_card(player: dict, captain_id: int, vice_id: int, gw: int,
     """A portrait card shared by the starting pitch and substitutes bench."""
     pid = int(player["id"])
     name = html.escape(str(player.get("web_name", "?")))
-    marker = ('<span class="captain-marker">C</span>' if pid == captain_id else
-              '<span class="captain-marker">VC</span>' if pid == vice_id else '')
+    marker = ('<span class="captain-marker captain-marker--c" title="Captain">👑 C</span>'
+              if pid == captain_id else
+              '<span class="captain-marker captain-marker--vc" title="Vice-captain">◆ VC</span>'
+              if pid == vice_id else '')
     if display == "Fixture":
         detail = fixture_badge(player, gw, fixture_map, clubs)
     else:
@@ -358,14 +398,15 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
             detail = fixture_badge(player, gw, fixture_map, clubs)
         else:
             detail = f"{player_fixture_xp(player, gw, fixture_map, overrides):.1f} xP"
-        badges = (" ©" if pid == captain_id else " ⓥ" if pid == vice_id else "")
+        role = "captain" if pid == captain_id else "vice" if pid == vice_id else "regular"
         warning = " ⚠️" if str(player.get("status", "a")) != "a" else ""
         prefix = f"{bench_no} · " if bench_no else ""
-        card = f"{portrait}  \n{prefix}{name}{badges}{warning}  \n{detail}"
+        card = f"{portrait}  \n{prefix}{name}{warning}  \n{detail}"
         st.button(
-            card, key=f"pitch_click_{gw}_{pid}", use_container_width=True,
+            card, key=f"pitch_click_{gw}_{pid}_{role}", use_container_width=True,
             type="primary" if selected_id == pid else "secondary",
-            help=(f"{name} — {'selected; click again to cancel' if selected_id == pid else 'click to select for substitution'}"),
+            help=(f"{name} ({'Captain' if role == 'captain' else 'Vice-captain' if role == 'vice' else 'Player'}) — "
+                  f"{'selected; click again to cancel' if selected_id == pid else 'click to select for substitution'}"),
             on_click=on_click, args=(pid, ),
         )
 
