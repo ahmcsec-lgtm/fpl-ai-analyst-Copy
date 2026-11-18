@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.5.1 — simplified planning settings.
+"""AJK Bola Wawei AI v5.5.2 — streamlined interface without Model Accuracy panel.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
-from io import BytesIO
 import html
 import re
 
@@ -17,9 +16,9 @@ import requests
 import streamlit as st
 
 from fpl_engine import (
-    POSITION_NAMES, SNAPSHOT_FIELDS, backtest_report, best_lineup,
+    POSITION_NAMES, best_lineup,
     configure_calibration, configure_projection_context, fixture_lookup,
-    horizon_xp, join_actuals, make_snapshot, num, optimise_chip_squad,
+    horizon_xp, join_actuals, num, optimise_chip_squad,
     player_fixture_xp, player_prediction, projected_minutes,
     smart_transfer_plan, team_rating, valid_squad, validate_snapshots,
 )
@@ -1007,61 +1006,6 @@ with st.expander("✨ Wildcard / Free Hit · Generate a full squad"):
             st.session_state.chip_result = None
             st.rerun()
 
-with st.expander("📈 Model Accuracy · Forecast history and calibration"):
-    st.caption("Capture predictions before a deadline, save the CSV, then compare with actual points once FPL has finalized the GW. Imported CSVs are treated as user-provided records.")
-    uploads = st.file_uploader("Restore forecast CSV backups", type="csv", accept_multiple_files=True)
-    upload_rows = []
-    for upload in uploads or []:
-        try:
-            frame = pd.read_csv(BytesIO(upload.getvalue()))
-            if len(frame) <= 4000 and set(SNAPSHOT_FIELDS).issubset(frame.columns):
-                upload_rows.extend(frame.to_dict("records"))
-            else:
-                st.warning(f"Skipped {upload.name}: invalid format or file too large")
-        except (ValueError, pd.errors.ParserError, UnicodeDecodeError) as exc:
-            st.warning(f"Skipped {upload.name}: {exc}")
-    all_rows = validate_snapshots(upload_rows + st.session_state.get("saved_snapshots", []), season_id)
-    deadline = next((e.get("deadline_time", "") for e in events if int(e["id"]) == selected_gw), "")
-    try:
-        before_deadline = datetime.now(timezone.utc) < datetime.fromisoformat(deadline.replace("Z", "+00:00"))
-    except ValueError:
-        before_deadline = False
-    if st.button(f"Capture predictions for GW {selected_gw}", disabled=not before_deadline):
-        rows = make_snapshot(players, selected_gw, fixture_map, deadline, season_id, minutes_overrides)
-        st.session_state.saved_snapshots = [r for r in st.session_state.get("saved_snapshots", [])
-                                            if int(r["gw"]) != selected_gw] + rows
-        st.rerun()
-    current = [r for r in st.session_state.get("saved_snapshots", []) if int(r["gw"]) == selected_gw]
-    if current:
-        st.download_button("Download your pre-deadline forecast CSV",
-                           data=pd.DataFrame(current, columns=list(SNAPSHOT_FIELDS)).to_csv(index=False).encode("utf-8"),
-                           file_name=f"ajk_forecast_{season_id}_gw{selected_gw}.csv", mime="text/csv")
-    archived = sorted({int(r["gw"]) for r in all_rows if int(r["gw"]) in finalized})
-    if st.button("Load finalized actual FPL points", disabled=not archived):
-        fetched = dict(st.session_state.get("accuracy_actuals", {}))
-        for gw in archived:
-            try:
-                payload = get_json(f"event/{gw}/live/")
-                fetched[gw] = {int(p["id"]): int(p.get("stats", {}).get("total_points", 0))
-                               for p in payload.get("elements", [])}
-            except (ValueError, requests.RequestException) as exc:
-                st.warning(f"GW {gw} could not be loaded: {exc}")
-        st.session_state.accuracy_actuals = fetched
-        st.rerun()
-    matched = join_actuals(all_rows, st.session_state.get("accuracy_actuals", {}), finalized)
-    if matched:
-        overall, positions, weeks = backtest_report(matched)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Captured MAE", f"{overall['captured_mae']:.2f}")
-        c2.metric("Walk-forward MAE", f"{overall['walk_forward_mae']:.2f}")
-        c3.metric("Prediction bias", f"{overall['bias']:+.2f}")
-        st.dataframe(pd.DataFrame(positions), hide_index=True, use_container_width=True)
-        st.dataframe(pd.DataFrame(weeks), hide_index=True, use_container_width=True)
-    else:
-        st.info("No finalized captured forecasts yet. Export a forecast before a GW deadline and restore it later.")
-    st.caption(f"Calibration training observations from earlier finalized GWs: {calibration['count']}. Forecast history may be lost when Streamlit restarts; keep your CSV backups.")
-    with st.expander("How predictions are calculated"):
-        st.write("Independent statistical estimates using FPL xG/xA, past minutes, availability, fixture strengths, clean sheets, saves, bonus and defensive contributions. The optimiser maximises best XI plus captain projections after hits. Calibrated accuracy is only measurable after enough real pre-deadline forecasts have been collected. No paid provider model, guaranteed confidence or live injury intelligence is included.")
 
 st.divider()
 st.caption("Independent, free FPL analysis using the public official FPL API. No affiliation with Fantasy Football Hub or the Premier League. This app cannot submit transfers or activate chips. Optimised results are estimates, not guaranteed points.")
