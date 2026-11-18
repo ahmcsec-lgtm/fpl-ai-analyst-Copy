@@ -10,6 +10,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from io import BytesIO
 import html
+import re
 
 import pandas as pd
 import requests
@@ -38,6 +39,25 @@ st.markdown("""
   background:rgba(0,0,0,.28);padding:9px 3px;font-size:12px}
 .pitch-player strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pitch-player small{display:block;opacity:.85}
+.player-portrait{width:60px;height:68px;max-width:94%;object-fit:contain;object-position:bottom;
+  display:block;margin:0 auto 5px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}
+.portrait-shell{width:64px;height:72px;max-width:95%;margin:0 auto 5px;display:flex;
+  align-items:end;justify-content:center;border-radius:12px 12px 6px 6px;
+  background:rgba(255,255,255,.11);overflow:hidden}
+.portrait-fallback{position:absolute;align-self:center;font-size:22px;color:white;opacity:.8}
+.portrait-shell{position:relative}
+.portrait-shell img{position:relative;z-index:1}
+.transfer-faces{display:flex;gap:12px;justify-content:center;align-items:center;
+  padding:12px 8px;border:1px solid rgba(120,120,120,.22);border-radius:15px;margin:10px 0}
+.transfer-person{flex:1;min-width:0;text-align:center}
+.transfer-person img{width:85px;height:94px;max-width:100%;object-fit:contain;object-position:bottom}
+.transfer-person strong{display:block;overflow-wrap:anywhere}
+.transfer-person small{display:block;opacity:.75}
+.transfer-arrow{font-size:25px;opacity:.8}
+@media(max-width:550px){.pitch-player{padding:6px 2px;font-size:10px}
+  .pitch-row{gap:3px;margin:10px 0}.portrait-shell{height:50px;width:50px}
+  .player-portrait{height:48px;width:48px}.pitch-player small{font-size:9px}
+  .transfer-person img{width:65px;height:75px}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -55,6 +75,48 @@ def money(tenths: int | float) -> str:
 
 def label(player: dict, clubs: dict[int, str]) -> str:
     return f"{player.get('web_name', '?')} · {clubs.get(int(player.get('team', 0)), '?')} · {money(player.get('now_cost', 0))}"
+
+
+def player_photo_url(player: dict) -> str:
+    """Build a Premier League headshot URL from FPL photo/code metadata.
+
+    This is presentation-only; failed external images are hidden in the UI.
+    """
+    photo = str(player.get("photo") or "")
+    filename = photo.rsplit(".", 1)[0]
+    if not filename.isdecimal():
+        code = player.get("code")
+        filename = str(code) if str(code).isdecimal() else ""
+    if not filename:
+        return ""
+    return f"https://resources.premierleague.com/premierleague25/photos/players/110x140/{filename}.png"
+
+
+def player_portrait_html(player: dict) -> str:
+    """A photo with a graceful placeholder when missing or unavailable."""
+    initials = html.escape(str(player.get("web_name", "?") or "?")[:2].upper())
+    src = player_photo_url(player)
+    image = (f'<img src="{html.escape(src, quote=True)}" class="player-portrait" '
+             f'alt="" loading="lazy" onerror="this.style.display=\'none\'">') if src else ""
+    return (f'<div class="portrait-shell"><span class="portrait-fallback">{initials}</span>'
+            f'{image}</div>')
+
+
+def transfer_faces_html(moves: list[dict], player_by_id: dict[int, dict]) -> str:
+    cards = []
+    for move in moves:
+        out = player_by_id.get(int(move["out"]), {"web_name": move.get("out_name", "?")})
+        incoming = player_by_id.get(int(move["in"]), {"web_name": move.get("in_name", "?")})
+        cards.append(
+            '<div class="transfer-faces">'
+            f'<div class="transfer-person">{player_portrait_html(out)}'
+            f'<strong>{html.escape(str(out.get("web_name", "?")))}</strong><small>Transfer out</small></div>'
+            '<span class="transfer-arrow">→</span>'
+            f'<div class="transfer-person">{player_portrait_html(incoming)}'
+            f'<strong>{html.escape(str(incoming.get("web_name", "?")))}</strong><small>Transfer in</small></div>'
+            '</div>'
+        )
+    return "".join(cards)
 
 
 def load_manager(team_id: int, events: list[dict], player_by_id: dict) -> tuple[dict, list[dict], int, int]:
@@ -91,7 +153,7 @@ def pitch(xi: list[dict], captain_id: int, vice_id: int, gw: int,
             name = html.escape(str(player.get("web_name", "?")) + suffix)
             club = html.escape(clubs.get(int(player["team"]), "?"))
             xp = player_fixture_xp(player, gw, fixture_map, overrides)
-            cards.append(f'<div class="pitch-player"><strong>{name}</strong><small>{club} · {xp:.1f} xP</small></div>')
+            cards.append(f'<div class="pitch-player">{player_portrait_html(player)}<strong>{name}</strong><small>{club} · {xp:.1f} xP</small></div>')
         lines.append('<div class="pitch-row">' + "".join(cards) + '</div>')
     st.markdown('<div class="pitch">' + "".join(lines) + '</div>', unsafe_allow_html=True)
 
@@ -274,6 +336,7 @@ if advice and st.session_state.get("advisor_key") == settings_key:
     else:
         moves = advice["first_moves"]
         st.success("**Recommended now:** " + " + ".join(f"{m['out_name']} → {m['in_name']}" for m in moves))
+        st.markdown(transfer_faces_html(moves, player_by_id), unsafe_allow_html=True)
     p1, p2, p3 = st.columns(3)
     p1.metric("Net projected gain", f"{advice['expected_gain']:+.1f} pts")
     p2.metric("Hits this GW", f"-{advice['first_hit']} pts")
