@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.5 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
+"""AJK Bola Wawei AI v7.6 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -697,17 +697,22 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
   display:none!important;
   background:transparent!important;
 }
-/* Actual FPL fixture schedule in the right dashboard column. */
-.ajk-schedule-panel .ajk-side-kicker{margin-bottom:7px}
-.ajk-schedule-scroll{max-height:440px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(50,208,157,.38) transparent}
-.ajk-schedule-day{font-size:10px;letter-spacing:.07em;font-weight:800;color:#51dcb0;margin:12px 0 5px;text-transform:uppercase}
-.ajk-schedule-day:first-child{margin-top:3px}
-.ajk-schedule-match{display:grid;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr) 45px;align-items:center;gap:4px;border-bottom:1px solid rgba(124,187,187,.12);padding:7px 0;font-size:clamp(10px,.73vw,12px);color:#e5fcf6}
-.ajk-schedule-match strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:750}
-.ajk-schedule-versus{text-align:center;color:#789ca7;font-size:10px;white-space:nowrap}
-.ajk-schedule-match time{justify-self:end;font-size:10px;color:#9dbcc6;white-space:nowrap;font-variant-numeric:tabular-nums}
-.ajk-schedule-foot{color:#86abb5;font-size:10px;margin-top:12px;line-height:1.35}
-.ajk-schedule-empty{color:#adc6c9;font-size:12px;padding:10px 0}
+/* Confirmed FPL player price movement panel, not a price-change forecast. */
+.ajk-pricewatch-panel .ajk-side-kicker{margin-bottom:9px}
+.ajk-price-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-bottom:12px}
+.ajk-price-summary div{border:1px solid rgba(148,214,195,.18);border-radius:9px;padding:7px 2px;text-align:center;background:rgba(6,29,40,.5)}
+.ajk-price-summary b{display:block;font-size:17px;line-height:1.3}
+.ajk-price-summary small{display:block;color:#a4c2c5;font-size:9px}
+.ajk-price-up{color:#63e3b1!important}.ajk-price-down{color:#ff9a9a!important}.ajk-price-flat{color:#b5c8cc!important}
+.ajk-price-group{font-size:10px;color:#a4f9d8;letter-spacing:.06em;font-weight:800;text-transform:uppercase;margin:13px 0 5px}
+.ajk-price-row{display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(124,187,187,.12);padding:7px 0;font-size:11px}
+.ajk-price-player{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.ajk-price-player strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ajk-price-player small{font-size:9px;color:#91adb8}
+.ajk-price-number{text-align:right;font-size:10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ajk-price-number strong{display:block;font-size:11px}
+.ajk-price-scroll{max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(50,208,157,.38) transparent}
+.ajk-price-note{color:#93b9bc;font-size:10px;margin-top:12px;line-height:1.45}
 @media(max-width:700px){[data-testid="stTabs"] [data-baseweb="tab"]{border-radius:9px!important}}
 
 </style>
@@ -1395,62 +1400,90 @@ with tab_team:
                            else "News feed unavailable; FPL data and predictions are still working.")
 
     with upcoming_col:
-        st.markdown("<div class='ajk-panel-heading'>▤ MATCH SCHEDULE</div>", unsafe_allow_html=True)
-        # Live fixture data from FPL: follow the selected squad-preview GW.
-        # Do not assume ten fixtures: a GW can be blank, postponed or doubled.
-        schedule_fixtures = [
-            match for match in fixture_rows
-            if match.get("event") is not None
-            and int(match["event"]) == int(preview_gw)
-        ]
-        schedule_fixtures.sort(key=lambda match: (
-            match.get("kickoff_time") is None,
-            str(match.get("kickoff_time") or ""),
-            int(match.get("id", 0)),
-        ))
-        schedule_lines = []
-        previous_day = None
-        for match in schedule_fixtures:
-            kickoff_raw = match.get("kickoff_time")
-            if kickoff_raw:
-                try:
-                    kickoff = datetime.fromisoformat(str(kickoff_raw).replace("Z", "+00:00"))
-                    kickoff = kickoff.astimezone(ZoneInfo("Asia/Kuala_Lumpur"))
-                    day_label = kickoff.strftime("%a %d %b")
-                    time_label = kickoff.strftime("%H:%M")
-                except (ValueError, TypeError, OverflowError):
-                    day_label, time_label = "Date TBC", "TBC"
-            else:
-                day_label, time_label = "Date TBC", "TBC"
-            if day_label != previous_day:
-                schedule_lines.append(
-                    f'<div class="ajk-schedule-day">{html.escape(day_label)}</div>'
-                )
-                previous_day = day_label
-            home = html.escape(str(clubs.get(int(match["team_h"]), "?")))
-            away = html.escape(str(clubs.get(int(match["team_a"]), "?")))
-            finished = bool(match.get("finished"))
-            if finished and match.get("team_h_score") is not None and match.get("team_a_score") is not None:
-                centre = f'{int(match["team_h_score"])} – {int(match["team_a_score"])}'
-            else:
-                centre = "vs"
-            schedule_lines.append(
-                '<div class="ajk-schedule-match">'
-                f'<strong>{home}</strong><span class="ajk-schedule-versus">{centre}</span>'
-                f'<strong>{away}</strong><time>{html.escape(time_label)}</time>'
+        st.markdown("<div class='ajk-panel-heading'>↗ PLAYER PRICE WATCH</div>", unsafe_allow_html=True)
+        # Official FPL confirmed movements in £0.1m units.
+        # cost_change_event = change during the current FPL gameweek,
+        # cost_change_start = change since season start.
+        # Neither field predicts tonight's future rise/fall.
+        def _gw_price_change(player):
+            return int(num(player.get("cost_change_event", 0)))
+
+        def _season_price_change(player):
+            return int(num(player.get("cost_change_start", 0)))
+
+        def _price_delta(amount):
+            if amount > 0:
+                return f"+£{amount / 10:.1f}m", "ajk-price-up", "▲"
+            if amount < 0:
+                return f"−£{abs(amount) / 10:.1f}m", "ajk-price-down", "▼"
+            return "£0.0m", "ajk-price-flat", "•"
+
+        def _price_row(player):
+            movement = _gw_price_change(player)
+            delta, colour, arrow = _price_delta(movement)
+            name = html.escape(str(player.get("web_name") or "Unknown"))
+            club = html.escape(str(clubs.get(int(player.get("team") or 0), "?")))
+            current = num(player.get("now_cost", 0)) / 10
+            season = _season_price_change(player)
+            season_delta, _, _ = _price_delta(season)
+            return (
+                '<div class="ajk-price-row">'
+                f'<div class="ajk-price-player"><strong title="{name}">{name}</strong>'
+                f'<small>{club} · Season {html.escape(season_delta)}</small></div>'
+                f'<div class="ajk-price-number"><strong>£{current:.1f}m</strong>'
+                f'<span class="{colour}">{arrow} {delta}</span></div>'
                 '</div>'
             )
-        if not schedule_lines:
-            schedule_lines.append('<div class="ajk-schedule-empty">No fixtures scheduled for this Gameweek.</div>')
-        st.markdown(
-            '<div class="ajk-sidecard ajk-schedule-panel">'
-            f'<div class="ajk-side-kicker">GW {int(preview_gw)} · PREMIER LEAGUE</div>'
-            '<div class="ajk-schedule-scroll">'
-            + ''.join(schedule_lines) + '</div>'
-            '<div class="ajk-schedule-foot">Kickoff times in Malaysia (MYT, UTC+8) · FPL schedule</div>'
+
+        squad_live = [player_by_id.get(int(p["id"]), p) for p in squad]
+        squad_risers = sorted((p for p in squad_live if _gw_price_change(p) > 0),
+                              key=lambda p: -_gw_price_change(p))
+        squad_fallers = sorted((p for p in squad_live if _gw_price_change(p) < 0),
+                               key=lambda p: _gw_price_change(p))
+        squad_steady = [p for p in squad_live if _gw_price_change(p) == 0]
+        market_risers = sorted((p for p in players if _gw_price_change(p) > 0),
+                               key=lambda p: (-_gw_price_change(p), -int(num(p.get("transfers_in_event", 0)))))[:4]
+        market_fallers = sorted((p for p in players if _gw_price_change(p) < 0),
+                                key=lambda p: (_gw_price_change(p), -int(num(p.get("transfers_out_event", 0)))))[:4]
+        watched_squad = squad_risers[:3] + squad_fallers[:3]
+        if not watched_squad:
+            watched_squad = sorted(squad_live, key=lambda p: (-int(num(p.get("transfers_in_event", 0))), str(p.get("web_name", ""))))[:4]
+        price_html = [
+            '<div class="ajk-sidecard ajk-pricewatch-panel">',
+            '<div class="ajk-side-kicker">CONFIRMED MOVEMENT · THIS GW</div>',
+            '<div class="ajk-price-summary">',
+            f'<div><b class="ajk-price-up">▲ {len(squad_risers)}</b><small>Risen</small></div>',
+            f'<div><b class="ajk-price-down">▼ {len(squad_fallers)}</b><small>Fallen</small></div>',
+            f'<div><b class="ajk-price-flat">• {len(squad_steady)}</b><small>Unchanged</small></div>',
+            '</div><div class="ajk-price-scroll">',
+            '<div class="ajk-price-group">Your squad</div>',
+        ]
+        price_html.extend(_price_row(p) for p in watched_squad)
+        price_html.append('<div class="ajk-price-group">Market risers</div>')
+        price_html.extend(_price_row(p) for p in market_risers)
+        if not market_risers:
+            price_html.append('<div class="ajk-price-note">No rises recorded in this GW yet.</div>')
+        price_html.append('<div class="ajk-price-group">Market fallers</div>')
+        price_html.extend(_price_row(p) for p in market_fallers)
+        if not market_fallers:
+            price_html.append('<div class="ajk-price-note">No falls recorded in this GW yet.</div>')
+        price_html.extend([
             '</div>',
-            unsafe_allow_html=True,
-        )
+            '<div class="ajk-price-note">Current FPL prices and confirmed Gameweek changes. '
+            'Season movement is shown below player names. No future price change is predicted.</div>',
+            '</div>',
+        ])
+        st.markdown(''.join(price_html), unsafe_allow_html=True)
+        with st.expander("All 15 squad prices", expanded=False):
+            price_table = []
+            for p in sorted(squad_live, key=lambda p: (int(p.get("element_type", 0)), str(p.get("web_name", "")))):
+                price_table.append({
+                    "Player": p.get("web_name", "?"),
+                    "Current £m": round(num(p.get("now_cost")) / 10, 1),
+                    "GW change £m": round(_gw_price_change(p) / 10, 1),
+                    "Season change £m": round(_season_price_change(p) / 10, 1),
+                })
+            st.dataframe(pd.DataFrame(price_table), hide_index=True, use_container_width=True)
         st.markdown("<div class='ajk-panel-heading'>⚡ QUICK ACTIONS</div>", unsafe_allow_html=True)
         st.markdown("""
         <div class="ajk-sidecard ajk-guide">
