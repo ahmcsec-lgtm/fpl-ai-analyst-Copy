@@ -1242,23 +1242,6 @@ def player_status_label(player: dict) -> str:
     return f"{symbol} {description}" if symbol else "🟢 Available"
 
 
-def availability_legend(squad: list[dict]) -> None:
-    """Small reference legend; always visible, highlights currently flagged players."""
-    active = {str(p.get("status") or "").strip().lower() for p in squad}
-    labels = [("❔", "Doubtful", "d"), ("🩹", "Injured", "i"),
-              ("🚫", "Suspended", "s"), ("⛔", "Unavailable", "u"),
-              ("❌", "Not available", "n")]
-    with st.container():
-        st.caption("**Availability symbols** · shown beside flagged players on the pitch and bench")
-        cols = st.columns(5, gap="small")
-        for col, (symbol, label, code) in zip(cols, labels):
-            with col:
-                st.markdown(f"{symbol} **{label}**" if code in active else f"{symbol} {label}")
-        if any(code and code not in STATUS_META for code in active):
-            st.caption("⚠️ Unknown status — check the latest FPL availability data.")
-        st.caption("No symbol = FPL lists the player as available. Availability does not guarantee a start.")
-
-
 def squad_frame(squad: list[dict], gws: list[int], fixture_map: dict,
                 clubs: dict, overrides: dict) -> pd.DataFrame:
     return pd.DataFrame([{
@@ -1740,7 +1723,6 @@ with tab_team:
                             minutes_overrides, "Combined",
                             pending_player_id if pending_player_id is not None else selected_player_id,
                             on_pitch_player_click, awaiting_swap=pending_player_id is not None)
-            availability_legend(squad)
 
             # The action menu appears only after the user clicks a player portrait/card.
             selected_player_id = st.session_state.get(selection_key)
