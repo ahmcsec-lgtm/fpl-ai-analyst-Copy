@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.3 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
+"""AJK Bola Wawei AI v7.4 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import base64
 from pathlib import Path
 import html
@@ -691,16 +692,17 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
   display:none!important;
   background:transparent!important;
 }
-/* Team-wide per-GW outlook replacing repeated captain fixture information. */
-.ajk-outlook-row{padding:10px 0 12px;border-bottom:1px solid rgba(127,191,198,.12)}
-.ajk-outlook-row:last-child{border-bottom:0;padding-bottom:0}
-.ajk-outlook-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;color:#f3fffd;font-size:clamp(11px,.85vw,14px)}
-.ajk-outlook-head strong{color:#d8fff2;font-size:clamp(11px,.9vw,15px)}
-.ajk-outlook-head .ajk-outlook-xp{color:#7cf4c3;font-weight:800;white-space:nowrap}
-.ajk-outlook-meter{height:5px;margin:7px 0 5px;background:rgba(120,186,189,.13);border-radius:99px;overflow:hidden}
-.ajk-outlook-meter > i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#0b937b,#4bdeae)}
-.ajk-outlook-meta{color:#9abfc2;font-size:11px}
-.ajk-outlook-row.is-preview .ajk-outlook-head strong{color:#9bffd5}
+/* Actual FPL fixture schedule in the right dashboard column. */
+.ajk-schedule-panel .ajk-side-kicker{margin-bottom:7px}
+.ajk-schedule-scroll{max-height:440px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(50,208,157,.38) transparent}
+.ajk-schedule-day{font-size:10px;letter-spacing:.07em;font-weight:800;color:#51dcb0;margin:12px 0 5px;text-transform:uppercase}
+.ajk-schedule-day:first-child{margin-top:3px}
+.ajk-schedule-match{display:grid;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr) 45px;align-items:center;gap:4px;border-bottom:1px solid rgba(124,187,187,.12);padding:7px 0;font-size:clamp(10px,.73vw,12px);color:#e5fcf6}
+.ajk-schedule-match strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:750}
+.ajk-schedule-versus{text-align:center;color:#789ca7;font-size:10px;white-space:nowrap}
+.ajk-schedule-match time{justify-self:end;font-size:10px;color:#9dbcc6;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ajk-schedule-foot{color:#86abb5;font-size:10px;margin-top:12px;line-height:1.35}
+.ajk-schedule-empty{color:#adc6c9;font-size:12px;padding:10px 0}
 @media(max-width:700px){[data-testid="stTabs"] [data-baseweb="tab"]{border-radius:9px!important}}
 
 </style>
@@ -1257,38 +1259,62 @@ with tab_team:
         st.caption("Estimated points are forecasts, not guarantees.")
 
     with upcoming_col:
-        st.markdown("<div class='ajk-panel-heading'>▤ GAMEWEEK OUTLOOK</div>", unsafe_allow_html=True)
-        # Show squad-wide Gameweek projections instead of repeating captain information.
-        # Each projection optimises the XI and captain independently for that GW.
-        weekly_outlook = []
-        for week in gws:
-            week_lineup = lineup if int(week) == int(preview_gw) else best_lineup(
-                squad, int(week), fixture_map, minutes_overrides
-            )
-            counts = Counter(int(p["element_type"]) for p in week_lineup["xi"])
-            weekly_outlook.append({
-                "gw": int(week),
-                "xp": float(week_lineup["total_xp"]),
-                "formation": f"{counts[2]}-{counts[3]}-{counts[4]}",
-            })
-        max_week_xp = max((entry["xp"] for entry in weekly_outlook), default=1.0)
-        outlook_markup = []
-        for entry in weekly_outlook:
-            selected = " is-preview" if entry["gw"] == int(preview_gw) else ""
-            width = max(0, min(100, (entry["xp"] / max_week_xp) * 100)) if max_week_xp > 0 else 0
-            outlook_markup.append(
-                f'<div class="ajk-outlook-row{selected}">'
-                f'<div class="ajk-outlook-head"><strong>GW {entry["gw"]}</strong>'
-                f'<span class="ajk-outlook-xp">{entry["xp"]:.1f} xP</span></div>'
-                f'<div class="ajk-outlook-meter"><i style="width:{width:.1f}%"></i></div>'
-                f'<div class="ajk-outlook-meta">AI best formation · {entry["formation"]}</div>'
+        st.markdown("<div class='ajk-panel-heading'>▤ MATCH SCHEDULE</div>", unsafe_allow_html=True)
+        # Live fixture data from FPL: follow the selected squad-preview GW.
+        # Do not assume ten fixtures: a GW can be blank, postponed or doubled.
+        schedule_fixtures = [
+            match for match in fixture_rows
+            if match.get("event") is not None
+            and int(match["event"]) == int(preview_gw)
+        ]
+        schedule_fixtures.sort(key=lambda match: (
+            match.get("kickoff_time") is None,
+            str(match.get("kickoff_time") or ""),
+            int(match.get("id", 0)),
+        ))
+        schedule_lines = []
+        previous_day = None
+        for match in schedule_fixtures:
+            kickoff_raw = match.get("kickoff_time")
+            if kickoff_raw:
+                try:
+                    kickoff = datetime.fromisoformat(str(kickoff_raw).replace("Z", "+00:00"))
+                    kickoff = kickoff.astimezone(ZoneInfo("Asia/Kuala_Lumpur"))
+                    day_label = kickoff.strftime("%a %d %b")
+                    time_label = kickoff.strftime("%H:%M")
+                except (ValueError, TypeError, OverflowError):
+                    day_label, time_label = "Date TBC", "TBC"
+            else:
+                day_label, time_label = "Date TBC", "TBC"
+            if day_label != previous_day:
+                schedule_lines.append(
+                    f'<div class="ajk-schedule-day">{html.escape(day_label)}</div>'
+                )
+                previous_day = day_label
+            home = html.escape(str(clubs.get(int(match["team_h"]), "?")))
+            away = html.escape(str(clubs.get(int(match["team_a"]), "?")))
+            finished = bool(match.get("finished"))
+            if finished and match.get("team_h_score") is not None and match.get("team_a_score") is not None:
+                centre = f'{int(match["team_h_score"])} – {int(match["team_a_score"])}'
+            else:
+                centre = "vs"
+            schedule_lines.append(
+                '<div class="ajk-schedule-match">'
+                f'<strong>{home}</strong><span class="ajk-schedule-versus">{centre}</span>'
+                f'<strong>{away}</strong><time>{html.escape(time_label)}</time>'
                 '</div>'
             )
+        if not schedule_lines:
+            schedule_lines.append('<div class="ajk-schedule-empty">No fixtures scheduled for this Gameweek.</div>')
         st.markdown(
-            '<div class="ajk-sidecard"><div class="ajk-side-kicker">SQUAD POINTS OUTLOOK</div>'
-            + ''.join(outlook_markup) + '</div>', unsafe_allow_html=True,
+            '<div class="ajk-sidecard ajk-schedule-panel">'
+            f'<div class="ajk-side-kicker">GW {int(preview_gw)} · PREMIER LEAGUE</div>'
+            '<div class="ajk-schedule-scroll">'
+            + ''.join(schedule_lines) + '</div>'
+            '<div class="ajk-schedule-foot">Kickoff times in Malaysia (MYT, UTC+8) · FPL schedule</div>'
+            '</div>',
+            unsafe_allow_html=True,
         )
-        st.caption("Projected starting XI points including captain; not guaranteed results.")
         st.markdown("<div class='ajk-panel-heading'>⚡ QUICK ACTIONS</div>", unsafe_allow_html=True)
         st.markdown("""
         <div class="ajk-sidecard ajk-guide">
