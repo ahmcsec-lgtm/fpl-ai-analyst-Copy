@@ -660,6 +660,39 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
 @media(max-width:1050px){.block-container{width:calc(100% - 18px)!important}.ajk-hero{min-height:110px!important}.ajk-hero .ajk-logo-mark{width:70px!important;height:70px!important}}
 @media(max-width:700px){.block-container{width:calc(100% - 12px)!important}.ajk-hero{padding:6px!important;min-height:0!important}.ajk-hero .ajk-logo-mark{width:48px!important;height:48px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:90px!important}}
 
+
+/* v7.2: translucent emerald navigation — final override of legacy tab styles. */
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+  background:linear-gradient(115deg,rgba(4,23,40,.78),rgba(5,34,49,.67))!important;
+  border:1px solid rgba(68,171,173,.28)!important;
+  box-shadow:0 12px 35px rgba(0,0,0,.18)!important;
+}
+[data-testid="stTabs"] [data-baseweb="tab"] {
+  background:transparent!important;
+  border:1px solid transparent!important;
+  border-radius:12px!important;
+  color:#d9eae9!important;
+  transition:background .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease!important;
+}
+[data-testid="stTabs"] [data-baseweb="tab"]:hover:not([aria-selected="true"]) {
+  background:rgba(16,185,129,.09)!important;
+  color:#f0fff9!important;
+}
+[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+  background:linear-gradient(110deg,rgba(13,199,139,.30),rgba(10,122,143,.12))!important;
+  border:1px solid rgba(76,232,178,.58)!important;
+  color:#a2ffdb!important;
+  box-shadow:inset 0 1px rgba(196,255,227,.10),0 0 17px rgba(16,185,129,.09)!important;
+}
+[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+[data-testid="stTabs"] [data-baseweb="tab-border"] {
+  display:none!important;
+  background:transparent!important;
+}
+@media(max-width:700px) {
+  [data-testid="stTabs"] [data-baseweb="tab"] {border-radius:9px!important;}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
