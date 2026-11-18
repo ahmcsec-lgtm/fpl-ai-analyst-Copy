@@ -1152,8 +1152,8 @@ def free_transfer_was_edited() -> None:
 def update_estimated_ft(team_id: int, upcoming_gw: int, *, force: bool = False) -> None:
     """Refresh on import/new GW but never overwrite a user's correction."""
     marker = (int(team_id), int(upcoming_gw))
-    if (not force and st.session_state.get("ajk_ft_marker") == marker
-            and st.session_state.get("ajk_ft_manual_override")):
+    # Do not refetch or overwrite the user's number on ordinary reruns.
+    if not force and st.session_state.get("ajk_ft_marker") == marker:
         return
     estimate, note = fetch_free_transfer_estimate(team_id, upcoming_gw)
     previous_marker = st.session_state.get("ajk_ft_marker")
@@ -1432,9 +1432,11 @@ if not available_gws or first_gw == 0:
     st.info("No upcoming Gameweek is currently published by FPL.")
     st.stop()
 
-# Auto-fill free transfers for an already loaded manager, including after a redeploy.
+# All FT widget state changes MUST happen before the number_input is created.
+# A submitted import is completed on the preceding run, then refreshed here.
 if st.session_state.get("loaded_id"):
-    update_estimated_ft(int(st.session_state.loaded_id), first_gw)
+    pending_import = bool(st.session_state.pop("ajk_ft_refresh_after_import", False))
+    update_estimated_ft(int(st.session_state.loaded_id), first_gw, force=pending_import)
 
 # One small panel for importing a team and editing every planning preference.
 # Streamlit keeps the form field empty by default: no personal Team ID is embedded.
@@ -1523,7 +1525,9 @@ if submitted:
         try:
             profile, imported, cash, loaded_gw = load_manager(int(value), events, player_by_id)
             reset_draft(int(value), profile, imported, cash, loaded_gw)
-            update_estimated_ft(int(value), first_gw, force=True)
+            # Defer the widget-key assignment until the next script run.
+            # The +/- number_input has already been instantiated in this run.
+            st.session_state.ajk_ft_refresh_after_import = True
             st.rerun()
         except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
             st.error(f"Team could not be imported: {exc}")
