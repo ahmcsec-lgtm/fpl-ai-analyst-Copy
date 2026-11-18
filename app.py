@@ -292,6 +292,58 @@ html,body,[data-testid="stAppViewContainer"]{background-color:#06111e!important}
 }
 @media(prefers-reduced-motion:reduce){.ajk-logo-mark{animation:none!important}}
 
+
+/* v6.4 compact dashboard: bring the interactive pitch into view sooner */
+.block-container{max-width:1160px!important;padding-top:.45rem!important;padding-bottom:2rem!important}
+.ajk-hero{padding:11px 18px!important;border-radius:18px!important;margin-bottom:7px!important}
+.ajk-brandline{gap:12px!important}
+.ajk-logo-mark{width:60px!important;height:60px!important}
+.ajk-kicker{font-size:9px!important;margin-bottom:2px!important;letter-spacing:.13em!important}
+.ajk-hero h1{font-size:clamp(22px,2.8vw,31px)!important;line-height:1.04!important}
+.ajk-hero p{font-size:12px!important;margin:4px 0 0!important}
+.ajk-summary{border:1px solid rgba(50,202,152,.27);border-radius:17px;
+  background:linear-gradient(110deg,rgba(9,37,50,.98),rgba(8,34,42,.97));
+  padding:13px 17px;margin:5px 0 7px;display:flex;align-items:center;gap:18px}
+.ajk-summary-main{flex:1;min-width:0}
+.ajk-summary-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.ajk-summary-label{color:#8fe8c8;font-weight:800;font-size:10px;letter-spacing:.13em}
+.ajk-summary-strong{font-size:21px;line-height:1.1;font-weight:850;color:#f5fffa}
+.ajk-summary-desc{font-size:11px;color:#a9cbd2;margin-top:3px}
+.ajk-summary-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ajk-summary-stat{border:1px solid rgba(65,175,158,.16);background:rgba(2,17,29,.35);border-radius:10px;padding:8px 11px}
+.ajk-summary-stat span{display:block;font-size:11px;color:#a9cbd2}
+.ajk-summary-stat strong{display:block;font-size:21px;letter-spacing:-.04em;color:#fff;line-height:1.25}
+.ajk-summary-gauge{width:82px;height:82px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ajk-summary-gauge .center{width:63px;height:63px;display:flex;flex-direction:column;align-items:center;
+ justify-content:center;background:#102b34;border-radius:50%;font-weight:850;font-size:21px;color:#fff}
+.ajk-summary-gauge small{font-size:10px;color:#a7ccbe}
+/* Tighter Streamlit blocks without changing the native controls' behavior */
+[data-testid="stVerticalBlock"]{gap:.55rem}
+[data-testid="stExpander"]{margin-bottom:3px!important}
+[data-testid="stTabs"] [data-baseweb="tab-list"]{padding:4px 5px!important;gap:5px!important}
+[data-testid="stTabs"] [data-baseweb="tab"]{padding:8px 13px!important}
+[data-testid="stTabs"] [data-baseweb="tab-panel"]{padding-top:8px!important}
+/* The GW radio appears as compact selector buttons. */
+div[data-testid="stRadio"] div[role="radiogroup"]{gap:7px;flex-wrap:wrap}
+div[data-testid="stRadio"] div[role="radiogroup"] label{
+ border:1px solid rgba(67,184,155,.30);border-radius:9px;background:rgba(10,35,49,.90);
+ padding:5px 11px;margin:0;min-height:32px}
+div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked){
+ border-color:#2bdd9d;background:rgba(22,153,111,.30)}
+div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
+@media(max-width:640px){
+ .ajk-hero{padding:10px 12px!important}.ajk-brandline{gap:9px!important}
+ .ajk-logo-mark{width:46px!important;height:46px!important}.ajk-hero h1{font-size:21px!important}
+ .ajk-kicker{font-size:8px!important}.ajk-hero p{font-size:10px!important}
+ .ajk-summary{padding:10px;gap:7px}.ajk-summary-head{margin-bottom:7px}
+ .ajk-summary-strong{font-size:17px}.ajk-summary-desc{font-size:10px}
+ .ajk-summary-stats{gap:5px}.ajk-summary-stat{padding:6px}
+ .ajk-summary-stat span{font-size:9px}.ajk-summary-stat strong{font-size:16px}
+ .ajk-summary-gauge{width:59px;height:59px}.ajk-summary-gauge .center{width:45px;height:45px;font-size:16px}
+ div[data-testid="stRadio"] div[role="radiogroup"]{gap:4px}
+ div[data-testid="stRadio"] div[role="radiogroup"] label{padding:4px 7px}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -702,16 +754,15 @@ if not valid_squad(squad):
     st.stop()
 
 # The two controls people need most are visible; advanced planner settings stay tucked away.
-st.markdown("**Plan your upcoming Gameweeks**")
 settings_a, settings_b = st.columns(2, gap="small")
 with settings_a:
     selected_gw = st.selectbox("Starting Gameweek", available_gws,
                                format_func=lambda gw: f"GW {gw}")
 horizon_list = [gw for gw in available_gws if gw >= selected_gw]
 with settings_b:
-    horizon = st.select_slider(
+    horizon = st.selectbox(
         "Look Ahead", options=list(range(1, len(horizon_list) + 1)),
-        value=min(5, len(horizon_list)),
+        index=min(5, len(horizon_list)) - 1,
         format_func=lambda n: f"{n} GW" if n == 1 else f"{n} GWs",
     )
 with st.expander("⚙️ Advanced planning options", expanded=False):
@@ -742,32 +793,46 @@ if st.session_state.get("preview_gw") not in gws:
 preview_gw = int(st.session_state.preview_gw)
 assessment = team_rating(squad, gws, fixture_map, minutes_overrides)
 lineup = best_lineup(squad, preview_gw, fixture_map, minutes_overrides)
-st.subheader(profile.get("name", "My FPL Team"))
-st.caption(f"Imported from GW {st.session_state.from_gw} · Pitch preview: GW {preview_gw} · Planning: GW {gws[0]}–{gws[-1]} · All changes are simulations only")
+# One cohesive team header + rating/metrics panel instead of four stacked cards.
+team_name = html.escape(str(profile.get("name", "My FPL Team")))
+st.markdown(f"**{team_name}** · GW {gws[0]}–{gws[-1]} · Simulated planning only")
 rating_value = max(0, min(100, int(assessment["rating"])))
 rating_label = "Excellent" if rating_value >= 85 else "Strong" if rating_value >= 70 else "Promising" if rating_value >= 55 else "Needs attention"
-st.markdown(f"""<div class="ajk-rating"><div><div class="eyebrow">AI TEAM RATING</div><div class="main">{rating_label} squad</div><div class="sub">Projected form across {len(gws)} selected Gameweek(s) · independent heuristic rating</div></div><div class="circle" style="background:conic-gradient(#21d99b {rating_value}%,rgba(255,255,255,.10) 0)"><div class="inner">{rating_value}<span style="font-size:10px;opacity:.65">/100</span></div></div></div>""",unsafe_allow_html=True)
-metrics = st.columns(3)
-metrics[0].metric(f"GW {preview_gw} xP", f"{lineup['total_xp']:.1f}")
-metrics[1].metric(f"{len(gws)}-GW projected", f"{assessment['total_xp']:.1f}")
-metrics[2].metric("Bank", money(bank))
+st.markdown(f"""
+<div class="ajk-summary">
+ <div class="ajk-summary-main">
+  <div class="ajk-summary-head"><div>
+   <div class="ajk-summary-label">AI TEAM RATING</div>
+   <div class="ajk-summary-strong">{rating_label} squad</div>
+   <div class="ajk-summary-desc">Imported from GW {st.session_state.from_gw} · AI estimates, not guaranteed results</div>
+  </div></div>
+  <div class="ajk-summary-stats">
+   <div class="ajk-summary-stat"><span>GW {preview_gw} xP</span><strong>{lineup['total_xp']:.1f}</strong></div>
+   <div class="ajk-summary-stat"><span>{len(gws)}-GW projected</span><strong>{assessment['total_xp']:.1f}</strong></div>
+   <div class="ajk-summary-stat"><span>Bank</span><strong>{html.escape(money(bank))}</strong></div>
+  </div>
+ </div>
+ <div class="ajk-summary-gauge" style="background:conic-gradient(#21d99b {rating_value}%,rgba(255,255,255,.11) 0)">
+  <div class="center">{rating_value}<small>/100</small></div>
+ </div>
+</div>""", unsafe_allow_html=True)
 
 tab_team, tab_transfers, tab_chips = st.tabs(
     ["🏟️ My Team", "🧠 Smart Transfers", "✨ Wildcard / Free Hit"]
 )
 with tab_team:
     with st.container():
-        st.markdown("**Preview your squad across the selected Gameweeks**")
-        preview_gw = st.select_slider(
-            "Preview Gameweek", options=gws, value=preview_gw,
-            format_func=lambda gw: f"GW {gw}",
+        st.markdown("**Gameweek Preview**")
+        preview_gw = st.radio(
+            "Preview Gameweek", options=gws, index=gws.index(preview_gw),
+            horizontal=True, format_func=lambda gw: f"GW {gw}",
+            label_visibility="collapsed",
         )
         # Streamlit widgets update on rerun; changing the preview only changes this view.
         if int(preview_gw) != int(st.session_state.preview_gw):
             st.session_state.preview_gw = int(preview_gw)
             st.rerun()
-        st.caption(f"GW {preview_gw} preview · {len(gws)} Gameweek(s) in your Look Ahead range. "
-                   "Squad transfers are not automatically applied in future weeks.")
+        st.caption("Future GW previews use your current draft; planned transfers are not applied automatically.")
         # The engine selects the optimal legal XI for this GW. No alternative-formation UI.
         gw_xp = {int(p["id"]): player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides)
                  for p in squad}
