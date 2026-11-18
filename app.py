@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v6.7 — stadium background and combined fixture/xP cards with preserved planning tools.
+"""AJK Bola Wawei AI v6.7.1 — stadium background fix and combined fixture/xP cards with preserved planning tools.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -410,46 +410,47 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
 """, unsafe_allow_html=True)
 
 
-# v6.7: Use a locally bundled stadium photo as the page background.
-# Keeping it as an asset (rather than an external URL) avoids dependency on
-# another website and allows the CSS gradient to remain a fallback.
+# v6.7.1: Make the actual stadium asset visible and diagnose missing uploads.
+# Keep image in the same GitHub directory as app.py; never depend on a remote URL.
 @st.cache_data(show_spinner=False)
 def stadium_background_css() -> str:
     image_path = Path(__file__).resolve().parent / "stadium_bg.webp"
     if not image_path.is_file():
-        return ""  # Gradient background above remains available.
+        return ""
     try:
         image_data = base64.b64encode(image_path.read_bytes()).decode("ascii")
     except OSError:
         return ""
+    # Explicit background overrides the older v6.3/v6.5 CSS gradients.
+    # Use a visible image layer and a moderate overlay, retaining text contrast.
     return f"""
     <style>
+    html, body, [data-testid="stApp"],
     [data-testid="stAppViewContainer"] {{
-      background-color: #061321 !important;
-      background-image:
-        linear-gradient(180deg,
-          rgba(3, 13, 26, .46) 0%,
-          rgba(3, 13, 26, .57) 40%,
-          rgba(3, 13, 26, .68) 100%),
-        url('data:image/webp;base64,{image_data}') !important;
-      background-size: cover !important;
-      background-position: center center !important;
-      background-attachment: fixed !important;
-      background-repeat: no-repeat !important;
+       background-color: #03111c !important;
     }}
-    /* Previous synthetic stadium effects shouldn't obscure the photograph. */
+    [data-testid="stAppViewContainer"] {{
+       background-image:
+         linear-gradient(180deg, rgba(2,12,23,.19) 0%, rgba(2,12,23,.30) 42%, rgba(2,12,23,.47) 100%),
+         url("data:image/webp;base64,{image_data}") !important;
+       background-repeat: no-repeat !important;
+       background-size: cover !important;
+       background-position: center top !important;
+       background-attachment: fixed !important;
+    }}
     [data-testid="stAppViewContainer"]::before,
     [data-testid="stAppViewContainer"]::after {{
-      opacity: 0 !important;
+       display:none !important;
+       content:none !important;
     }}
-    [data-testid="stHeader"] {{
-      background: rgba(3, 13, 26, .20) !important;
-    }}
-    @media (max-width: 780px) {{
+    [data-testid="stHeader"] {{background:rgba(2,12,23,.12)!important;}}
+    /* Keep side panels readable, allowing the stadium to show around them. */
+    .ajk-sidecard {{background:rgba(5,26,41,.88)!important;}}
+    @media(max-width:780px) {{
       [data-testid="stAppViewContainer"] {{
         background-attachment: scroll !important;
-        background-position: center top !important;
         background-size: auto 100vh !important;
+        background-position: center top !important;
       }}
     }}
     </style>
@@ -459,6 +460,11 @@ def stadium_background_css() -> str:
 _stadium_css = stadium_background_css()
 if _stadium_css:
     st.markdown(_stadium_css, unsafe_allow_html=True)
+else:
+    st.warning(
+        "Stadium background not found. Add stadium_bg.webp to the same GitHub folder as app.py "
+        "(exact filename and lowercase extension), then redeploy."
+    )
 
 
 @st.cache_data(ttl=900, show_spinner=False)
