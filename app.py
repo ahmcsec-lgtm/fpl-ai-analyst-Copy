@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.6 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
+"""AJK Bola Wawei AI v7.8 — premium cinematic pitch + reliable captaincy badges, preserving the full FPL planner.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -714,6 +714,123 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
 .ajk-price-scroll{max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(50,208,157,.38) transparent}
 .ajk-price-note{color:#93b9bc;font-size:10px;margin-top:12px;line-height:1.45}
 @media(max-width:700px){[data-testid="stTabs"] [data-baseweb="tab"]{border-radius:9px!important}}
+
+
+/* v7.8 — premium cinematic pitch: striped textured turf, spotlight and crisp markings.
+   This final block intentionally overrides older pitch-only rules without touching the
+   interactive Streamlit buttons, captaincy or transfer logic. */
+.st-key-ajk_click_pitch {
+  position: relative !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  border: 2px solid rgba(30, 255, 182, .91) !important;
+  border-radius: 23px 23px 4px 4px !important;
+  padding: clamp(14px, 1.3vw, 23px) clamp(7px, 1vw, 15px) 26px !important;
+  background-color: #006d3c !important;
+  background-image:
+    /* overhead stadium floodlights */
+    radial-gradient(ellipse 33% 26% at 2% 0%, rgba(151,255,232,.22), transparent 91%),
+    radial-gradient(ellipse 33% 26% at 98% 0%, rgba(130,252,230,.18), transparent 91%),
+    /* central grass spotlight */
+    radial-gradient(ellipse 70% 59% at 50% 43%, rgba(129,255,64,.23), transparent 82%),
+    /* dark stadium vignette at edges */
+    radial-gradient(ellipse 82% 74% at 50% 40%, transparent 36%, rgba(0,29,20,.42) 100%),
+    /* subtle turf grain, inexpensive CSS-only texture */
+    repeating-linear-gradient(108deg, transparent 0px, rgba(224,255,188,.016) 1px, transparent 2px, transparent 6px),
+    /* vertical mowing stripes, visible beneath the cards */
+    repeating-linear-gradient(90deg,
+      rgba(7,97,48,.14) 0%, rgba(7,97,48,.14) 12.5%,
+      rgba(88,185,48,.12) 12.5%, rgba(88,185,48,.12) 25%),
+    linear-gradient(165deg,#0e9b43 0%,#09813b 42%,#03552d 100%) !important;
+  box-shadow: inset 0 0 42px rgba(0, 21, 15, .56),
+              inset 0 0 5px rgba(216,255,230,.18),
+              0 0 0 1px rgba(7,255,169,.21),
+              0 0 21px rgba(15,255,180,.29),
+              0 22px 55px rgba(0,9,17,.48) !important;
+}
+/* Field outline; always behind content and non-interactive. */
+.st-key-ajk_click_pitch::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 14px 12px 14px !important;
+  border: 2px solid rgba(238,255,246,.74) !important;
+  border-radius: 4px !important;
+  z-index: 0 !important;
+  box-shadow: 0 0 8px rgba(197,255,230,.34),
+              inset 0 0 8px rgba(197,255,230,.12) !important;
+  pointer-events: none !important;
+}
+/* Top penalty area */
+.st-key-ajk_click_pitch::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  width: 44% !important;
+  height: clamp(65px, 7vw, 103px) !important;
+  left: 28% !important;
+  top: 14px !important;
+  border: 2px solid rgba(235,255,247,.63) !important;
+  border-top: 0 !important;
+  border-radius: 0 0 3px 3px !important;
+  z-index: 0 !important;
+  box-shadow: 0 4px 8px rgba(174,255,220,.10) !important;
+  pointer-events: none !important;
+}
+.st-key-ajk_click_pitch > div { position: relative; z-index: 1; }
+.st-key-ajk_click_pitch [data-testid="stButton"] button {
+  background: linear-gradient(165deg,
+     rgba(2,85,54,.83) 0%, rgba(2,57,44,.93) 64%, rgba(0,37,35,.97) 100%) !important;
+  border: 1px solid rgba(125,255,204,.55) !important;
+  border-radius: 16px !important;
+  color: #f6fff9 !important;
+  box-shadow: inset 0 1px 0 rgba(230,255,242,.12),
+              0 9px 24px rgba(0,25,22,.25),
+              0 0 8px rgba(13,220,142,.14) !important;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease !important;
+}
+.st-key-ajk_click_pitch [data-testid="stButton"] button:hover {
+  transform: translateY(-2px) !important;
+  border-color: #b6ffe0 !important;
+  box-shadow: 0 0 0 1px rgba(190,255,226,.40),
+              0 0 18px rgba(38,247,167,.46),
+              0 13px 28px rgba(0,25,22,.35) !important;
+}
+.st-key-ajk_click_pitch [data-testid="stButton"] button[kind="primary"] {
+  border-color: #e2fff3 !important;
+  box-shadow: 0 0 0 2px rgba(157,255,211,.26),
+              0 0 18px rgba(25,251,165,.43) !important;
+}
+/* Keep existing gold/silver captain badges readable above the glass-card effect. */
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_captain"] button {
+  border-color: #f4d35f !important;
+  box-shadow: 0 0 0 1px rgba(250,211,85,.33), 0 0 13px rgba(244,211,95,.32) !important;
+}
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_vice"] button {
+  border-color: #d5efff !important;
+  box-shadow: 0 0 0 1px rgba(210,239,255,.29), 0 0 12px rgba(156,210,255,.27) !important;
+}
+/* Bench belongs visually to the pitch, but without mowing stripes under text. */
+.st-key-ajk_click_bench {
+  border-color: rgba(30,255,182,.85) !important;
+  background: linear-gradient(180deg,rgba(1,67,49,.96),rgba(1,32,39,.98)) !important;
+  box-shadow: inset 0 9px 23px rgba(0,24,24,.25),
+              0 10px 29px rgba(0,13,20,.34), 0 0 18px rgba(12,230,155,.16) !important;
+}
+.st-key-ajk_click_bench [data-testid="stButton"] button {
+  background: linear-gradient(160deg,rgba(3,65,52,.9),rgba(2,33,39,.96)) !important;
+  border-color: rgba(126,246,210,.36) !important;
+}
+@media(max-width:700px){
+  .st-key-ajk_click_pitch {padding: 10px 4px 14px !important; border-radius: 16px 16px 3px 3px !important;}
+  .st-key-ajk_click_pitch::before {inset: 8px 5px 8px !important; border-width: 1px !important;}
+  .st-key-ajk_click_pitch::after {top: 8px !important; height: 48px !important; border-width: 1px !important;}
+  .st-key-ajk_click_pitch [data-testid="stButton"] button {border-radius: 10px !important;}
+}
+@media(prefers-reduced-motion:reduce){
+  .st-key-ajk_click_pitch [data-testid="stButton"] button {transition:none!important;}
+  .st-key-ajk_click_pitch [data-testid="stButton"] button:hover {transform:none!important;}
+}
 
 </style>
 """, unsafe_allow_html=True)
