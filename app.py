@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.7.2 — clear player availability symbols and legend.
+"""AJK Bola Wawei AI v5.8 — pitch-driven quick transfers and player actions.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -24,7 +24,7 @@ from fpl_engine import (
 )
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.7 (public FPL data)"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.8 (public FPL data)"}
 
 st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -494,7 +494,7 @@ def squad_frame(squad: list[dict], gws: list[int], fixture_map: dict,
 def clear_pitch_actions() -> None:
     """Close old player menus and pending substitutions after squad-wide edits."""
     for key in list(st.session_state):
-        if str(key).startswith(("pitch_action_selected_", "pitch_action_swap_", "pitch_swap_selected_")):
+        if str(key).startswith(("pitch_action_selected_", "pitch_action_swap_", "pitch_swap_selected_", "quick_transfer_")):
             st.session_state.pop(key, None)
 
 
@@ -817,7 +817,7 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
             st.session_state.pop(selection_key, None)
             st.rerun()
     else:
-        st.caption("👆 Click a player's photo to open their actions. Select Captain, Vice-Captain, or Substitute.")
+        st.caption("👆 Click a player's photo to choose Captain, Vice-Captain, Substitute or Transfer.")
     if st.session_state.get("pitch_swap_message"):
         st.caption(st.session_state.pop("pitch_swap_message"))
     clickable_pitch(xi, squad, cap, vice, preview_gw, fixture_map, clubs,
@@ -866,6 +866,14 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
                     st.session_state[pending_key] = selected_player_id
                     st.session_state.pop(selection_key, None)
                     st.rerun()
+            # Every player (starter or bench) can be replaced from the same menu.
+            if st.button("🔁 Transfer · Replace player", key=f"action_transfer_{preview_gw}",
+                         use_container_width=True):
+                st.session_state["quick_transfer_out"] = selected_player_id
+                st.session_state.pop("quick_transfer_in", None)
+                st.session_state.pop(selection_key, None)
+                st.session_state.pop(pending_key, None)
+                st.rerun()
             if st.button("Close player actions", key=f"close_action_{preview_gw}"):
                 st.session_state.pop(selection_key, None)
                 st.rerun()
@@ -879,84 +887,141 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
             st.session_state.manual_xi = []
             st.session_state.manual_captain = None
         st.rerun()
-    with st.expander("🔁 Change a player · Quick manual transfer", expanded=False):
-        st.caption("Replace one squad player with an affordable player in the same position. "
-                   "This updates your simulated draft for every previewed GW; it does not make an actual FPL transfer.")
-        owned_ids = {int(p["id"]) for p in squad}
-        out_ids = sorted(owned_ids, key=lambda pid: (
-            int(player_by_id[pid]["element_type"]),
-            str(player_by_id[pid].get("web_name", ""))
-        ))
-        sell_id = st.selectbox(
-            "1 · Select a player to replace", out_ids,
-            format_func=lambda pid: label(next(p for p in squad if int(p["id"]) == pid), clubs),
-            key="my_team_transfer_out",
-        )
-        outgoing = next(p for p in squad if int(p["id"]) == sell_id)
-        sell_price = int(outgoing.get("selling_price", outgoing.get("now_cost", 0)))
-        budget = bank + sell_price
-        # Pre-filter club quota and position before displaying candidates.
-        club_counts = Counter(int(p["team"]) for p in squad if int(p["id"]) != sell_id)
+    # v5.8: A transfer begins from the player's own pitch action menu.
+    # Do not show the old select-player-to-sell dropdown or an always-visible panel.
+    transfer_out_id = st.session_state.get("quick_transfer_out")
+    owned_ids = {int(p["id"]) for p in squad}
+    if transfer_out_id is not None and transfer_out_id not in owned_ids:
+        st.session_state.pop("quick_transfer_out", None)
+        st.session_state.pop("quick_transfer_in", None)
+        transfer_out_id = None
+
+    if transfer_out_id is not None:
+        outgoing = next(p for p in squad if int(p["id"]) == transfer_out_id)
+        selling_price = int(outgoing.get("selling_price", outgoing.get("now_cost", 0)))
+        budget = bank + selling_price
+        club_counts = Counter(int(p["team"]) for p in squad if int(p["id"]) != transfer_out_id)
         candidates = [p for p in players
                       if int(p["id"]) not in owned_ids
                       and int(p["element_type"]) == int(outgoing["element_type"])
                       and int(p["now_cost"]) <= budget
                       and club_counts[int(p["team"])] < 3]
-        candidates.sort(
-            key=lambda p: (horizon_xp(p, gws, fixture_map, minutes_overrides),
-                           player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides)),
-            reverse=True,
-        )
-        st.caption(f"Available budget: **{money(budget)}** (selling price {money(sell_price)} + bank {money(bank)})"
-                   f" · {len(candidates)} eligible replacements · Sorted by projected {len(gws)}-GW points")
-        if not candidates:
-            st.warning("No affordable, legal replacements for this player. Choose a different player to replace.")
-        else:
-            candidate_ids = [int(p["id"]) for p in candidates]
-            buy_id = st.selectbox(
-                "2 · Choose a replacement", candidate_ids,
-                format_func=lambda pid: (
-                    f"{label(player_by_id[pid], clubs)} · "
-                    f"{horizon_xp(player_by_id[pid], gws, fixture_map, minutes_overrides):.1f} xP"
-                ),
-                key="my_team_transfer_in",
-            )
-            incoming = player_by_id[buy_id]
-            revised = [p for p in squad if int(p["id"]) != sell_id] + [
-                {**incoming, "selling_price": int(incoming["now_cost"])}
-            ]
-            remaining_bank = budget - int(incoming["now_cost"])
-            if valid_squad(revised) and remaining_bank >= 0:
-                old_gw_xp = player_fixture_xp(outgoing, preview_gw, fixture_map, minutes_overrides)
-                new_gw_xp = player_fixture_xp(incoming, preview_gw, fixture_map, minutes_overrides)
-                revised_rating = team_rating(revised, gws, fixture_map, minutes_overrides)
-                gain = revised_rating["total_xp"] - assessment["total_xp"]
-                st.markdown(transfer_faces_html([{"out": sell_id, "in": buy_id}], player_by_id),
-                            unsafe_allow_html=True)
-                a, b, c = st.columns(3)
-                a.metric(f"GW {preview_gw} player xP change", f"{new_gw_xp - old_gw_xp:+.1f}")
-                b.metric(f"{len(gws)}-GW squad xP change", f"{gain:+.1f}")
-                c.metric("Bank after transfer", money(remaining_bank))
-                st.caption("Squad xP includes optimised lineups and captaincy. "
-                           "The gain shown is before any transfer hit; check your free transfers in Planning settings.")
-                if st.button("3 · Apply player change to My Team draft", type="primary",
-                             use_container_width=True, key="my_team_transfer_apply"):
-                    st.session_state.draft = revised
-                    st.session_state.bank = remaining_bank
-                    st.session_state.setdefault("draft_moves", []).append({"out": sell_id, "in": buy_id})
-                    # An incoming player may invalidate an old manually chosen XI.
-                    # Reset only lineup overrides; the user's original imported squad stays intact.
-                    st.session_state.manual_xi = []
-                    st.session_state.manual_captain = None
-                    st.session_state.manual_xi_by_gw = {}
-                    st.session_state.manual_captain_by_gw = {}
-                    st.session_state.manual_vice_by_gw = {}
-                    st.session_state.advisor_result = None
-                    st.session_state.advisor_key = None
-                    clear_pitch_actions()
+        # A small default shortlist, backed by the same horizon projection as the advisor.
+        candidates.sort(key=lambda p: (
+            horizon_xp(p, gws, fixture_map, minutes_overrides),
+            player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides),
+        ), reverse=True)
+        eligible_by_id = {int(p["id"]): p for p in candidates}
+        chosen_in_id = st.session_state.get("quick_transfer_in")
+        if chosen_in_id not in eligible_by_id:
+            chosen_in_id = None
+            st.session_state.pop("quick_transfer_in", None)
+
+        with st.container(key="ajk_quick_transfer_market"):
+            heading, cancel_col = st.columns([4, 1], vertical_alignment="center")
+            with heading:
+                st.markdown("### 🔁 Transfer Market")
+                st.caption(f"Replacing **{outgoing.get('web_name', '?')}** · "
+                           f"{POSITION_NAMES[int(outgoing['element_type'])]} · "
+                           f"Budget {money(budget)} (sell {money(selling_price)} + bank {money(bank)})")
+            with cancel_col:
+                if st.button("✕ Close", key="quick_transfer_close", use_container_width=True):
+                    st.session_state.pop("quick_transfer_out", None)
+                    st.session_state.pop("quick_transfer_in", None)
                     st.rerun()
+            st.caption(f"Top five eligible replacements, ranked by predicted points over {len(gws)} GWs. "
+                       "Prices use your selling value and current FPL prices.")
+            if not candidates:
+                st.warning("There are no affordable and legal replacements for this player.")
             else:
-                st.warning("This player change would create an invalid squad. Try another replacement.")
+                for rank, player in enumerate(candidates[:5], start=1):
+                    pid = int(player["id"])
+                    photo_col, info_col, pred_col, choose_col = st.columns(
+                        [0.8, 2.4, 1.1, 1.2], vertical_alignment="center", gap="small"
+                    )
+                    with photo_col:
+                        src = player_photo_url(player)
+                        if src:
+                            st.markdown(f'<img src="{html.escape(src, quote=True)}" '
+                                        f'alt="" style="height:58px;max-width:100%;object-fit:contain">',
+                                        unsafe_allow_html=True)
+                        else:
+                            st.markdown("👤")
+                    with info_col:
+                        st.markdown(f"**{rank}. {html.escape(str(player.get('web_name', '?')))}**")
+                        st.caption(f"{clubs.get(int(player['team']), '?')} · {money(player['now_cost'])} · "
+                                   f"{player_status_label(player)}")
+                    with pred_col:
+                        st.markdown(f"**{horizon_xp(player, gws, fixture_map, minutes_overrides):.1f} xP**")
+                        st.caption(f"GW {preview_gw}: {player_fixture_xp(player, preview_gw, fixture_map, minutes_overrides):.1f}")
+                    with choose_col:
+                        if st.button("✓ Selected" if pid == chosen_in_id else "Select",
+                                     key=f"quick_transfer_pick_{pid}",
+                                     type="primary" if pid == chosen_in_id else "secondary",
+                                     use_container_width=True):
+                            st.session_state["quick_transfer_in"] = pid
+                            st.rerun()
+
+                with st.expander(f"🔎 Search all {len(candidates)} eligible replacements", expanded=False):
+                    query = st.text_input("Search name or club", key="quick_transfer_search", placeholder="Type a player or club...")
+                    query = query.strip().casefold()
+                    matching = [p for p in candidates if
+                                query in str(p.get('web_name', '')).casefold()
+                                or query in str(clubs.get(int(p['team']), '')).casefold()]
+                    if not matching:
+                        st.caption("No eligible players match your search.")
+                    else:
+                        found_ids = [int(p["id"]) for p in matching]
+                        searched_id = st.selectbox(
+                            "Eligible players", found_ids,
+                            format_func=lambda pid: (
+                                f"{label(eligible_by_id[pid], clubs)} · "
+                                f"{horizon_xp(eligible_by_id[pid], gws, fixture_map, minutes_overrides):.1f} xP"
+                            ), key="quick_transfer_search_pick"
+                        )
+                        if st.button("Preview this replacement", key="quick_transfer_search_preview",
+                                     use_container_width=True):
+                            st.session_state["quick_transfer_in"] = searched_id
+                            st.rerun()
+
+                if chosen_in_id is not None:
+                    incoming = eligible_by_id[chosen_in_id]
+                    revised = [p for p in squad if int(p["id"]) != transfer_out_id] + [
+                        {**incoming, "selling_price": int(incoming["now_cost"])}
+                    ]
+                    remaining_bank = budget - int(incoming["now_cost"])
+                    if valid_squad(revised) and remaining_bank >= 0:
+                        revised_rating = team_rating(revised, gws, fixture_map, minutes_overrides)
+                        team_gain = revised_rating["total_xp"] - assessment["total_xp"]
+                        player_gain = (player_fixture_xp(incoming, preview_gw, fixture_map, minutes_overrides)
+                                       - player_fixture_xp(outgoing, preview_gw, fixture_map, minutes_overrides))
+                        st.markdown("**Your transfer preview**")
+                        st.markdown(transfer_faces_html([{"out": transfer_out_id, "in": chosen_in_id}], player_by_id),
+                                    unsafe_allow_html=True)
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric(f"GW {preview_gw} player xP", f"{player_gain:+.1f}")
+                        m2.metric(f"{len(gws)}-GW team xP", f"{team_gain:+.1f}")
+                        m3.metric("Bank after", money(remaining_bank))
+                        st.caption("Team xP uses optimised XIs and captaincy. Changes are simulations only; "
+                                   "these numbers exclude any transfer-hit costs.")
+                        if st.button("✅ Apply transfer to my draft", key="quick_transfer_apply",
+                                     type="primary", use_container_width=True):
+                            st.session_state.draft = revised
+                            st.session_state.bank = remaining_bank
+                            st.session_state.setdefault("draft_moves", []).append(
+                                {"out": transfer_out_id, "in": chosen_in_id}
+                            )
+                            st.session_state.manual_xi = []
+                            st.session_state.manual_captain = None
+                            st.session_state.manual_xi_by_gw = {}
+                            st.session_state.manual_captain_by_gw = {}
+                            st.session_state.manual_vice_by_gw = {}
+                            st.session_state.advisor_result = None
+                            st.session_state.advisor_key = None
+                            clear_pitch_actions()
+                            st.rerun()
+                    else:
+                        st.warning("This replacement would make the squad invalid. Choose someone else.")
 
     with st.expander("🔎 Player insights · Fixtures, xP & minutes", expanded=False):
         insight_ids = sorted((int(p["id"]) for p in squad),
