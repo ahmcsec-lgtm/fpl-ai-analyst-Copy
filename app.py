@@ -167,8 +167,27 @@ if submitted:
         except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
             st.error(f"Team could not be imported: {exc}")
 
-if "draft" not in st.session_state:
-    st.info("Enter your FPL Team ID above to see your squad and personalised transfer advice. No ID is stored in the code.")
+# A Streamlit session can survive a code redeploy. Older app versions used
+# different session-state fields, so a leftover draft may be incomplete.
+required_session_keys = (
+    "draft", "bank", "manager_profile", "loaded_id", "from_gw",
+    "original_squad", "original_bank",
+)
+missing_session_keys = [
+    key for key in required_session_keys if key not in st.session_state
+]
+if missing_session_keys:
+    # Discard incompatible draft data rather than accessing partial state.
+    # The manager must re-import once to rebuild a consistent v5 session.
+    for key in required_session_keys + (
+        "manual_xi", "manual_captain", "draft_moves", "chip_result",
+        "advisor_key", "advisor_result",
+    ):
+        st.session_state.pop(key, None)
+    st.info(
+        "Enter your FPL Team ID above and click Analyse Team to load your squad. "
+        "If you just upgraded the app, re-import your team once to refresh the session."
+    )
     st.stop()
 
 squad = st.session_state.draft
