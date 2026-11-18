@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v6.8 — cinematic premium dashboard, preserving the full FPL planner.
+"""AJK Bola Wawei AI v7.0 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -564,6 +564,77 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
 @media(max-width:1100px){.ajk-hero{min-height:98px!important}.ajk-hero .ajk-logo-mark{width:76px!important;height:76px!important}.ajk-hero h1{font-size:clamp(24px,4vw,42px)!important}.ajk-sidecard{padding:12px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:102px!important}}
 @media(max-width:700px){.block-container{max-width:100%!important;padding:0.65rem 9px 3rem!important}.ajk-hero{padding:10px 4px!important;min-height:0!important}.ajk-hero .ajk-brandline{justify-content:center!important;gap:9px!important}.ajk-hero .ajk-logo-mark{width:51px!important;height:51px!important}.ajk-hero h1{font-size:clamp(20px,5.2vw,31px)!important}.ajk-hero .ajk-kicker{font-size:8px!important}.ajk-hero p{font-size:9px!important;letter-spacing:0!important}[data-testid="stTabs"] [data-baseweb="tab-list"]{margin-bottom:10px!important}[data-testid="stTabs"] [data-baseweb="tab"]{font-size:11px!important;min-height:46px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:90px!important;padding:3px 1px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button img{max-height:58px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button p{font-size:9px!important}.ajk-sidecard{backdrop-filter:none!important}}
 
+
+/* v7 mockup-alignment and captaincy reliability patch.
+   This block intentionally overrides only the existing display CSS. */
+:root{--ajk-card-glow:rgba(27,230,152,.21)}
+.block-container{width:100%!important;max-width:1760px!important;
+  padding:0.35rem clamp(13px,1.5vw,27px) 3rem!important}
+.ajk-hero{max-width:1500px!important;min-height:155px!important;
+  margin:0 auto 9px!important;padding:14px 26px 19px!important;
+  background:linear-gradient(180deg,rgba(1,17,31,.40),rgba(1,20,34,.13))!important;
+  border:none!important;box-shadow:none!important}
+.ajk-hero .ajk-brandline{justify-content:center!important}
+.ajk-hero .ajk-logo-mark{width:112px!important;height:112px!important}
+.ajk-hero h1{font-size:clamp(35px,3.45vw,60px)!important}
+.ajk-hero p{letter-spacing:.18em!important;color:#cbdfed!important}
+/* Keep the import form and options accessible but visually quiet. */
+[data-testid="stForm"]{max-width:1280px;margin:0 auto 3px!important;
+ background:rgba(3,24,39,.79)!important;padding:8px 13px!important}
+[data-testid="stTabs"] [data-baseweb="tab-list"]{max-width:980px!important;
+ margin:3px auto 16px!important;border-radius:20px!important;
+ background:rgba(2,23,41,.88)!important}
+[data-testid="stTabs"] [data-baseweb="tab"]{min-height:61px!important;
+ font-size:clamp(13px,1.25vw,21px)!important}
+.ajk-panel-heading{font-size:clamp(14px,1.12vw,19px)!important;
+ margin:3px 0 9px!important}
+.ajk-sidecard{border-radius:20px!important;padding:clamp(13px,1.3vw,22px)!important;
+ background:linear-gradient(155deg,rgba(4,30,47,.91),rgba(3,22,39,.91))!important;
+ border:1px solid rgba(63,180,191,.34)!important}
+.ajk-side-metric{padding:clamp(9px,.9vw,13px) 0!important}
+/* Bigger stadium pitch, airier rows and portraits. */
+.st-key-ajk_click_pitch{padding:19px clamp(7px,.8vw,15px) 25px!important;
+ border-radius:20px 20px 0 0!important;
+ box-shadow:0 0 0 1px rgba(13,235,148,.22),0 0 38px rgba(0,238,137,.16)!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button{
+ min-height:clamp(128px,10.3vw,176px)!important;
+ padding:7px 3px!important;border-radius:11px!important;
+ background:linear-gradient(180deg,rgba(3,54,41,.40),rgba(2,38,38,.92))!important;
+ overflow:visible!important;position:relative!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button img{
+ max-height:clamp(72px,6.6vw,112px)!important;object-fit:contain!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button p,
+.st-key-ajk_click_bench [data-testid="stButton"] button p{
+ font-size:clamp(10px,.85vw,14px)!important;line-height:1.24!important;
+ overflow-wrap:anywhere!important}
+.st-key-ajk_click_bench [data-testid="stButton"] button{
+ overflow:visible!important;position:relative!important}
+/* Keep decorative C / VC indicators entirely within the player card, never clipped. */
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_captain"] button::after,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_captain"] button::after,
+.st-key-ajk_click_pitch [class*="st-key-pitch_click_"][class*="_vice"] button::after,
+.st-key-ajk_click_bench [class*="st-key-pitch_click_"][class*="_vice"] button::after{
+ top:4px!important;right:4px!important;z-index:20!important;font-size:10px!important;
+ padding:3px 6px!important}
+/* At less than desktop width, prefer legible cards over squeezing three columns. */
+@media(max-width:1080px){
+ .ajk-hero{min-height:105px!important}
+ .ajk-hero .ajk-logo-mark{width:75px!important;height:75px!important}
+ .ajk-hero h1{font-size:clamp(25px,3.8vw,43px)!important}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:108px!important}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button img{max-height:65px!important}
+}
+@media(max-width:700px){
+ .ajk-hero{padding:10px 6px!important;min-height:0!important}
+ .ajk-hero .ajk-logo-mark{width:49px!important;height:49px!important}
+ .ajk-hero h1{font-size:clamp(19px,5vw,30px)!important}
+ [data-testid="stTabs"] [data-baseweb="tab"]{min-height:45px!important;font-size:11px!important}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:91px!important}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button img{max-height:53px!important}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button p,
+ .st-key-ajk_click_bench [data-testid="stButton"] button p{font-size:9px!important}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -813,10 +884,13 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
         symbol, description = player_status_symbol(player)
         warning = f" {symbol}" if symbol else ""
         prefix = f"{bench_no} · " if bench_no else ""
+        # A visible badge in the label is robust against Streamlit CSS/DOM changes.
+        # CSS also adds a decorative badge, but the role is never CSS-only.
+        role_label = "👑 C · " if role == "captain" else "◆ VC · " if role == "vice" else ""
         instruction = (f"Choose {name} as a substitution target" if awaiting_swap
                        else f"Show actions for {name}")
         st.button(
-            f"{portrait}  \n{prefix}{name}{warning}  \n{detail}",
+            f"{portrait}  \n{role_label}{prefix}{name}{warning}  \n{detail}",
             key=f"pitch_click_{gw}_{pid}_{role}", use_container_width=True,
             type="primary" if selected_id == pid else "secondary",
             help=f"{description} · {instruction}" if symbol else instruction,
@@ -1084,7 +1158,7 @@ tab_team, tab_transfers, tab_chips = st.tabs(
 with tab_team:
     # Desktop: team/AI overview | full interactive squad | fixtures/decision support.
     # Streamlit's columns stack naturally on narrow/mobile screens.
-    overview_col, pitch_col, upcoming_col = st.columns([1.03, 2.62, 1.03], gap="medium")
+    overview_col, pitch_col, upcoming_col = st.columns([1, 2.85, 1], gap="small")
     with overview_col:
         st.markdown("<div class='ajk-panel-heading'>◈ TEAM OVERVIEW</div>", unsafe_allow_html=True)
         st.markdown(f"""
