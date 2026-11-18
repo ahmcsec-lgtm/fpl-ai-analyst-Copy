@@ -112,9 +112,40 @@ def projected_minutes(player: dict) -> float:
         effective = played / starts
     else:
         effective = 40 if num(player.get("now_cost")) <= 45 else 57
-    # Cap noisy season samples; availability is separate from fitness/rotation.
+    # Optional *completed-match* minutes evidence, fetched from the FPL public
+    # element-summary endpoint. Shrink back toward the season estimate when the
+    # recent window contains little evidence. No future matches are included.
+    recent = player.get("_ajk_recent_minutes")
+    sample = int(player.get("_ajk_recent_matches", 0) or 0)
+    if recent is not None and sample > 0:
+        weight = min(0.40, sample * 0.08)
+        effective = (1.0 - weight) * effective + weight * clamp(num(recent), 0, 90)
+    # FPL availability remains authoritative; news headlines do not change xP.
     return round(clamp(effective * availability(player), 0, 90), 1)
 
+
+
+
+def recent_minutes_evidence(history: list[dict], finished_gws: list[int],
+                            match_counts: dict[int, int] | None = None) -> dict:
+    """Estimate last-five-FPL-GW minutes using only already completed fixtures.
+
+    Absent history rows are zero minutes when the club played; blank GWs are
+    excluded. Double GWs contribute the number of fixtures rather than just 1.
+    This is descriptive evidence, not a calibrated starting probability.
+    """
+    weeks = sorted({int(gw) for gw in finished_gws}, reverse=True)[:5]
+    if not weeks:
+        return {"minutes": None, "matches": 0, "played": 0, "window": []}
+    counts = match_counts or {}
+    games = sum(max(0, int(counts.get(gw, 1))) for gw in weeks)
+    if games < 1:
+        return {"minutes": None, "matches": 0, "played": 0, "window": weeks}
+    relevant = [row for row in history if int(row.get("round", -1)) in weeks]
+    minutes = sum(clamp(num(row.get("minutes")), 0, 130) for row in relevant)
+    played = sum(1 for row in relevant if num(row.get("minutes")) > 0)
+    return {"minutes": round(clamp(minutes / games, 0, 90), 1),
+            "matches": games, "played": played, "window": weeks}
 
 def _poisson_at_least(k: int, lam: float) -> float:
     if lam <= 0:
