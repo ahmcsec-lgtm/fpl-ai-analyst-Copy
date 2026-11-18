@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v6.7.1 — stadium background fix and combined fixture/xP cards with preserved planning tools.
+"""AJK Bola Wawei AI v6.8 — cinematic premium dashboard, preserving the full FPL planner.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -404,6 +404,115 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
  .ajk-side-metric{display:flex}.ajk-side-metric strong{margin-top:0}
  .ajk-panel-heading{margin-top:12px}
  .ajk-sidecard{margin-bottom:8px}
+}
+
+
+/* v6.8 — Cinematic Dashboard Edition. All styling; native Streamlit controls remain interactive. */
+:root{--ajk-neon:#20e6a0;--ajk-ice:#d9f8f3;--ajk-gold:#f4c452}
+.block-container{max-width:1660px!important;padding-left:clamp(13px,1.6vw,28px)!important;
+ padding-right:clamp(13px,1.6vw,28px)!important;padding-top:.15rem!important}
+.ajk-hero{margin:0 auto 10px!important;max-width:1220px!important;min-height:130px!important;
+ padding:18px clamp(18px,4vw,56px)!important;border-radius:20px!important;
+ background:linear-gradient(90deg,rgba(2,21,36,.90),rgba(4,29,44,.68) 53%,rgba(5,28,43,.78))!important;
+ border:1px solid rgba(46,209,181,.38)!important;box-shadow:0 18px 42px rgba(0,0,0,.22)!important}
+.ajk-hero:before{width:260px!important;height:200px!important;right:10%!important;top:-140px!important;
+ border-color:rgba(28,243,167,.28)!important;box-shadow:0 0 85px rgba(22,214,151,.11)}
+.ajk-hero .ajk-brandline{justify-content:center!important;gap:22px!important}
+.ajk-hero .ajk-logo-mark{width:94px!important;height:94px!important;object-fit:contain!important;
+ filter:drop-shadow(0 0 13px rgba(27,243,177,.25))}
+.ajk-hero .ajk-brandcopy{text-align:left}
+.ajk-hero h1{font-size:clamp(26px,3.5vw,52px)!important;letter-spacing:-.045em!important;
+ font-weight:900!important;line-height:1.05!important}
+.ajk-hero p{font-size:13px!important;letter-spacing:.045em;color:#bbdce3!important;margin-top:9px!important}
+.ajk-hero .ajk-kicker{font-size:10px!important;letter-spacing:.22em!important;color:#88edce!important}
+/* Three substantial nav pills rather than tiny default tabs. */
+[data-testid="stTabs"] [data-baseweb="tab-list"]{
+ display:flex!important;justify-content:center!important;gap:12px!important;
+ border-bottom:0!important;margin:8px auto 22px!important;max-width:920px;
+ padding:6px!important;border-radius:17px;
+ background:rgba(3,22,38,.75)!important;border:1px solid rgba(63,177,176,.30)!important;
+ box-shadow:0 10px 35px rgba(0,0,0,.15)}
+[data-testid="stTabs"] [data-baseweb="tab"]{
+ flex:1!important;min-width:0!important;min-height:52px!important;justify-content:center!important;
+ border-radius:12px!important;border:1px solid transparent!important;
+ color:#edf9fb!important;font-size:clamp(12px,1vw,17px)!important;font-weight:750!important;
+ background:rgba(9,38,58,.63)!important;transition:background .18s ease,box-shadow .18s ease}
+[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"]{
+ color:#03251d!important;background:linear-gradient(110deg,#11d79a,#04a86f)!important;
+ box-shadow:0 4px 23px rgba(19,224,146,.23)!important;border-color:rgba(63,253,179,.65)!important}
+[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+[data-testid="stTabs"] [data-baseweb="tab-border"]{display:none!important}
+.ajk-panel-heading{font-size:clamp(13px,1vw,18px)!important;margin:3px 0 12px!important;
+ letter-spacing:.014em!important;text-shadow:0 2px 10px rgba(0,0,0,.25)}
+.ajk-sidecard{background:linear-gradient(135deg,rgba(5,29,47,.89),rgba(4,27,43,.91))!important;
+ border:1px solid rgba(62,192,182,.37)!important;border-radius:20px!important;
+ padding:20px 18px!important;box-shadow:0 12px 31px rgba(0,0,0,.26),inset 0 1px 0 rgba(163,250,234,.07)!important;
+ backdrop-filter:blur(7px)}
+.ajk-side-kicker{font-size:11px!important;color:#69eec3!important}
+.ajk-side-metric{padding:13px 0!important}
+.ajk-side-metric span{font-size:13px!important}
+.ajk-side-metric strong{font-size:17px!important}
+.ajk-insight .ajk-side-metric strong{color:#48f7b5!important}
+.ajk-fixture-row{padding:14px 0!important}
+.ajk-guide{border-color:rgba(53,193,170,.3)!important}
+/* Give the pitch the bright stadium turf and clean glowing frame in the approved visual. */
+.st-key-ajk_click_pitch{
+ position:relative!important;isolation:isolate!important;overflow:hidden!important;
+ border:2px solid #20ea9a!important;border-radius:24px 24px 4px 4px!important;
+ padding:12px 10px 24px!important;
+ background:repeating-linear-gradient(180deg,rgba(255,255,255,.028) 0,rgba(255,255,255,.028) 120px,
+ rgba(0,0,0,.027) 120px,rgba(0,0,0,.027) 240px),linear-gradient(160deg,#048c51,#006e41 85%)!important;
+ box-shadow:0 0 0 1px rgba(14,228,143,.17),0 12px 37px rgba(1,14,17,.45),0 0 36px rgba(9,222,138,.15)!important}
+.st-key-ajk_click_pitch:before{content:"";z-index:-1;position:absolute;inset:22px 14px 15px;
+ border:2px solid rgba(202,255,224,.42);pointer-events:none}
+.st-key-ajk_click_pitch:after{content:"";z-index:-1;position:absolute;left:28%;width:44%;top:24px;height:62px;
+ border:2px solid rgba(211,255,229,.40);border-top:0;pointer-events:none}
+.st-key-ajk_click_pitch [data-testid="stButton"] button{
+ background:linear-gradient(160deg,rgba(5,54,44,.90),rgba(4,42,36,.93))!important;
+ border:1px solid rgba(191,255,223,.28)!important;border-radius:14px!important;
+ box-shadow:0 5px 12px rgba(0,0,0,.13)!important;
+ min-height:120px!important;color:#fff!important;overflow:hidden}
+.st-key-ajk_click_pitch [data-testid="stButton"] button:hover{
+ border-color:#8dffd3!important;box-shadow:0 0 12px rgba(51,246,154,.31)!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button[kind="primary"]{
+ border-color:#b6ffcf!important;box-shadow:0 0 0 2px rgba(182,255,207,.18)!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button img{max-height:85px!important;object-fit:contain!important}
+.st-key-ajk_click_pitch [data-testid="stButton"] button p,
+.st-key-ajk_click_bench [data-testid="stButton"] button p{font-weight:700!important;line-height:1.35!important}
+.st-key-ajk_click_bench{border-radius:4px 4px 22px 22px!important;
+ border:2px solid #1ee79d!important;border-top:0!important;
+ background:linear-gradient(180deg,rgba(0,76,58,.92),rgba(3,40,42,.97))!important;
+ box-shadow:0 14px 31px rgba(0,0,0,.24),0 0 28px rgba(8,221,131,.12)!important}
+.st-key-ajk_click_bench [data-testid="stButton"] button{background:rgba(0,45,41,.8)!important;
+ border:1px solid rgba(170,255,222,.22)!important;border-radius:13px!important;min-height:112px!important}
+.ajk-best-xi{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;
+ border:1px solid rgba(42,228,148,.37);border-radius:13px;
+ background:linear-gradient(100deg,rgba(5,96,64,.81),rgba(4,47,50,.82));
+ padding:11px 15px;margin:6px 0 9px;color:#d7ffed}
+.ajk-best-xi strong{color:#54ffb9;font-size:17px}
+.ajk-best-xi span{font-size:12px;color:#bcf7de}
+/* Keep form readable on dark artwork, and make the top controls less visually dominant. */
+[data-testid="stTextInput"] input,[data-testid="stSelectbox"] div[data-baseweb="select"]>div{
+ border-radius:11px!important;background:rgba(11,27,43,.91)!important;
+ border-color:rgba(130,208,199,.23)!important}
+[data-testid="stExpander"]{background:rgba(4,25,40,.79)!important}
+@media(max-width:1100px){
+ .ajk-sidecard{padding:13px 11px!important}
+ .ajk-hero{min-height:100px!important}.ajk-hero .ajk-logo-mark{width:66px!important;height:66px!important}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:98px!important}
+}
+@media(max-width:780px){
+ .ajk-hero{padding:13px!important;min-height:0!important}
+ .ajk-hero .ajk-brandline{gap:10px!important;justify-content:flex-start!important}
+ .ajk-hero .ajk-logo-mark{width:52px!important;height:52px!important}
+ .ajk-hero h1{font-size:clamp(20px,5.1vw,27px)!important}
+ [data-testid="stTabs"] [data-baseweb="tab-list"]{gap:4px!important;padding:4px!important;margin-bottom:13px!important}
+ [data-testid="stTabs"] [data-baseweb="tab"]{min-height:40px!important;font-size:11px!important;padding:6px 4px!important}
+ .st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:85px!important;padding:5px 2px!important}
+ .st-key-ajk_click_pitch{padding:8px 4px 12px!important}
+ .st-key-ajk_click_bench{padding:8px 3px!important}
+ .st-key-ajk_click_bench [data-testid="stButton"] button{min-height:82px!important}
+ .ajk-sidecard{backdrop-filter:none}
 }
 
 </style>
@@ -974,14 +1083,13 @@ with tab_team:
             + fixture_player_name + '</div>' + ''.join(fixtures_rows) + '</div>',
             unsafe_allow_html=True,
         )
-        st.markdown("<div class='ajk-panel-heading'>⚡ QUICK GUIDE</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ajk-panel-heading'>⚡ QUICK ACTIONS</div>", unsafe_allow_html=True)
         st.markdown("""
         <div class="ajk-sidecard ajk-guide">
-          <div><b>My Team</b><small>Click a player portrait to change captain, substitute or transfer.</small></div>
-          <div><b>Smart Transfers</b><small>See whether to transfer now or roll.</small></div>
-          <div><b>Wildcard / Free Hit</b><small>Build an alternative legal squad.</small></div>
+          <div><b>↔ Smart Transfer Advisor</b><small>Open the Smart Transfers tab for the strongest move—or advice to roll.</small></div>
+          <div><b>◇ Wildcard Squad Builder</b><small>Open Wildcard / Free Hit to explore your optimal squad.</small></div>
+          <div><b>⚡ Free Hit Builder</b><small>Plan a one-Gameweek squad without changing your real FPL team.</small></div>
         </div>""", unsafe_allow_html=True)
-        st.caption("Use the tabs above to open transfer and chip tools.")
 
     with pitch_col:
         with st.container():
@@ -995,15 +1103,21 @@ with tab_team:
             if int(preview_gw) != int(st.session_state.preview_gw):
                 st.session_state.preview_gw = int(preview_gw)
                 st.rerun()
-            st.caption("Future GW previews use your current draft; planned transfers are not applied automatically.")
+            # Keep the Gameweek selector close to the interactive pitch.
+            # Future GW previews always use the current simulated squad.
             # The engine selects the optimal legal XI for this GW. No alternative-formation UI.
             gw_xp = {int(p["id"]): player_fixture_xp(p, preview_gw, fixture_map, minutes_overrides)
                      for p in squad}
             auto_xi = lineup["xi"]
             ai_counts = Counter(int(p["element_type"]) for p in auto_xi)
             ai_formation = f"{ai_counts[2]}-{ai_counts[3]}-{ai_counts[4]}"
-            st.success(f"AI best for GW {preview_gw}: **{ai_formation}** · "
-                       f"**{lineup['total_xp']:.2f} predicted points** (captain included)")
+            st.markdown(
+                f'<div class="ajk-best-xi"><div>AI Best Formation: '
+                f'<strong>{ai_formation}</strong> <span> · GW {preview_gw}</span></div>'
+                f'<div><strong>{lineup["total_xp"]:.2f} xP</strong> '
+                '<span>including captain</span></div></div>',
+                unsafe_allow_html=True,
+            )
             # One-time migration: the previous version saved chosen formations as manual
             # overrides. Clear them once so upgrading immediately enables auto-XI for every GW.
             if not st.session_state.get("auto_formations_v524_initialized", False):
@@ -1026,7 +1140,7 @@ with tab_team:
                 st.info(f"Viewing a manual GW {preview_gw} XI ({active_formation}). "
                         f"The AI recommends {ai_formation}. Use Reset to Original FPL Team above to discard all draft changes.")
             else:
-                st.caption(f"✅ Automatically selected: **{active_formation}** · AI best XI and captain for GW {preview_gw}")
+                pass  # AI status is displayed in the formation banner above.
             cap_ids = [int(p["id"]) for p in xi]
             cap_default = st.session_state.get("manual_captain_by_gw", {}).get(
                 preview_gw, st.session_state.get("manual_captain") if preview_gw == selected_gw else None
