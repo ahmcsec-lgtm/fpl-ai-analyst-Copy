@@ -18,6 +18,7 @@ from fpl_engine import (
     best_starting_xi,
     bench_order,
     suggest_transfers,
+    optimise_multi_gw_transfers,
     POSITION_NAMES,
 )
 
@@ -473,6 +474,7 @@ if edit_minutes and players:
 # The engine accepts team-specific strengths; this maps the chosen global factor.
 team_strengths = {t["id"]: default_strength for t in teams}
 
+
 def xp(player, gw):
     return player_fixture_xp(
         player,
@@ -482,8 +484,10 @@ def xp(player, gw):
         team_strength=team_strengths.get(player["team"], 1.0),
     )
 
+
 def total_xp(player, gws):
     return sum(xp(player, gw) for gw in gws)
+
 
 # =========================================================
 # HEADER
@@ -762,11 +766,10 @@ with tabs[2]:
         else:
             st.info("No legal affordable one-for-one transfer options were found.")
 
-        st.warning(
-            "This is a ranked one-transfer-at-a-time comparison, not a complete "
-            "multi-transfer search across every possible squad. The estimated hit "
-            "uses a simple £4-point-per-extra-transfer assumption. Confirm exact "
-            "free transfers, selling prices, bank and transfer rules in FPL."
+        st.info(
+            "This table ranks individual one-for-one transfers. For a multi-transfer "
+            "plan with free-transfer rollover and hit calculations, use the "
+            "Multi-GW Transfer Optimiser in the Multi-GW Planner tab."
         )
 
 # =========================================================
@@ -789,6 +792,221 @@ with tabs[3]:
     )
     planner_gws = available_gws[:horizon]
     st.write("**Selected:** " + ", ".join(f"GW{g}" for g in planner_gws))
+
+    # -----------------------------------------------------
+    # MULTI-GW TRANSFER OPTIMISER
+    # -----------------------------------------------------
+    st.divider()
+    st.subheader("Multi-GW Transfer Optimiser")
+    st.caption(
+        "Searches for a sequence of transfers across your selected Gameweeks. "
+        "It accounts for transfer hits, free-transfer rollover, budget and squad legality."
+    )
+
+    if not squad or not picks:
+        st.info("Your public squad picks are required to run the transfer optimiser.")
+    else:
+        optimiser_bank = int(num(
+            latest.get("bank", profile.get("last_deadline_bank", 0))
+        ))
+
+        optimiser_free_transfers = st.number_input(
+            "Current free transfers",
+            min_value=0,
+            max_value=5,
+            value=1,
+            key="optimiser_free_transfers",
+            help="Enter the free transfers currently shown in your FPL account.",
+        )
+
+        max_transfers_per_gw = st.slider(
+            "Maximum transfers in one Gameweek",
+            min_value=0,
+            max_value=4,
+            value=2,
+            key="optimiser_max_transfers",
+        )
+
+        beam_width = st.slider(
+            "Search width",
+            min_value=5,
+            max_value=40,
+            value=20,
+            step=5,
+            help="Higher values examine more possible plans but take longer.",
+            key="optimiser_beam_width",
+        )
+
+        st.metric("Available bank", money(optimiser_bank))
+
+        optimiser_squad = []
+        for pick in picks:
+            player = player_by_id.get(pick.get("element"))
+            if player:
+                item = dict(player)
+                item["selling_price"] = pick.get(
+                    "selling_price",
+                    player.get("now_cost"),
+                )
+                optimiser_squad.append(item)
+
+        optimiser_signature = (
+            tuple(planner_gws),
+            optimiser_bank,
+            int(optimiser_free_transfers),
+            risk,
+            max_transfers_per_gw,
+            beam_width,
+            tuple(
+                (p["id"], int(num(p.get("selling_price"))))
+                for p in optimiser_squad
+            ),
+            tuple(sorted(minute_overrides.items())),
+            tuple(sorted(team_strengths.items())),
+        )
+
+        if st.button(
+            "Run Multi-GW Transfer Optimiser",
+            type="primary",
+            use_container_width=True,
+            key="run_multi_gw_optimiser",
+        ):
+            with st.spinner(
+                "Searching transfer combinations and evaluating future Gameweeks..."
+            ):
+                result = optimise_multi_gw_transfers(
+                    optimiser_squad,
+                    players,
+                    planner_gws,
+                    fx_map,
+                    bank_tenths=optimiser_bank,
+                    free_transfers=int(optimiser_free_transfers),
+                    risk=risk,
+                    minutes_overrides=minute_overrides,
+                    team_strengths=team_strengths,
+                    max_transfers_per_gw=max_transfers_per_gw,
+                    candidates_per_position=8,
+                    beam_width=beam_width,
+                )
+
+            st.session_state["ajk_multi_gw_optimiser"] = {
+                "signature": optimiser_signature,
+                "result": result,
+            }
+
+        saved_result = st.session_state.get("ajk_multi_gw_optimiser")
+
+        if saved_result and saved_result.get("signature") == optimiser_signature:
+            result = saved_result["result"]
+
+            if result.get("error"):
+                st.error(result["error"])
+            else:
+                st.success("Multi-Gameweek transfer plan generated.")
+
+                r1, r2, r3 = st.columns(3)
+                r1.metric(
+                    "Projected net points",
+                    f"{result['total_net_xp']:.2f}",
+                )
+                r2.metric(
+                    "Estimated remaining bank",
+                    money(result["final_bank"]),
+                )
+                r3.metric(
+                    "Free transfers after final GW",
+                    str(result["final_free_transfers"]),
+                )
+
+                st.markdown("**Recommended Gameweek-by-Gameweek plan**")
+                plan_rows = []
+                transfer_rows = []
+
+                for week in result["plan"]:
+                    actions = week["transfers"]
+                    transfer_text = (
+                        " · ".join(
+                            f"{action['out']} → {action['in']}"
+                            for action in actions
+                        )
+                        if actions else "No transfer"
+                    )
+
+                    plan_rows.append({
+                        "Gameweek": f"GW{week['gameweek']}",
+                        "Recommended transfers": transfer_text,
+                        "Transfers made": week["transfer_count"],
+                        "Free transfers before": week["free_transfers_before"],
+                        "Free transfers after": week["free_transfers_after"],
+                        "Hit points": week["hit_points"],
+                        "Starting XI xP": week["xi_xp"],
+                        "Captain": week["captain"],
+                        "Captain xP": week["captain_xp"],
+                        "Net projected points": week["net_xp"],
+                        "Bank after transfers": money(week["bank_after"]),
+                    })
+
+                    for action in actions:
+                        transfer_rows.append({
+                            "Gameweek": f"GW{week['gameweek']}",
+                            "Sell": action["out"],
+                            "Buy": action["in"],
+                            "Position": action["position"],
+                            "Sell price": money(action["sell_price"]),
+                            "Buy price": money(action["buy_price"]),
+                            "Bank after transfer": money(action["bank_after"]),
+                        })
+
+                st.dataframe(
+                    pd.DataFrame(plan_rows),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+                if transfer_rows:
+                    st.markdown("**Transfer details**")
+                    st.dataframe(
+                        pd.DataFrame(transfer_rows),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.info(
+                        "The optimiser found that keeping your current squad "
+                        "was the best plan within the search settings."
+                    )
+
+                st.markdown("**Final projected 15-player squad**")
+                final_squad_rows = []
+                for player in result["final_squad"]:
+                    final_squad_rows.append({
+                        "Player": player.get("web_name", ""),
+                        "Position": POSITION_NAMES.get(
+                            player.get("element_type"), "?"
+                        ),
+                        "Club": team_short.get(player.get("team"), ""),
+                        "Price": money(player.get("now_cost")),
+                        "Status": status_label(player),
+                    })
+
+                st.dataframe(
+                    pd.DataFrame(final_squad_rows).sort_values(
+                        ["Position", "Player"]
+                    ),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+                with st.expander("Search settings and assumptions"):
+                    st.write(result["search_settings"])
+                    for assumption in result["assumptions"]:
+                        st.write(f"- {assumption}")
+
+        elif saved_result:
+            st.caption(
+                "The previous result was generated with different planning settings. "
+                "Run the optimiser again to refresh it."
+            )
 
     if squad:
         squad_table = make_projection_table(
