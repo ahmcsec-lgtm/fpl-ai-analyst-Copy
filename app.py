@@ -1488,31 +1488,6 @@ with tab_team:
           <div class="ajk-side-metric"><span>🧠 Team status</span><strong>{rating_label}</strong></div>
         </div>""", unsafe_allow_html=True)
         st.caption("Estimated points are forecasts, not guarantees.")
-        st.markdown("<div class='ajk-panel-heading'>🩺 TEAM NEWS & RELIABILITY</div>", unsafe_allow_html=True)
-        at_risk = sorted([p for p in squad if p.get("status", "a") != "a"],
-                         key=lambda p: projected_minutes(p))
-        if at_risk:
-            for p in at_risk[:5]:
-                text_news = str(p.get("news") or "FPL has flagged this player's availability")
-                st.warning(f"**{p.get('web_name','Player')}** · {player_status_label(p)} — {text_news}")
-        else:
-            st.caption("FPL currently lists every player in your squad as available. This does not guarantee a start.")
-        with st.expander("Latest football headlines (BBC Sport)", expanded=False):
-            st.caption("Headline matches are unverified context, not confirmed injuries. They do not automatically reduce xP.")
-            mentions = []
-            seen = set()
-            for p in squad:
-                for article in match_news_for_player(p, news_headlines, squad):
-                    if article["url"] not in seen:
-                        seen.add(article["url"])
-                        mentions.append((p["web_name"], article))
-            if mentions:
-                for name, article in mentions[:8]:
-                    st.markdown(f"**{name}:** [{article['title']}]({article['url']})")
-                    st.caption(f"{article['source']} · {article['published']}")
-            else:
-                st.caption("No unambiguous player headlines found in the recent feed." if news_state != "Unavailable"
-                           else "News feed unavailable; FPL data and predictions are still working.")
 
     with upcoming_col:
         st.markdown("<div class='ajk-panel-heading'>↗ PLAYER PRICE WATCH</div>", unsafe_allow_html=True)
@@ -1589,6 +1564,33 @@ with tab_team:
             '</div>',
         ])
         st.markdown(''.join(price_html), unsafe_allow_html=True)
+
+        # Availability reports follow Price Watch in the right sidebar.
+        st.markdown("<div class='ajk-panel-heading'>🩺 TEAM NEWS & RELIABILITY</div>", unsafe_allow_html=True)
+        at_risk = sorted([p for p in squad if p.get("status", "a") != "a"],
+                         key=lambda p: projected_minutes(p))
+        if at_risk:
+            for p in at_risk[:5]:
+                text_news = str(p.get("news") or "FPL has flagged this player's availability")
+                st.warning(f"**{p.get('web_name','Player')}** · {player_status_label(p)} — {text_news}")
+        else:
+            st.caption("FPL currently lists every player in your squad as available. This does not guarantee a start.")
+        with st.expander("Latest football headlines (BBC Sport)", expanded=False):
+            st.caption("Headline matches are unverified context, not confirmed injuries. They do not automatically reduce xP.")
+            mentions = []
+            seen = set()
+            for p in squad:
+                for article in match_news_for_player(p, news_headlines, squad):
+                    if article["url"] not in seen:
+                        seen.add(article["url"])
+                        mentions.append((p["web_name"], article))
+            if mentions:
+                for name, article in mentions[:8]:
+                    st.markdown(f"**{name}:** [{article['title']}]({article['url']})")
+                    st.caption(f"{article['source']} · {article['published']}")
+            else:
+                st.caption("No unambiguous player headlines found in the recent feed." if news_state != "Unavailable"
+                           else "News feed unavailable; FPL data and predictions are still working.")
 
     with pitch_col:
         with st.container():
