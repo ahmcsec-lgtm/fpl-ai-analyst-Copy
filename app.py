@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v5.5 — premium captain and vice-captain badges.
+"""AJK Bola Wawei AI v5.5.1 — simplified planning settings.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -25,7 +25,7 @@ from fpl_engine import (
 )
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.5 (public FPL data)"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/5.5.1 (public FPL data)"}
 
 st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -594,13 +594,9 @@ with st.expander("⚙️ Planning settings", expanded=False):
     strategy = c3.selectbox("AI Strategy", ["Balanced", "Safe", "Aggressive"])
     ft = st.number_input("Free transfers available (check your FPL account)", min_value=0, max_value=5, value=1)
     st.caption("Safe applies a modest penalty to low-minute players. Aggressive prioritises upside. The risk settings are heuristics, not calibrated probabilities.")
+    # Use the prediction engine's automatic expected-minutes estimates.
+    # Manual per-player minutes controls are intentionally not exposed.
     minutes_overrides = {}
-    with st.expander("Optional player minutes assumptions"):
-        for p in squad:
-            pid = int(p["id"])
-            minutes_overrides[pid] = st.slider(label(p, clubs), 0, 90,
-                                                value=int(round(projected_minutes(p) / 5) * 5), step=5,
-                                                key=f"mins_{st.session_state.loaded_id}_{pid}")
 
 # Stable defaults on the first render, independent of the optional expander.
 selected_gw = locals().get("selected_gw", available_gws[0])
