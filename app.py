@@ -926,11 +926,6 @@ with st.expander("🏟️ My Team · Pitch, captain & manual changes", expanded=
             else:
                 st.warning("This player change would create an invalid squad. Try another replacement.")
 
-    st.dataframe(squad_frame(squad, [preview_gw] + [gw for gw in gws if gw != preview_gw], fixture_map, clubs, minutes_overrides),
-                 hide_index=True, use_container_width=True)
-    risky = [p for p in squad if p.get("status", "a") != "a"]
-    if risky:
-        st.warning("Check availability: " + ", ".join(p.get("web_name", "?") for p in risky))
     with st.expander("🔎 Player insights · Fixtures, xP & minutes", expanded=False):
         insight_ids = sorted((int(p["id"]) for p in squad),
                              key=lambda pid: horizon_xp(player_by_id[pid], gws, fixture_map, minutes_overrides),
