@@ -1,7 +1,11 @@
+"""AJK Bola Wawei AI — free FPL My Team, AI-style rating and squad builder.
+Run: streamlit run app.py
+Requires: streamlit, pandas, requests (see requirements.txt).
+"""
+from __future__ import annotations
 
-import html
+from collections import Counter
 from datetime import datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -9,1352 +13,393 @@ import requests
 import streamlit as st
 
 from fpl_engine import (
-    num,
-    player_projection,
-    player_fixture_xp,
-    player_horizon_xp,
-    fixture_lookup,
-    build_squad,
-    best_starting_xi,
-    bench_order,
-    suggest_transfers,
-    optimise_multi_gw_transfers,
-    POSITION_NAMES,
+    POSITION_NAMES, QUOTAS, best_lineup, fixture_lookup, horizon_xp,
+    num, optimise_chip_squad, player_fixture_xp, projected_minutes,
+    suggest_transfers, team_rating, valid_squad,
 )
-
-# =========================================================
-# CONFIGURATION
-# =========================================================
 
 API = "https://fantasy.premierleague.com/api"
-HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/2.0"}
+HEADERS = {"User-Agent": "AJK-Bola-Wawei-AI/2.0 (public FPL data)"}
 MY_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 
-st.set_page_config(
-    page_title="AJK Bola Wawei AI",
-    page_icon="⚽",
-    layout="wide",
-)
+st.set_page_config(page_title="AJK Bola Wawei AI", page_icon="⚽", layout="wide")
+st.markdown("""
+<style>
+.block-container{padding-top:1.4rem;max-width:1400px}
+[data-testid="stMetric"]{border:1px solid rgba(130,130,130,.22);border-radius:14px;padding:14px}
+.pitch{background:linear-gradient(180deg,#0d6b48,#07553b);border:2px solid #4da47b;
+  border-radius:16px;padding:16px 8px;margin:8px 0;color:white}
+.pitch-row{display:flex;justify-content:space-evenly;gap:5px;margin:16px 0}
+.pitch-player{background:rgba(0,0,0,.27);border:1px solid rgba(255,255,255,.24);
+  border-radius:9px;padding:8px 3px;width:19%;text-align:center;font-size:12px;line-height:1.35}
+.pitch-player strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pitch-player small{display:block;opacity:.92}
+.muted-note{color:#888;font-size:.85rem}
+</style>
+""", unsafe_allow_html=True)
 
-# =========================================================
-# STYLE
-# =========================================================
 
-st.markdown(
-    """
-    <style>
-    .block-container {padding-top:1.2rem;max-width:1600px;}
-    [data-testid="stMetric"] {
-        background:rgba(120,130,145,.09);
-        padding:12px 14px;border-radius:12px;
-    }
-    .small-note {color:#8b93a1;font-size:.84rem;}
-    .section-note {
-        padding:11px 14px;border-radius:10px;
-        background:rgba(120,130,145,.08);margin-bottom:12px;
-    }
-    .pitch {
-        background:repeating-linear-gradient(
-            0deg,#176b42,#176b42 70px,
-            #1b7549 70px,#1b7549 140px
-        );
-        border:3px solid rgba(255,255,255,.75);
-        border-radius:15px;padding:15px 8px;color:white;
-        width:100%;box-sizing:border-box;
-    }
-    .pitch-row {
-        display:flex;justify-content:space-evenly;
-        align-items:center;flex-wrap:wrap;gap:9px;margin:14px 0;
-    }
-    .pitch-player {
-        background:rgba(0,0,0,.30);
-        border:1px solid rgba(255,255,255,.30);
-        border-radius:10px;min-width:85px;max-width:125px;
-        padding:8px 6px;text-align:center;font-size:12px;
-        line-height:1.35;box-sizing:border-box;
-    }
-    .pitch-player strong {display:block;color:white;font-size:12px;}
-    .pitch-player small {display:block;color:#e1f5e8;font-size:10px;}
-    .captain {
-        background:#e9bd35;color:#222;border-radius:5px;
-        padding:1px 5px;font-weight:bold;margin-left:3px;
-    }
-    .vice {
-        background:#d9e4ef;color:#222;border-radius:5px;
-        padding:1px 5px;font-weight:bold;margin-left:3px;
-    }
-    .bench-card {
-        background:rgba(120,130,145,.10);
-        border:1px solid rgba(120,130,145,.25);
-        border-radius:9px;padding:10px;text-align:center;font-size:12px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# =========================================================
-# HELPERS
-# =========================================================
-
-@st.cache_data(ttl=600, show_spinner=False)
-def get_json(path):
-    response = requests.get(
-        f"{API}/{path.lstrip('/')}",
-        headers=HEADERS,
-        timeout=25,
-    )
+@st.cache_data(ttl=900, show_spinner=False)
+def get_json(path: str) -> dict | list:
+    response = requests.get(f"{API}/{path.lstrip('/')}", headers=HEADERS, timeout=22)
     response.raise_for_status()
     return response.json()
 
 
-def money(tenths):
+def pounds(tenths: int | float) -> str:
     return f"£{num(tenths) / 10:.1f}m"
 
 
-def malaysia_time(value, fmt="%d %b %Y, %H:%M"):
-    if not value:
-        return "TBC"
-    try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return dt.astimezone(MY_TZ).strftime(fmt)
-    except Exception:
-        return "TBC"
+def short_name(p: dict, clubs: dict[int, str]) -> str:
+    return f"{p.get('web_name', p.get('second_name', '?'))} ({clubs.get(int(p.get('team', 0)), '—')})"
 
 
-def status_label(player):
-    labels = {
-        "a": "Available", "d": "Doubtful", "i": "Injured",
-        "s": "Suspended", "u": "Unavailable", "n": "Not available",
-    }
-    label = labels.get(player.get("status"), "Unknown")
-    chance = player.get("chance_of_playing_next_round")
-    if chance is not None:
-        label += f" · {chance}% chance"
-    return label
+def player_options(players: list[dict], clubs: dict[int, str]) -> dict[int, str]:
+    return {int(p["id"]): f"{short_name(p, clubs)} · {POSITION_NAMES.get(int(p['element_type']), '?')} · {pounds(p.get('now_cost', 0))}" for p in players}
 
 
-def fx_text(fixtures_for_player):
-    return ", ".join(x[0] for x in fixtures_for_player) if fixtures_for_player else "Blank"
-
-
-def report_files():
-    folder = Path("reports")
-    return sorted(folder.glob("GW*_report.md"), reverse=True) if folder.exists() else []
-
-
-def gw_xp(player, gw, fx_map, risk="Balanced", minute_overrides=None):
-    return player_fixture_xp(
-        player,
-        fx_map.get((player["team"], gw), []),
-        risk=risk,
-        minutes_override=(minute_overrides or {}).get(player["id"]),
-    )
-
-
-def horizon_xp(player, gameweeks, fx_map, risk="Balanced", minute_overrides=None):
-    return player_horizon_xp(
-        player,
-        gameweeks,
-        fx_map,
-        risk=risk,
-        minutes_overrides=minute_overrides or {},
-    )
-
-
-def render_pitch(xi, gw, fx_map, captain_id=None, vice_id=None, bench=None, risk="Balanced"):
-    if not xi:
-        st.info("No starting XI is available.")
-        return
-
-    groups = {4: [], 3: [], 2: [], 1: []}
-    for player in xi:
-        groups.setdefault(player.get("element_type"), []).append(player)
-
-    rows = []
-    for pos in (4, 3, 2, 1):
-        cards = []
-        for player in groups.get(pos, []):
-            pid = player["id"]
-            name = html.escape(str(player.get("web_name", "Player")))
-            club = html.escape(str(player.get("team_name", "")))
-            fixture = html.escape(fx_text(fx_map.get((player["team"], gw), [])))
-            xp = gw_xp(player, gw, fx_map, risk)
-
-            badge = ""
-            if pid == captain_id:
-                badge = '<span class="captain">C</span>'
-            elif pid == vice_id:
-                badge = '<span class="vice">VC</span>'
-
-            cards.append(
-                f'<div class="pitch-player">'
-                f'<strong>{name} {badge}</strong>'
-                f'<small>{club} · {fixture}</small>'
-                f'<small>xP: {xp:.2f}</small></div>'
-            )
-
-        if cards:
-            rows.append('<div class="pitch-row">' + "".join(cards) + "</div>")
-
-    st.markdown(
-        '<div class="pitch">' + "".join(rows) + "</div>",
-        unsafe_allow_html=True,
-    )
-
-    if bench:
-        st.markdown("**Substitutes — recommended order**")
-        cols = st.columns(len(bench))
-        for index, player in enumerate(bench):
-            xp = gw_xp(player, gw, fx_map, risk)
-            fixture = html.escape(fx_text(fx_map.get((player["team"], gw), [])))
-            name = html.escape(str(player.get("web_name", "Player")))
-            pos = POSITION_NAMES.get(player.get("element_type"), "?")
-            card = (
-                f'<div class="bench-card"><strong>{index + 1}. {name}</strong><br>'
-                f'{pos}<br>{fixture}<br>xP: {xp:.2f}</div>'
-            )
-            with cols[index]:
-                st.markdown(card, unsafe_allow_html=True)
-
-
-def make_projection_table(players, gameweeks, fx_map, risk, minute_overrides):
-    rows = []
-    for p in players:
-        row = {
-            "Player": p.get("web_name", ""),
-            "Position": POSITION_NAMES.get(p.get("element_type"), "?"),
-            "Club": p.get("team_name", ""),
-            "Price": money(p.get("now_cost")),
-            "Status": status_label(p),
-        }
-        total = 0.0
-        for gw in gameweeks:
-            value = gw_xp(p, gw, fx_map, risk, minute_overrides)
-            row[f"GW{gw}"] = value
-            total += value
-        row["Total xP"] = round(total, 2)
-        rows.append(row)
-    return pd.DataFrame(rows)
-
-
-def best_xi(squad, gw, fx_map, risk):
-    return best_starting_xi(squad, fx_map, gw, risk=risk)
-
-
-def choose_captains(xi, gw, fx_map, risk):
-    candidates = sorted(
-        [p for p in xi if p.get("element_type") != 1],
-        key=lambda p: gw_xp(p, gw, fx_map, risk),
-        reverse=True,
-    )
-    captain = candidates[0] if candidates else None
-    vice = candidates[1] if len(candidates) > 1 else None
-    return captain, vice
-
-
-def legal_squad_summary(squad, budget):
-    cost = sum(int(num(p.get("now_cost"))) for p in squad)
-    club_counts = {}
-    for p in squad:
-        club_counts[p["team"]] = club_counts.get(p["team"], 0) + 1
-    positions = {
-        pos: sum(p.get("element_type") == pos for p in squad)
-        for pos in (1, 2, 3, 4)
-    }
-    legal = (
-        len(squad) == 15
-        and positions == {1: 2, 2: 5, 3: 5, 4: 3}
-        and max(club_counts.values(), default=0) <= 3
-        and cost <= int(round(budget * 10))
-    )
-    return cost, legal
-
-
-# =========================================================
-# SIDEBAR
-# =========================================================
-
-with st.sidebar:
-    st.title("⚽ AJK Bola Wawei AI")
-    st.caption("Your personal Fantasy Premier League analyst")
-
-    team_id_input = st.text_input(
-        "FPL Team ID",
-        value="",
-        placeholder="Enter your FPL Team ID",
-        key="ajk_fpl_team_id",
-    )
-
-    risk = st.selectbox(
-        "Planning style",
-        ["Cautious", "Balanced", "Aggressive"],
-        index=1,
-        help="Cautious discounts uncertain players. Aggressive is less risk-averse.",
-    )
-
-    if st.button("↻ Refresh data", use_container_width=True):
-        get_json.clear()
-        st.rerun()
-
-    st.divider()
-    st.caption("Free public FPL data. No FPL password or paid AI API required.")
-
-
-if not team_id_input.strip():
-    st.title("⚽ AJK Bola Wawei AI")
-    st.info("Enter your FPL Team ID in the sidebar to load your personalised analysis.")
-    st.markdown(
-        """
-        **How to find your FPL Team ID**
-
-        1. Open the official Fantasy Premier League website.
-        2. Open your team or Points page.
-        3. Check the URL.
-
-        Example: `https://fantasy.premierleague.com/entry/1234567/event/1`
-
-        The Team ID in this example is `1234567`.
-        """
-    )
-    st.stop()
-
-if not team_id_input.strip().isdigit() or int(team_id_input) < 1:
-    st.error("Please enter a valid numeric FPL Team ID.")
-    st.stop()
-
-team_id = int(team_id_input)
-
-# =========================================================
-# LOAD DATA
-# =========================================================
-
-try:
-    with st.spinner("Loading live FPL data..."):
-        boot = get_json("bootstrap-static/")
-        fixtures = get_json("fixtures/")
-        profile = get_json(f"entry/{team_id}/")
-except requests.HTTPError as exc:
-    st.error("Unable to load this FPL Team ID. Check that the ID is correct and the team profile is public.")
-    st.caption(str(exc))
-    st.stop()
-except requests.RequestException as exc:
-    st.error("Unable to connect to the FPL API.")
-    st.caption(str(exc))
-    st.stop()
-except Exception as exc:
-    st.error(f"Unable to load FPL data: {exc}")
-    st.stop()
-
-players = boot.get("elements", [])
-teams = boot.get("teams", [])
-events = boot.get("events", [])
-
-player_by_id = {p["id"]: p for p in players}
-team_short = {
-    t["id"]: t.get("short_name", t.get("name", ""))
-    for t in teams
-}
-team_names = {t["id"]: t.get("name", "") for t in teams}
-
-for player in players:
-    player["team_name"] = team_short.get(player.get("team"), "")
-
-fx_map = fixture_lookup(fixtures, teams)
-
-current_event = next((e for e in events if e.get("is_current")), None)
-next_event = next((e for e in events if e.get("is_next")), None)
-
-if next_event:
-    target_event = next_event
-elif current_event and not current_event.get("finished"):
-    target_event = current_event
-else:
-    target_event = next(
-        (e for e in events if not e.get("finished") and e.get("deadline_time")),
-        None,
-    )
-
-if not target_event:
-    st.warning("No upcoming Gameweek is currently available.")
-    st.stop()
-
-target_gw = int(target_event["id"])
-upcoming_events = sorted(
-    [
-        e for e in events
-        if int(e["id"]) >= target_gw
-        and not e.get("finished")
-        and e.get("deadline_time")
-    ],
-    key=lambda e: int(e["id"]),
-)
-available_gws = [int(e["id"]) for e in upcoming_events] or [target_gw]
-
-# Load picks, falling back to the most recent finished GW.
-picks_data = None
-snapshot_gw = target_gw
-try:
-    picks_data = get_json(f"entry/{team_id}/event/{target_gw}/picks/")
-except Exception:
-    finished = [e for e in events if e.get("finished")]
-    if finished:
-        snapshot_gw = int(finished[-1]["id"])
+def get_manager(team_id: int, events: list[dict]) -> tuple[dict, dict, int]:
+    profile = get_json(f"entry/{team_id}/")
+    playable = sorted([int(e["id"]) for e in events if e.get("finished") or e.get("is_current")], reverse=True)
+    if not playable:
+        raise ValueError("No completed/current Gameweek picks available for this team yet.")
+    for gw in playable[:8]:
         try:
-            picks_data = get_json(f"entry/{team_id}/event/{snapshot_gw}/picks/")
-        except Exception:
-            picks_data = None
-
-try:
-    history = get_json(f"entry/{team_id}/history/").get("current", [])
-except Exception:
-    history = []
-
-latest = history[-1] if history else {}
-picks = picks_data.get("picks", []) if picks_data else []
-squad = [
-    player_by_id[pick["element"]]
-    for pick in picks
-    if pick.get("element") in player_by_id
-]
-owned_ids = {p["id"] for p in squad}
-
-manager = (
-    f"{profile.get('player_first_name', '')} "
-    f"{profile.get('player_last_name', '')}"
-).strip()
-deadline_text = malaysia_time(target_event.get("deadline_time"))
-
-# =========================================================
-# SCENARIO CONTROLS
-# =========================================================
-
-with st.sidebar:
-    st.divider()
-    st.subheader("Scenario assumptions")
-    st.caption("Optional adjustments for your own planning scenario.")
-
-    default_strength = st.slider(
-        "Overall team-strength adjustment",
-        min_value=0.85,
-        max_value=1.15,
-        value=1.0,
-        step=0.05,
-        help="This adjusts attacking and clean-sheet estimates equally for all clubs.",
-    )
-
-    edit_minutes = st.checkbox("Enable player-minute overrides", value=False)
-
-minute_overrides = {}
-if edit_minutes and players:
-    with st.sidebar:
-        st.caption("Choose a player and set their expected minutes.")
-        player_options = {
-            f"{p['web_name']} ({team_short.get(p['team'], '')})": p
-            for p in sorted(players, key=lambda x: x.get("web_name", ""))
-        }
-        selected_override_name = st.selectbox(
-            "Player to adjust",
-            ["No adjustment"] + list(player_options.keys()),
-        )
-        if selected_override_name != "No adjustment":
-            selected_override = player_options[selected_override_name]
-            default_minutes = min(
-                90,
-                int(num(selected_override.get("minutes")) /
-                    max(1, num(selected_override.get("starts"), 1))),
-            )
-            override_value = st.slider(
-                "Expected minutes",
-                0, 90, max(0, default_minutes), 5,
-            )
-            minute_overrides[selected_override["id"]] = float(override_value)
-
-# The global team-strength adjustment is applied to all players.
-# The engine accepts team-specific strengths; this maps the chosen global factor.
-team_strengths = {t["id"]: default_strength for t in teams}
+            picks = get_json(f"entry/{team_id}/event/{gw}/picks/")
+            if len(picks.get("picks", [])) == 15:
+                return profile, picks, gw
+        except (requests.RequestException, ValueError):
+            continue
+    raise ValueError("Could not load 15 public squad picks for this FPL Team ID.")
 
 
-def xp(player, gw):
-    return player_fixture_xp(
-        player,
-        fx_map.get((player["team"], gw), []),
-        risk=risk,
-        minutes_override=minute_overrides.get(player["id"]),
-        team_strength=team_strengths.get(player["team"], 1.0),
-    )
+def render_pitch(xi: list[dict], captain_id: int, vice_id: int,
+                 gw: int, fixture_map: dict, clubs: dict[int, str],
+                 minutes_overrides: dict[int, float] | None = None) -> None:
+    """Static squad pitch; player controls are below the pitch."""
+    import html
+    lines = []
+    for pos in [4, 3, 2, 1]:
+        players = [p for p in xi if int(p["element_type"]) == pos]
+        cards = []
+        for p in players:
+            pid = int(p["id"])
+            captain = " (C)" if pid == captain_id else " (VC)" if pid == vice_id else ""
+            name = html.escape(str(p.get("web_name", "Player")) + captain)
+            club = html.escape(clubs.get(int(p.get("team", 0)), ""))
+            xp = player_fixture_xp(p, gw, fixture_map, minutes_overrides)
+            cards.append(f'<div class="pitch-player"><strong>{name}</strong><small>{club} · {xp:.1f} xP</small></div>')
+        lines.append('<div class="pitch-row">' + "".join(cards) + '</div>')
+    st.markdown('<div class="pitch">' + "".join(lines) + '</div>', unsafe_allow_html=True)
 
 
-def total_xp(player, gws):
-    return sum(xp(player, gw) for gw in gws)
+def squad_table(squad: list[dict], gws: list[int], fixture_map: dict,
+                clubs: dict[int, str], minutes_overrides: dict[int, float] | None = None) -> pd.DataFrame:
+    rows = []
+    for p in squad:
+        rows.append({"Player": short_name(p, clubs), "Pos": POSITION_NAMES[int(p["element_type"])],
+                     "Price": pounds(p.get("now_cost", 0)),
+                     "Sell": pounds(p.get("selling_price", p.get("now_cost", 0))),
+                     "GW xP": player_fixture_xp(p, gws[0], fixture_map, minutes_overrides),
+                     "Horizon xP": horizon_xp(p, gws, fixture_map, minutes_overrides),
+                     "Status": p.get("status", "?")})
+    return pd.DataFrame(rows).sort_values(["Pos", "Horizon xP"], ascending=[True, False])
 
 
-# =========================================================
-# HEADER
-# =========================================================
+def squad_with_sell_prices(picks: dict, player_by_id: dict[int, dict]) -> list[dict]:
+    squad = []
+    for item in picks.get("picks", []):
+        player = player_by_id.get(int(item["element"]))
+        if player is None:
+            continue
+        data = dict(player)
+        data["selling_price"] = int(item.get("selling_price") or player.get("now_cost", 0))
+        squad.append(data)
+    return squad
+
+
+def xp_for_selected_xi(xi: list[dict], captain: int, gw: int,
+                       fixture_map: dict, overrides: dict) -> float:
+    return round(sum(player_fixture_xp(p, gw, fixture_map, overrides) for p in xi)
+                 + next((player_fixture_xp(p, gw, fixture_map, overrides)
+                         for p in xi if int(p["id"]) == captain), 0), 2)
+
+
+def legal_starting_xi(xi: list[dict]) -> bool:
+    counts = Counter(int(p["element_type"]) for p in xi)
+    return len(xi) == 11 and counts[1] == 1 and 3 <= counts[2] <= 5 and 2 <= counts[3] <= 5 and 1 <= counts[4] <= 3
+
 
 st.title("⚽ AJK Bola Wawei AI")
-st.caption(
-    f"{profile.get('name', 'FPL Manager')} · {manager} · "
-    f"Team ID {team_id} · Target GW{target_gw} · "
-    f"Deadline: {deadline_text} Malaysia time"
-)
+st.caption("My Team • AI-style Team Rating • Transfers • Wildcard / Free Hit | 100% free data and transparent estimates")
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Overall points", f"{profile.get('summary_overall_points', 0):,}")
-c2.metric("Overall rank", f"{profile.get('summary_overall_rank', 0):,}")
-c3.metric("Target Gameweek", str(target_gw))
-c4.metric(
-    "Team value",
-    money(latest.get("value", profile.get("last_deadline_value", 0))),
-)
+try:
+    bootstrap = get_json("bootstrap-static/")
+    fixtures_raw = get_json("fixtures/")
+except (requests.RequestException, ValueError) as exc:
+    st.error(f"FPL public API could not be loaded: {exc}")
+    st.stop()
 
-# =========================================================
-# TABS
-# =========================================================
+players = bootstrap.get("elements", [])
+clubs = {int(t["id"]): t.get("short_name", t.get("name", "?")) for t in bootstrap.get("teams", [])}
+player_by_id = {int(p["id"]): p for p in players}
+labels = player_options(players, clubs)
+fixture_map = fixture_lookup(fixtures_raw)
+events = bootstrap.get("events", [])
+next_event = next((e for e in events if e.get("is_next")), None)
+if next_event is None:
+    next_event = next((e for e in events if not e.get("finished") and not e.get("is_current")), None)
+if next_event is None:
+    next_event = next((e for e in events if e.get("is_current")), None)
+if next_event is None:
+    st.warning("There is currently no upcoming FPL gameweek in the public API.")
+    st.stop()
+next_gw = int(next_event["id"])
+upcoming_gws = [int(e["id"]) for e in events if int(e["id"]) >= next_gw][:5]
 
-tabs = st.tabs([
-    "Overview",
-    "Captain & xP",
-    "Transfers",
-    "Multi-GW Planner",
-    "Wildcard / Free Hit",
-    "Differentials",
-    "Fixtures & Rotation",
-    "Weekly Reports",
-])
+with st.sidebar:
+    st.header("Your Team")
+    fpl_id = st.number_input("FPL Team ID", min_value=1, value=1645144, step=1)
+    import_team = st.button("🔄 Import / Reset My Team", type="primary", use_container_width=True)
+    st.divider()
+    selected_gw = st.selectbox("Gameweek to analyse", upcoming_gws, format_func=lambda v: f"GW {v}")
+    start_index = upcoming_gws.index(selected_gw)
+    horizon_max = min(5, len(upcoming_gws) - start_index)
+    horizon = st.slider("Planning horizon (GWs)", 1, horizon_max, min(3, horizon_max))
+    gws = upcoming_gws[start_index:start_index + horizon]
+    free_transfers = st.number_input("Available free transfers", min_value=0, max_value=5, value=1)
+    st.caption("FPL manager imports are read-only. Changes here are planning drafts and are never submitted to FPL.")
 
-# =========================================================
-# TAB 1 — OVERVIEW
-# =========================================================
+# Load the imported manager exactly once per selected ID, unless reset is requested.
+if import_team or st.session_state.get("loaded_id") != int(fpl_id):
+    try:
+        profile, picks, picks_gw = get_manager(int(fpl_id), events)
+        imported_squad = squad_with_sell_prices(picks, player_by_id)
+        if not valid_squad(imported_squad):
+            raise ValueError("Imported picks are incomplete or violate the 15-player squad limits.")
+        st.session_state.loaded_id = int(fpl_id)
+        st.session_state.profile = profile
+        st.session_state.picks_gw = picks_gw
+        st.session_state.draft = imported_squad
+        st.session_state.bank = int(picks.get("entry_history", {}).get(
+            "bank", profile.get("last_deadline_bank", 0)) or 0)
+        st.session_state.manual_xi = []
+        st.session_state.manual_captain = None
+        st.session_state.moves = []
+        st.session_state.chip_result = None
+    except (requests.RequestException, ValueError, KeyError) as exc:
+        st.error(f"Unable to import team {fpl_id}: {exc}")
+        st.info("Check the Team ID on your public FPL Points page and retry.")
+        st.stop()
 
-with tabs[0]:
-    left, right = st.columns([1.5, 1])
+squad: list[dict] = st.session_state.draft
+bank: int = st.session_state.bank
+profile = st.session_state.profile
+if not valid_squad(squad):
+    st.error("Draft squad is invalid. Click 'Import / Reset My Team' to restore your actual FPL squad.")
+    st.stop()
 
+# Optional personal minute assumptions (never mutate public API data).
+with st.sidebar.expander("Advanced: minutes assumptions", expanded=False):
+    minutes_overrides = {}
+    for p in squad:
+        pid = int(p["id"])
+        estimate = int(round(projected_minutes(p) / 5) * 5)
+        updated = st.slider(short_name(p, clubs), min_value=0, max_value=90,
+                            value=estimate, step=5, key=f"mins_{st.session_state.loaded_id}_{pid}")
+        minutes_overrides[pid] = updated
+
+assessment = team_rating(squad, gws, fixture_map, minutes_overrides)
+lineup = best_lineup(squad, selected_gw, fixture_map, minutes_overrides)
+
+st.subheader(profile.get("name", "My FPL Team"))
+st.caption(f"Manager: {profile.get('player_first_name', '')} {profile.get('player_last_name', '')} · Imported from GW {st.session_state.picks_gw} · Selected GW {selected_gw}")
+
+metric_cols = st.columns(5)
+metric_cols[0].metric("Team Rating", f"{assessment['rating']}/100")
+metric_cols[1].metric("GW Rating", f"{assessment['gw_rating']}/100")
+metric_cols[2].metric(f"GW {selected_gw} xP", f"{lineup['total_xp']:.1f}")
+metric_cols[3].metric(f"{horizon}-GW xP", f"{assessment['total_xp']:.1f}")
+metric_cols[4].metric("In the Bank", pounds(bank))
+st.caption("Ratings are AJK heuristic scores against a 65 xP/GW benchmark, not Fantasy Football Hub ratings. xP are estimates, not guaranteed points.")
+
+my_team_tab, transfers_tab, chip_tab = st.tabs(["🏟️ My Team", "🔁 AI Transfers", "✨ Wildcard / Free Hit"])
+
+with my_team_tab:
+    left, right = st.columns([1.5, 1], gap="large")
     with left:
-        st.subheader("Your squad — pitch view")
-        if picks and squad:
-            xi = [
-                player_by_id[p["element"]]
-                for p in picks
-                if p.get("position", 99) <= 11
-                and p.get("element") in player_by_id
-            ]
-            bench = [
-                player_by_id[p["element"]]
-                for p in picks
-                if p.get("position", 99) > 11
-                and p.get("element") in player_by_id
-            ]
-            captain_id = next(
-                (p["element"] for p in picks if p.get("is_captain")), None
-            )
-            vice_id = next(
-                (p["element"] for p in picks if p.get("is_vice_captain")), None
-            )
-            render_pitch(
-                xi, target_gw, fx_map,
-                captain_id, vice_id, bench, risk,
-            )
-            st.caption(
-                f"Squad snapshot: GW{snapshot_gw}. "
-                "If target-GW picks are not published, the latest available picks are shown."
-            )
-        else:
-            st.info("Your public squad picks are not available.")
-
+        st.markdown("### Starting XI")
+        natural_xi = lineup["xi"]
+        manual_ids = set(st.session_state.get("manual_xi") or [])
+        if len(manual_ids) == 11:
+            proposed_xi = [p for p in squad if int(p["id"]) in manual_ids]
+            if legal_starting_xi(proposed_xi):
+                natural_xi = proposed_xi
+        xi_ids = {int(p["id"]) for p in natural_xi}
+        selected_captain = st.session_state.get("manual_captain")
+        if selected_captain not in xi_ids:
+            selected_captain = int(max(natural_xi, key=lambda p: player_fixture_xp(p, selected_gw, fixture_map, minutes_overrides))["id"])
+        vice_id = int(max((p for p in natural_xi if int(p["id"]) != selected_captain),
+                          key=lambda p: player_fixture_xp(p, selected_gw, fixture_map, minutes_overrides))["id"])
+        render_pitch(natural_xi, selected_captain, vice_id, selected_gw, fixture_map, clubs, minutes_overrides)
+        actual_xp = xp_for_selected_xi(natural_xi, selected_captain, selected_gw, fixture_map, minutes_overrides)
+        st.metric("Selected XI + captain projected points", f"{actual_xp:.1f} xP")
+        bench = [p for p in squad if int(p["id"]) not in xi_ids]
+        st.markdown("**Bench**")
+        for p in bench:
+            st.write(f"{short_name(p, clubs)} — {player_fixture_xp(p, selected_gw, fixture_map, minutes_overrides):.1f} xP")
     with right:
-        st.subheader("Squad health")
-        if squad:
-            flagged = [
-                p for p in squad
-                if p.get("status") != "a"
-                or p.get("chance_of_playing_next_round") not in (None, 100)
-            ]
-            st.metric("Availability concerns", len(flagged))
-            for p in flagged:
-                st.warning(
-                    f"**{p['web_name']}** — {status_label(p)}\n\n"
-                    f"{p.get('news') or 'No additional FPL news supplied.'}"
-                )
-            if not flagged:
-                st.success("No major availability concerns detected.")
-
-        st.subheader("Upcoming deadlines")
-        for event in upcoming_events[:6]:
-            st.write(
-                f"**GW{event['id']}** · "
-                f"{malaysia_time(event.get('deadline_time'), '%d %b %H:%M')} Malaysia"
-            )
-
-# =========================================================
-# TAB 2 — CAPTAIN & xP
-# =========================================================
-
-with tabs[1]:
-    st.subheader("Captain and vice-captain recommendations")
-    st.caption(
-        "Ranked using estimated xP, expected minutes and availability. "
-        "Actual captain points are doubled by FPL."
-    )
-
-    captain_rows = []
-    for p in players:
-        if p.get("element_type") == 1 or p.get("status") in ("i", "s", "u", "n"):
-            continue
-        projection = player_projection(
-            p,
-            3,
-            minutes_override=minute_overrides.get(p["id"]),
-            team_strength=default_strength,
-            risk=risk,
-        )
-        p_xp = xp(p, target_gw)
-        captain_rows.append({
-            "Player": p["web_name"],
-            "Club": team_short.get(p["team"], ""),
-            "Fixture": fx_text(fx_map.get((p["team"], target_gw), [])),
-            "xP": p_xp,
-            "Expected minutes": projection["minutes"],
-            "Start estimate": f"{projection['start_probability']:.0%}",
-            "Availability": status_label(p),
-            "_id": p["id"],
-        })
-
-    captain_df = pd.DataFrame(captain_rows).sort_values("xP", ascending=False)
-    if not captain_df.empty:
-        captain_df.insert(
-            0, "Role",
-            ["Captain" if i == 0 else "Vice-captain" if i == 1 else "Alternative"
-             for i in range(len(captain_df))],
-        )
-        st.dataframe(
-            captain_df.drop(columns="_id").head(15),
-            use_container_width=True,
-            hide_index=True,
-        )
-        a, b = st.columns(2)
-        a.metric("Top captain xP", f"{captain_df.iloc[0]['xP']:.2f}")
-        b.metric(
-            "Captain's doubled xP estimate",
-            f"{captain_df.iloc[0]['xP'] * 2:.2f}",
-        )
-
-    st.divider()
-    st.subheader("Player projection explorer")
-    position_filter = st.selectbox(
-        "Position",
-        ["All", "GKP", "DEF", "MID", "FWD"],
-        key="xp_position_filter",
-    )
-    projection_rows = []
-    for p in players:
-        pos = POSITION_NAMES.get(p.get("element_type"), "?")
-        if position_filter != "All" and pos != position_filter:
-            continue
-        breakdown = player_projection(
-            p, 3,
-            minutes_override=minute_overrides.get(p["id"]),
-            team_strength=default_strength,
-            risk=risk,
-        )
-        projection_rows.append({
-            "Player": p["web_name"],
-            "Position": pos,
-            "Club": team_short.get(p["team"], ""),
-            "Price": money(p.get("now_cost")),
-            "Fixture": fx_text(fx_map.get((p["team"], target_gw), [])),
-            "xP": xp(p, target_gw),
-            "Minutes": breakdown["minutes"],
-            "Attacking": breakdown["attacking"],
-            "Clean sheet": breakdown["clean_sheet"],
-            "Bonus estimate": breakdown["bonus"],
-            "Status": status_label(p),
-        })
-    st.dataframe(
-        pd.DataFrame(projection_rows).sort_values("xP", ascending=False).head(50),
-        use_container_width=True,
-        hide_index=True,
-    )
-    st.caption(
-        "Projection components are heuristic estimates derived from public FPL statistics. "
-        "They are not official FPL or Solio projections."
-    )
-
-# =========================================================
-# TAB 3 — TRANSFERS
-# =========================================================
-
-with tabs[2]:
-    st.subheader("Transfer planner")
-    st.markdown(
-        '<div class="section-note">Compare one-for-one transfer options over a selected '
-        '1–6 Gameweek horizon. The recommendations respect position, available budget '
-        'and the three-player club limit.</div>',
-        unsafe_allow_html=True,
-    )
-
-    if not squad or not picks:
-        st.info("Transfer planning requires your public squad picks.")
-    else:
-        horizon = st.slider(
-            "Transfer evaluation horizon",
-            1, min(6, len(available_gws)),
-            min(3, len(available_gws)),
-            key="transfer_horizon",
-        )
-        transfer_gws = available_gws[:horizon]
-        bank = int(num(
-            latest.get("bank", profile.get("last_deadline_bank", 0))
-        ))
-        free_transfers = st.number_input(
-            "Free transfers available",
-            min_value=0, max_value=5, value=1,
-            help="Enter your current free-transfer count from FPL.",
-        )
-        st.metric("Reported bank", money(bank))
-        st.caption("Selling prices are read from your latest available picks when provided.")
-
-        squad_for_transfer = []
-        for pick in picks:
-            p = player_by_id.get(pick.get("element"))
-            if p:
-                item = dict(p)
-                item["selling_price"] = pick.get("selling_price", p.get("now_cost"))
-                squad_for_transfer.append(item)
-
-        suggestions = suggest_transfers(
-            squad_for_transfer,
-            players,
-            transfer_gws,
-            fx_map,
-            bank_tenths=bank,
-            free_transfers=int(free_transfers),
-            risk=risk,
-        )
-
-        if suggestions:
-            transfer_rows = []
-            for s in suggestions:
-                incoming = player_by_id.get(s["in_id"], {})
-                outgoing = player_by_id.get(s["out_id"], {})
-                transfer_rows.append({
-                    "Sell": s["out"],
-                    "Buy": s["in"],
-                    "Position": s["position"],
-                    "Sell price": money(s["sell_price"]),
-                    "Buy price": money(s["buy_price"]),
-                    "Outgoing xP": s["out_xp"],
-                    "Incoming xP": s["in_xp"],
-                    "Gross gain": s["gain"],
-                    "Net gain after estimated hit": s["net_gain_after_hit"],
-                    "Incoming fixtures": " | ".join(
-                        f"GW{gw}: {fx_text(fx_map.get((incoming['team'], gw), []))}"
-                        for gw in transfer_gws
-                    ),
-                })
-            st.dataframe(
-                pd.DataFrame(transfer_rows),
-                use_container_width=True,
-                hide_index=True,
-            )
-            best = suggestions[0]
-            st.success(
-                f"Top one-for-one option: **{best['out']} → {best['in']}** "
-                f"({best['gain']:+.2f} gross projected points over {horizon} GWs)."
-            )
-        else:
-            st.info("No legal affordable one-for-one transfer options were found.")
-
-        st.info(
-            "This table ranks individual one-for-one transfers. For a multi-transfer "
-            "plan with free-transfer rollover and hit calculations, use the "
-            "Multi-GW Transfer Optimiser in the Multi-GW Planner tab."
-        )
-
-# =========================================================
-# TAB 4 — MULTI-GW PLANNER
-# =========================================================
-
-with tabs[3]:
-    st.subheader("Multi-Gameweek Planner")
-    st.markdown(
-        '<div class="section-note">Review projected squad points, legal starting XIs, '
-        'bench order and captaincy across up to six upcoming Gameweeks.</div>',
-        unsafe_allow_html=True,
-    )
-
-    max_horizon = min(6, len(available_gws))
-    horizon = st.slider(
-        "Planning horizon (Gameweeks)",
-        1, max_horizon, max_horizon,
-        key="multi_gw_horizon",
-    )
-    planner_gws = available_gws[:horizon]
-    st.write("**Selected:** " + ", ".join(f"GW{g}" for g in planner_gws))
-
-    # -----------------------------------------------------
-    # MULTI-GW TRANSFER OPTIMISER
-    # -----------------------------------------------------
-    st.divider()
-    st.subheader("Multi-GW Transfer Optimiser")
-    st.caption(
-        "Searches for a sequence of transfers across your selected Gameweeks. "
-        "It accounts for transfer hits, free-transfer rollover, budget and squad legality."
-    )
-
-    if not squad or not picks:
-        st.info("Your public squad picks are required to run the transfer optimiser.")
-    else:
-        optimiser_bank = int(num(
-            latest.get("bank", profile.get("last_deadline_bank", 0))
-        ))
-
-        optimiser_free_transfers = st.number_input(
-            "Current free transfers",
-            min_value=0,
-            max_value=5,
-            value=1,
-            key="optimiser_free_transfers",
-            help="Enter the free transfers currently shown in your FPL account.",
-        )
-
-        max_transfers_per_gw = st.slider(
-            "Maximum transfers in one Gameweek",
-            min_value=0,
-            max_value=4,
-            value=2,
-            key="optimiser_max_transfers",
-        )
-
-        beam_width = st.slider(
-            "Search width",
-            min_value=5,
-            max_value=40,
-            value=20,
-            step=5,
-            help="Higher values examine more possible plans but take longer.",
-            key="optimiser_beam_width",
-        )
-
-        st.metric("Available bank", money(optimiser_bank))
-
-        optimiser_squad = []
-        for pick in picks:
-            player = player_by_id.get(pick.get("element"))
-            if player:
-                item = dict(player)
-                item["selling_price"] = pick.get(
-                    "selling_price",
-                    player.get("now_cost"),
-                )
-                optimiser_squad.append(item)
-
-        optimiser_signature = (
-            tuple(planner_gws),
-            optimiser_bank,
-            int(optimiser_free_transfers),
-            risk,
-            max_transfers_per_gw,
-            beam_width,
-            tuple(
-                (p["id"], int(num(p.get("selling_price"))))
-                for p in optimiser_squad
-            ),
-            tuple(sorted(minute_overrides.items())),
-            tuple(sorted(team_strengths.items())),
-        )
-
-        if st.button(
-            "Run Multi-GW Transfer Optimiser",
-            type="primary",
-            use_container_width=True,
-            key="run_multi_gw_optimiser",
-        ):
-            with st.spinner(
-                "Searching transfer combinations and evaluating future Gameweeks..."
-            ):
-                result = optimise_multi_gw_transfers(
-                    optimiser_squad,
-                    players,
-                    planner_gws,
-                    fx_map,
-                    bank_tenths=optimiser_bank,
-                    free_transfers=int(optimiser_free_transfers),
-                    risk=risk,
-                    minutes_overrides=minute_overrides,
-                    team_strengths=team_strengths,
-                    max_transfers_per_gw=max_transfers_per_gw,
-                    candidates_per_position=8,
-                    beam_width=beam_width,
-                )
-
-            st.session_state["ajk_multi_gw_optimiser"] = {
-                "signature": optimiser_signature,
-                "result": result,
-            }
-
-        saved_result = st.session_state.get("ajk_multi_gw_optimiser")
-
-        if saved_result and saved_result.get("signature") == optimiser_signature:
-            result = saved_result["result"]
-
-            if result.get("error"):
-                st.error(result["error"])
+        st.markdown("### Edit Starting XI & Captain")
+        cap = st.selectbox("Captain", sorted(xi_ids), index=sorted(xi_ids).index(selected_captain),
+                           format_func=lambda pid: labels[pid], key=f"cap_{selected_gw}_{len(st.session_state.moves)}")
+        if cap != selected_captain:
+            st.session_state.manual_captain = cap
+            st.rerun()
+        start_id = st.selectbox("Starting player to bench", sorted(xi_ids), format_func=lambda pid: labels[pid])
+        bench_ids = [int(p["id"]) for p in bench]
+        bench_id = st.selectbox("Bench player to start", bench_ids, format_func=lambda pid: labels[pid])
+        if st.button("Swap XI / bench", use_container_width=True):
+            revised = [p for p in squad if (int(p["id"]) in xi_ids and int(p["id"]) != start_id)
+                       or int(p["id"]) == bench_id]
+            if legal_starting_xi(revised):
+                st.session_state.manual_xi = [int(p["id"]) for p in revised]
+                st.session_state.manual_captain = cap if cap != start_id else None
+                st.rerun()
             else:
-                st.success("Multi-Gameweek transfer plan generated.")
-
-                r1, r2, r3 = st.columns(3)
-                r1.metric(
-                    "Projected net points",
-                    f"{result['total_net_xp']:.2f}",
-                )
-                r2.metric(
-                    "Estimated remaining bank",
-                    money(result["final_bank"]),
-                )
-                r3.metric(
-                    "Free transfers after final GW",
-                    str(result["final_free_transfers"]),
-                )
-
-                st.markdown("**Recommended Gameweek-by-Gameweek plan**")
-                plan_rows = []
-                transfer_rows = []
-
-                for week in result["plan"]:
-                    actions = week["transfers"]
-                    transfer_text = (
-                        " · ".join(
-                            f"{action['out']} → {action['in']}"
-                            for action in actions
-                        )
-                        if actions else "No transfer"
-                    )
-
-                    plan_rows.append({
-                        "Gameweek": f"GW{week['gameweek']}",
-                        "Recommended transfers": transfer_text,
-                        "Transfers made": week["transfer_count"],
-                        "Free transfers before": week["free_transfers_before"],
-                        "Free transfers after": week["free_transfers_after"],
-                        "Hit points": week["hit_points"],
-                        "Starting XI xP": week["xi_xp"],
-                        "Captain": week["captain"],
-                        "Captain xP": week["captain_xp"],
-                        "Net projected points": week["net_xp"],
-                        "Bank after transfers": money(week["bank_after"]),
-                    })
-
-                    for action in actions:
-                        transfer_rows.append({
-                            "Gameweek": f"GW{week['gameweek']}",
-                            "Sell": action["out"],
-                            "Buy": action["in"],
-                            "Position": action["position"],
-                            "Sell price": money(action["sell_price"]),
-                            "Buy price": money(action["buy_price"]),
-                            "Bank after transfer": money(action["bank_after"]),
-                        })
-
-                st.dataframe(
-                    pd.DataFrame(plan_rows),
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-                if transfer_rows:
-                    st.markdown("**Transfer details**")
-                    st.dataframe(
-                        pd.DataFrame(transfer_rows),
-                        use_container_width=True,
-                        hide_index=True,
-                    )
-                else:
-                    st.info(
-                        "The optimiser found that keeping your current squad "
-                        "was the best plan within the search settings."
-                    )
-
-                st.markdown("**Final projected 15-player squad**")
-                final_squad_rows = []
-                for player in result["final_squad"]:
-                    final_squad_rows.append({
-                        "Player": player.get("web_name", ""),
-                        "Position": POSITION_NAMES.get(
-                            player.get("element_type"), "?"
-                        ),
-                        "Club": team_short.get(player.get("team"), ""),
-                        "Price": money(player.get("now_cost")),
-                        "Status": status_label(player),
-                    })
-
-                st.dataframe(
-                    pd.DataFrame(final_squad_rows).sort_values(
-                        ["Position", "Player"]
-                    ),
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-                with st.expander("Search settings and assumptions"):
-                    st.write(result["search_settings"])
-                    for assumption in result["assumptions"]:
-                        st.write(f"- {assumption}")
-
-        elif saved_result:
-            st.caption(
-                "The previous result was generated with different planning settings. "
-                "Run the optimiser again to refresh it."
-            )
-
-    if squad:
-        squad_table = make_projection_table(
-            squad, planner_gws, fx_map, risk, minute_overrides
-        )
-        st.subheader("Current squad projection")
-        st.dataframe(
-            squad_table.sort_values("Total xP", ascending=False),
-            use_container_width=True,
-            hide_index=True,
-        )
-        st.metric(
-            f"Squad projected points across {horizon} GWs",
-            f"{squad_table['Total xP'].sum():.2f}",
-        )
-
+                st.warning("This swap would create an invalid formation (need 1 GKP, 3–5 DEF, 2–5 MID and 1–3 FWD).")
+        if st.button("Auto-pick best XI and captain", use_container_width=True):
+            st.session_state.manual_xi = []
+            st.session_state.manual_captain = None
+            st.rerun()
         st.divider()
-        st.subheader("Gameweek lineup planner")
-        selected_gw = st.selectbox(
-            "Select Gameweek",
-            planner_gws,
-            format_func=lambda g: f"Gameweek {g}",
-            key="planner_selected_gw",
-        )
-        xi = best_xi(squad, selected_gw, fx_map, risk)
-        if xi:
-            bench = bench_order(squad, xi, fx_map, selected_gw)
-            captain, vice = choose_captains(xi, selected_gw, fx_map, risk)
-            st.metric(
-                "Starting XI xP",
-                f"{sum(gw_xp(p, selected_gw, fx_map, risk, minute_overrides) for p in xi):.2f}",
-            )
-            render_pitch(
-                xi, selected_gw, fx_map,
-                captain["id"] if captain else None,
-                vice["id"] if vice else None,
-                bench, risk,
-            )
-            if captain:
-                st.info(
-                    f"Captain: **{captain['web_name']}** · "
-                    f"Vice-captain: **{vice['web_name']}**"
-                )
-        else:
-            st.warning("Unable to generate a legal XI from this squad.")
+        st.markdown("### Next Gameweeks")
+        for gw, weekly in zip(gws, assessment["weekly"]):
+            st.write(f"**GW {gw}:** {weekly['total_xp']:.1f} xP · Captain {weekly['captain'].get('web_name')} ({weekly['captain_xp']:.1f} xP)")
+        st.markdown("### Squad Health")
+        risk_players = [p for p in squad if p.get("status", "a") != "a"]
+        if not risk_players:
+            st.success("All squad players are currently marked available in FPL data.")
+        for p in risk_players:
+            st.warning(f"{short_name(p, clubs)} · FPL status {p.get('status')} · {p.get('news') or 'Check latest news'}")
 
-        st.divider()
-        st.subheader("Captain plan by Gameweek")
-        captain_plan = []
-        for gw in planner_gws:
-            gw_xi = best_xi(squad, gw, fx_map, risk)
-            cap, vice = choose_captains(gw_xi, gw, fx_map, risk)
-            captain_plan.append({
-                "Gameweek": gw,
-                "Captain": cap["web_name"] if cap else "—",
-                "Captain xP": gw_xp(cap, gw, fx_map, risk) if cap else 0,
-                "Vice-captain": vice["web_name"] if vice else "—",
-                "Vice xP": gw_xp(vice, gw, fx_map, risk) if vice else 0,
-                "XI xP": round(sum(gw_xp(p, gw, fx_map, risk) for p in gw_xi), 2),
-            })
-        st.dataframe(pd.DataFrame(captain_plan), use_container_width=True, hide_index=True)
+    st.markdown("### Your Full Squad")
+    st.dataframe(squad_table(squad, gws, fixture_map, clubs, minutes_overrides),
+                 hide_index=True, use_container_width=True)
+
+with transfers_tab:
+    st.markdown("### AI-style Transfer Recommendations")
+    st.caption("Ranked by estimated improvement in best XI + captain points over the selected horizon. Club, positional, selling-price and bank restrictions apply.")
+    suggestions = suggest_transfers(squad, players, gws, fixture_map, bank,
+                                    free_transfers=int(free_transfers),
+                                    minutes_overrides=minutes_overrides, limit=12)
+    if suggestions:
+        table_rows = []
+        for move in suggestions:
+            table_rows.append({"Sell": short_name(move["out"], clubs),
+                               "Buy": short_name(move["in"], clubs),
+                               "Horizon gain": move["gain"], "Hit": -move["hit"],
+                               "Net gain": move["net_gain"], "Bank after": pounds(move["bank_after"])})
+        st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
+        best_move = suggestions[0]
+        st.info(f"Top model suggestion: **{short_name(best_move['out'], clubs)} → {short_name(best_move['in'], clubs)}** · {best_move['net_gain']:+.1f} net xP across {len(gws)} GW(s).")
     else:
-        st.info("Your squad picks are not available. The player projection table is still available.")
-
+        st.info("No legal transfer improvements found for these settings.")
     st.divider()
-    st.subheader("Best projected players over the selected horizon")
-    all_projection = make_projection_table(
-        players, planner_gws, fx_map, risk, minute_overrides
-    )
-    st.dataframe(
-        all_projection.sort_values("Total xP", ascending=False).head(30),
-        use_container_width=True,
-        hide_index=True,
-    )
-
-# =========================================================
-# TAB 5 — WILDCARD / FREE HIT / CHIP COMPARISON
-# =========================================================
-
-with tabs[4]:
-    st.subheader("Squad optimiser and chip planner")
-    st.caption(
-        "Build an indicative legal 15-player squad. Chip comparisons use projected "
-        "points only and do not predict future player prices or every future transfer."
-    )
-
-    budget = st.number_input(
-        "Squad budget (£m)",
-        min_value=80.0, max_value=120.0,
-        value=100.0, step=0.5,
-    )
-    chip_mode = st.radio(
-        "Squad-building scenario",
-        ["Wildcard — longer-term squad", "Free Hit — one Gameweek"],
-        horizontal=True,
-    )
-    build_gw = st.selectbox(
-        "Optimise for Gameweek",
-        available_gws[:6],
-        format_func=lambda g: f"GW{g}",
-    )
-
-    if st.button("Optimise 15-player squad", type="primary"):
-        optimised = build_squad(players, fx_map, build_gw, budget)
-        cost, legal = legal_squad_summary(optimised, budget)
-
-        if not legal:
-            st.error(
-                "The optimiser could not create a complete legal 15-player squad "
-                "within the selected budget. Try a higher budget."
-            )
+    st.markdown("### Manual Transfer Builder")
+    col_sell, col_buy = st.columns(2)
+    with col_sell:
+        sell_id = st.selectbox("Transfer out", sorted(int(p["id"]) for p in squad), format_func=lambda pid: labels[pid])
+    outgoing = next(p for p in squad if int(p["id"]) == sell_id)
+    eligible = [p for p in players if int(p["element_type"]) == int(outgoing["element_type"])
+                and int(p["id"]) not in {int(s["id"]) for s in squad}
+                and int(p["now_cost"]) <= bank + int(outgoing.get("selling_price", outgoing["now_cost"]))]
+    eligible.sort(key=lambda p: horizon_xp(p, gws, fixture_map, minutes_overrides), reverse=True)
+    with col_buy:
+        buy_id = st.selectbox("Transfer in (affordable)", [int(p["id"]) for p in eligible],
+                              format_func=lambda pid: labels[pid], placeholder="Select a player") if eligible else None
+    if buy_id is not None:
+        incoming = player_by_id[buy_id]
+        proposed = [p for p in squad if int(p["id"]) != sell_id] + [incoming]
+        if valid_squad(proposed):
+            before = assessment["total_xp"]
+            after = team_rating(proposed, gws, fixture_map, minutes_overrides)
+            gain = round(after["total_xp"] - before, 2)
+            post_bank = bank + int(outgoing.get("selling_price", outgoing["now_cost"])) - int(incoming["now_cost"])
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Before", f"{before:.1f} xP")
+            c2.metric("After", f"{after['total_xp']:.1f} xP", delta=f"{gain:+.1f}")
+            c3.metric("Bank after", pounds(post_bank))
+            if st.button("Apply transfer to draft", type="primary"):
+                st.session_state.draft = proposed
+                st.session_state.bank = post_bank
+                st.session_state.moves.append((sell_id, buy_id))
+                st.session_state.manual_xi = []
+                st.session_state.manual_captain = None
+                st.session_state.chip_result = None
+                st.rerun()
         else:
-            xi = best_xi(optimised, build_gw, fx_map, risk)
-            bench = bench_order(optimised, xi, fx_map, build_gw)
-            captain, vice = choose_captains(xi, build_gw, fx_map, risk)
+            st.warning("This player would violate the three-per-club rule. Choose a different replacement.")
+    if st.session_state.moves:
+        st.caption(f"Draft transfers applied: {len(st.session_state.moves)}. These are NOT submitted to your FPL account.")
+        if st.button("Discard transfers / Restore imported squad"):
+            st.session_state.loaded_id = None
+            st.rerun()
 
-            st.success(f"{chip_mode} draft generated for GW{build_gw}.")
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Squad cost", money(cost))
-            m2.metric("Budget remaining", money(int(round(budget * 10)) - cost))
-            m3.metric("Starting XI xP", f"{sum(gw_xp(p, build_gw, fx_map, risk) for p in xi):.2f}")
-
-            render_pitch(
-                xi, build_gw, fx_map,
-                captain["id"] if captain else None,
-                vice["id"] if vice else None,
-                bench, risk,
-            )
-
-            squad_rows = []
-            xi_ids = {p["id"] for p in xi}
-            for p in optimised:
-                squad_rows.append({
-                    "Role": "Starting XI" if p["id"] in xi_ids else "Bench",
-                    "Player": p["web_name"],
-                    "Position": POSITION_NAMES.get(p["element_type"]),
-                    "Club": team_short.get(p["team"], ""),
-                    "Price": money(p["now_cost"]),
-                    "Fixture": fx_text(fx_map.get((p["team"], build_gw), [])),
-                    "xP": gw_xp(p, build_gw, fx_map, risk),
-                })
-            st.dataframe(
-                pd.DataFrame(squad_rows).sort_values(
-                    ["Role", "Position", "xP"],
-                    ascending=[True, True, False],
-                ),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-    st.divider()
-    st.subheader("Chip impact comparison — your current squad")
-    if squad:
-        chip_gw = st.selectbox(
-            "Chip comparison Gameweek",
-            available_gws[:6],
-            key="chip_gw",
-            format_func=lambda g: f"GW{g}",
-        )
-        xi = best_xi(squad, chip_gw, fx_map, risk)
-        bench = bench_order(squad, xi, fx_map, chip_gw)
-        captain, vice = choose_captains(xi, chip_gw, fx_map, risk)
-
-        xi_xp = sum(gw_xp(p, chip_gw, fx_map, risk) for p in xi)
-        bench_xp = sum(gw_xp(p, chip_gw, fx_map, risk) for p in bench)
-        cap_xp = gw_xp(captain, chip_gw, fx_map, risk) if captain else 0
-
-        chip_df = pd.DataFrame([
-            {"Scenario": "No chip", "Estimated XI / squad points": round(xi_xp, 2),
-             "Estimated uplift vs no chip": 0.0},
-            {"Scenario": "Triple Captain", "Estimated XI / squad points": round(xi_xp + cap_xp * 2, 2),
-             "Estimated uplift vs no chip": round(cap_xp, 2)},
-            {"Scenario": "Bench Boost", "Estimated XI / squad points": round(xi_xp + bench_xp, 2),
-             "Estimated uplift vs no chip": round(bench_xp, 2)},
-        ])
-        st.dataframe(chip_df, use_container_width=True, hide_index=True)
-        st.caption(
-            "The Triple Captain row shows the normal XI estimate plus two additional "
-            "captain copies, so its uplift is one extra captain xP. Bench Boost adds "
-            "the four substitute projections. These are simplified estimates and "
-            "do not account for autosubs, captain replacement or chip-specific rules."
-        )
+with chip_tab:
+    st.markdown("### Wildcard / Free Hit Squad Optimiser")
+    st.caption("Build a legal 15-player squad of 2 GKP, 5 DEF, 5 MID and 3 FWD, with a maximum of three players per club.")
+    chip_mode = st.radio("Chip simulation", ["Wildcard", "Free Hit"], horizontal=True)
+    if chip_mode == "Free Hit":
+        chip_gws = [selected_gw]
+        st.info("Free Hit is optimised for one selected Gameweek only. Your imported FPL squad is not changed.")
     else:
-        st.info("Load your squad to compare Bench Boost and Triple Captain scenarios.")
-
-    st.info(
-        "Wildcard and Free Hit use the same squad-building algorithm here. "
-        "The app does not yet simulate chip availability, chip deadlines, "
-        "Free Hit squad restoration or a season-long chip schedule."
-    )
-
-# =========================================================
-# TAB 6 — DIFFERENTIALS
-# =========================================================
-
-with tabs[5]:
-    st.subheader("Differential and hidden-gem finder")
-    a, b, c = st.columns(3)
-    with a:
-        max_ownership = st.slider("Maximum ownership %", 1, 50, 10)
-    with b:
-        max_price = st.slider("Maximum price (£m)", 4.0, 15.0, 9.0, 0.5)
-    with c:
-        min_minutes = st.slider("Minimum minutes", 0, 2000, 300, 50)
-
-    differential_rows = []
-    for p in players:
-        price = num(p.get("now_cost")) / 10
-        ownership = num(p.get("selected_by_percent"))
-        minutes = num(p.get("minutes"))
-        if (
-            ownership <= max_ownership
-            and price <= max_price
-            and minutes >= min_minutes
-            and p["id"] not in owned_ids
-            and p.get("status") in ("a", "d")
-        ):
-            p_xp = xp(p, target_gw)
-            differential_rows.append({
-                "Player": p["web_name"],
-                "Position": POSITION_NAMES.get(p["element_type"]),
-                "Club": team_short.get(p["team"], ""),
-                "Price": f"£{price:.1f}m",
-                "Ownership %": ownership,
-                "Fixture": fx_text(fx_map.get((p["team"], target_gw), [])),
-                "xP": p_xp,
-                "xP / £m": round(p_xp / max(price, 0.1), 2),
-                "Status": status_label(p),
-            })
-
-    if differential_rows:
-        st.dataframe(
-            pd.DataFrame(differential_rows).sort_values(
-                ["xP", "xP / £m"], ascending=False
-            ).head(40),
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info("No players match the selected differential filters.")
-
-# =========================================================
-# TAB 7 — FIXTURES & ROTATION
-# =========================================================
-
-with tabs[6]:
-    st.subheader("Fixture difficulty and rotation planner")
-    fixture_horizon = st.slider(
-        "Upcoming Gameweeks",
-        1, min(6, len(available_gws)),
-        min(5, len(available_gws)),
-        key="fixture_horizon",
-    )
-    fixture_gws = available_gws[:fixture_horizon]
-
-    fixture_rows = []
-    for team in teams:
-        row = {"Club": team.get("name")}
-        difficulties = []
-        for gw in fixture_gws:
-            team_fx = fx_map.get((team["id"], gw), [])
-            row[f"GW{gw}"] = fx_text(team_fx)
-            difficulties.extend(d for _, d in team_fx)
-        row["Average FDR"] = (
-            round(sum(difficulties) / len(difficulties), 2)
-            if difficulties else None
-        )
-        fixture_rows.append(row)
-
-    fixture_df = pd.DataFrame(fixture_rows).sort_values(
-        "Average FDR", ascending=True, na_position="last"
-    )
-    st.dataframe(fixture_df, use_container_width=True, hide_index=True)
-
-    st.subheader("Your squad's fixture run")
-    if squad:
-        rotation_rows = []
-        for p in squad:
-            upcoming = []
-            diffs = []
-            for gw in fixture_gws:
-                team_fx = fx_map.get((p["team"], gw), [])
-                upcoming.append(f"GW{gw}: {fx_text(team_fx)}")
-                diffs.extend(d for _, d in team_fx)
-            rotation_rows.append({
-                "Player": p["web_name"],
-                "Club": team_short.get(p["team"], ""),
-                "Position": POSITION_NAMES.get(p["element_type"]),
-                "Minutes": p.get("minutes"),
-                "Status": status_label(p),
-                "Average FDR": round(sum(diffs) / len(diffs), 2) if diffs else None,
-                "Fixtures": " | ".join(upcoming),
-                "Horizon xP": horizon_xp(p, fixture_gws, fx_map, risk, minute_overrides),
-            })
-        st.dataframe(
-            pd.DataFrame(rotation_rows).sort_values(
-                ["Average FDR", "Horizon xP"],
-                ascending=[True, False],
-                na_position="last",
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info("Load public squad picks to see your squad's fixture run.")
-
-# =========================================================
-# TAB 8 — WEEKLY REPORTS
-# =========================================================
-
-with tabs[7]:
-    st.subheader("Automatic weekly FPL reports")
-    st.write(
-        "The GitHub Actions workflow can generate a Markdown report every "
-        "Monday at 09:00 Malaysia time (01:00 UTC). Reports appear here after "
-        "they are saved to the repository."
-    )
-
-    files = report_files()
-    if files:
-        for report_path in files[:12]:
-            with st.expander(report_path.stem.replace("_", " ")):
-                content = report_path.read_text(encoding="utf-8")
-                st.markdown(content)
-                st.download_button(
-                    "Download report",
-                    content,
-                    file_name=report_path.name,
-                    mime="text/markdown",
-                    key=report_path.name,
-                )
-    else:
-        st.info(
-            "No scheduled reports have been generated yet. "
-            "You can also start the workflow manually from GitHub Actions."
-        )
-
-    st.caption("Scheduled reports depend on GitHub Actions and the public FPL API.")
-
-# =========================================================
-# FOOTER
-# =========================================================
+        chip_gws = gws
+        st.info(f"Wildcard optimises across {len(chip_gws)} selected Gameweek(s). This is a draft, not a chip activation.")
+    # Whole-squad liquidation budget is a conservative approximation; carried
+    # players may be cheaper to retain than rebuying them at current prices.
+    liquidation = sum(int(p.get("selling_price", p.get("now_cost", 0))) for p in squad) + bank
+    manual_budget = st.number_input("Total budget (£m)", min_value=70.0, max_value=130.0,
+                                     value=float(round(liquidation / 10, 1)), step=0.1)
+    budget_tenths = round(manual_budget * 10)
+    st.caption("Budget defaults to squad selling value + cash. Suggested players are purchased at current FPL prices; future price changes are not forecast.")
+    if st.button(f"✨ Generate {chip_mode} Squad", type="primary"):
+        try:
+            with st.spinner("Evaluating legal teams using free FPL statistics..."):
+                result = optimise_chip_squad(players, chip_gws, fixture_map, budget_tenths,
+                                             minutes_overrides=minutes_overrides, shortlist=24)
+            st.session_state.chip_result = {"mode": chip_mode, "gws": chip_gws[:],
+                                            "budget": budget_tenths, "result": result}
+        except (ValueError, KeyError) as exc:
+            st.session_state.chip_result = None
+            st.error(str(exc))
+    saved = st.session_state.get("chip_result")
+    if saved and (saved["mode"] != chip_mode or saved["gws"] != chip_gws or saved["budget"] != budget_tenths):
+        saved = None
+        st.caption("Settings changed; generate again to see an updated team.")
+    if saved:
+        result = saved["result"]
+        proposed = result["squad"]
+        chip_lineup = best_lineup(proposed, selected_gw, fixture_map, minutes_overrides)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Projected Rating", f"{result['rating']['rating']}/100")
+        c2.metric("Total predicted xP", f"{result['rating']['total_xp']:.1f}")
+        c3.metric("Unspent budget", pounds(result["bank"]))
+        st.markdown("**Recommended Starting XI**")
+        render_pitch(chip_lineup["xi"], int(chip_lineup["captain"]["id"]),
+                     int(chip_lineup["vice"]["id"]), selected_gw, fixture_map, clubs, minutes_overrides)
+        st.dataframe(squad_table(proposed, chip_gws, fixture_map, clubs, minutes_overrides),
+                     use_container_width=True, hide_index=True)
+        st.warning("Greedy optimisation is approximate, not globally optimal. It does not model chips other than the selected simulation, auto-subs, changing prices or future injury reports.")
+        if st.button("Use this squad as an editable draft", use_container_width=True):
+            # Simulated chip squads may be explored in Transfers/My Team, but
+            # remain separate from actual account changes.
+            st.session_state.draft = [dict(p, selling_price=int(p["now_cost"])) for p in proposed]
+            st.session_state.bank = int(result["bank"])
+            st.session_state.manual_xi = []
+            st.session_state.manual_captain = None
+            st.session_state.moves = []
+            st.session_state.chip_result = None
+            st.rerun()
 
 st.divider()
-st.caption(
-    "AJK Bola Wawei AI · Independent fan-made FPL analytics tool. "
-    "Not affiliated with or endorsed by the Premier League. "
-    "All projections and recommendations are estimates based on public data "
-    "and transparent statistical heuristics. Always verify decisions on the "
-    "official FPL website."
-)
+st.caption("Data: official Fantasy Premier League public API. Player projections, ratings, transfer scores and optimisation are independent AJK estimates; no affiliation with Fantasy Football Hub or the Premier League. Use the official FPL site to make actual transfers or activate chips.")
