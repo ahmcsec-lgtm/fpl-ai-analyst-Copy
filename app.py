@@ -280,7 +280,7 @@ squad = st.session_state.draft
 bank = int(st.session_state.bank)
 profile = st.session_state.manager_profile
 if not valid_squad(squad):
-    st.error("Your simulated draft is invalid. Restore your imported squad in Advanced settings.")
+    st.error("Your simulated draft is invalid. Re-import your FPL team using Analyse Team above.")
     st.stop()
 
 with st.expander("⚙️ Planning settings", expanded=False):
@@ -298,9 +298,6 @@ with st.expander("⚙️ Planning settings", expanded=False):
             minutes_overrides[pid] = st.slider(label(p, clubs), 0, 90,
                                                 value=int(round(projected_minutes(p) / 5) * 5), step=5,
                                                 key=f"mins_{st.session_state.loaded_id}_{pid}")
-    if st.button("Reset to Original FPL Team", key="reset_team_settings", use_container_width=True):
-        restore_original_team()
-        st.rerun()
 
 # Stable defaults on the first render, independent of the optional expander.
 selected_gw = locals().get("selected_gw", available_gws[0])
