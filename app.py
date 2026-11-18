@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.0 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
+"""AJK Bola Wawei AI v7.3 — cinematic dashboard + reliable captaincy badges, preserving the full FPL planner.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -276,10 +276,7 @@ html,body,[data-testid="stAppViewContainer"]{background-color:#06111e!important}
 [data-testid="stExpander"]{background:rgba(9,29,43,.93)!important;border-color:rgba(84,167,161,.25)!important}
 [data-testid="stTabs"] [data-baseweb="tab-list"]{background:rgba(7,27,42,.67);border-radius:17px;padding:7px;gap:8px!important}
 [data-testid="stTabs"] [data-baseweb="tab"]{background:rgba(12,37,54,.78)!important;border-color:rgba(100,188,173,.24)!important}
-[data-testid="stTabs"] [aria-selected="true"]{
-  background:linear-gradient(110deg,#12b580,#25d99b)!important;color:#041b17!important;
-  box-shadow:0 6px 16px rgba(14,159,109,.22);border-color:transparent!important;
-}
+
 .ajk-rating{background:linear-gradient(110deg,#0c2935,#0b2831)!important;border-color:rgba(50,202,152,.28)!important}
 .ajk-rating .inner{background:#0e2732!important}
 .ajk-verdict{background:linear-gradient(110deg,rgba(16,64,63,.83),rgba(9,39,52,.95))!important}
@@ -437,9 +434,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
  border-radius:12px!important;border:1px solid transparent!important;
  color:#edf9fb!important;font-size:clamp(12px,1vw,17px)!important;font-weight:750!important;
  background:rgba(9,38,58,.63)!important;transition:background .18s ease,box-shadow .18s ease}
-[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"]{
- color:#03251d!important;background:linear-gradient(110deg,#11d79a,#04a86f)!important;
- box-shadow:0 4px 23px rgba(19,224,146,.23)!important;border-color:rgba(63,253,179,.65)!important}
+
 [data-testid="stTabs"] [data-baseweb="tab-highlight"],
 [data-testid="stTabs"] [data-baseweb="tab-border"]{display:none!important}
 .ajk-panel-heading{font-size:clamp(13px,1vw,18px)!important;margin:3px 0 12px!important;
@@ -539,7 +534,7 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
 /* Primary navigation should look like the large game tabs in the reference. */
 [data-testid="stTabs"] [data-baseweb="tab-list"]{width:min(100%,930px)!important;margin:8px auto 22px!important;display:flex!important;justify-content:center!important;gap:0!important;padding:4px!important;background:linear-gradient(120deg,rgba(5,26,44,.95),rgba(6,35,54,.90))!important;border:1px solid rgba(67,173,204,.52)!important;border-radius:19px!important;box-shadow:0 12px 32px rgba(0,0,0,.3)!important}
 [data-testid="stTabs"] [data-baseweb="tab"]{flex:1 1 0!important;display:flex!important;justify-content:center!important;align-items:center!important;border-radius:15px!important;min-height:58px!important;padding:12px 7px!important;font-size:clamp(12px,1.3vw,21px)!important;font-weight:800!important;background:transparent!important;border:0!important;color:#effffb!important}
-[data-testid="stTabs"] [aria-selected="true"]{background:linear-gradient(105deg,#15da94,#05946d)!important;color:white!important;box-shadow:0 0 18px rgba(27,232,151,.26)!important}
+
 [data-testid="stTabs"] [data-baseweb="tab-highlight"],[data-testid="stTabs"] [data-baseweb="tab-border"]{display:none!important}
 [data-testid="stTabs"] [data-baseweb="tab-panel"]{padding-top:6px!important}
 /* Side panels: larger typography and softer glass panels. */
@@ -661,37 +656,52 @@ div[data-testid="stRadio"] div[role="radiogroup"] label p{font-weight:700}
 @media(max-width:700px){.block-container{width:calc(100% - 12px)!important}.ajk-hero{padding:6px!important;min-height:0!important}.ajk-hero .ajk-logo-mark{width:48px!important;height:48px!important}.st-key-ajk_click_pitch [data-testid="stButton"] button{min-height:90px!important}}
 
 
-/* v7.2: translucent emerald navigation — final override of legacy tab styles. */
+/* v7.3: one authoritative tab theme. Low-opacity emerald-to-navy, not a solid fill. */
 [data-testid="stTabs"] [data-baseweb="tab-list"] {
-  background:linear-gradient(115deg,rgba(4,23,40,.78),rgba(5,34,49,.67))!important;
-  border:1px solid rgba(68,171,173,.28)!important;
-  box-shadow:0 12px 35px rgba(0,0,0,.18)!important;
+  background:linear-gradient(110deg,rgba(3,24,40,.74),rgba(6,31,44,.57))!important;
+  border:1px solid rgba(68,171,173,.24)!important;
+  border-radius:18px!important;
+  padding:5px!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.19)!important;
 }
-[data-testid="stTabs"] [data-baseweb="tab"] {
-  background:transparent!important;
+[data-testid="stTabs"] [data-baseweb="tab"],
+[data-testid="stTabs"] button[role="tab"] {
+  background:none!important;
+  background-color:transparent!important;
+  background-image:none!important;
   border:1px solid transparent!important;
-  border-radius:12px!important;
+  border-radius:13px!important;
   color:#d9eae9!important;
-  transition:background .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease!important;
+  transition:background .2s ease,border-color .2s ease,box-shadow .2s ease!important;
 }
-[data-testid="stTabs"] [data-baseweb="tab"]:hover:not([aria-selected="true"]) {
-  background:rgba(16,185,129,.09)!important;
-  color:#f0fff9!important;
+[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"],
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+  background-color:rgba(11,92,85,.16)!important;
+  background-image:linear-gradient(105deg,rgba(28,183,140,.24) 0%,rgba(13,90,115,.09) 100%)!important;
+  border:1px solid rgba(74,230,181,.50)!important;
+  color:#a3ffdc!important;
+  box-shadow:inset 0 1px rgba(193,255,226,.08),0 0 13px rgba(15,202,144,.07)!important;
 }
-[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
-  background:linear-gradient(110deg,rgba(13,199,139,.30),rgba(10,122,143,.12))!important;
-  border:1px solid rgba(76,232,178,.58)!important;
-  color:#a2ffdb!important;
-  box-shadow:inset 0 1px rgba(196,255,227,.10),0 0 17px rgba(16,185,129,.09)!important;
+[data-testid="stTabs"] [data-baseweb="tab"]:hover:not([aria-selected="true"]),
+[data-testid="stTabs"] button[role="tab"]:hover:not([aria-selected="true"]) {
+  background:rgba(16,185,129,.07)!important;
 }
 [data-testid="stTabs"] [data-baseweb="tab-highlight"],
 [data-testid="stTabs"] [data-baseweb="tab-border"] {
   display:none!important;
   background:transparent!important;
 }
-@media(max-width:700px) {
-  [data-testid="stTabs"] [data-baseweb="tab"] {border-radius:9px!important;}
-}
+/* Team-wide per-GW outlook replacing repeated captain fixture information. */
+.ajk-outlook-row{padding:10px 0 12px;border-bottom:1px solid rgba(127,191,198,.12)}
+.ajk-outlook-row:last-child{border-bottom:0;padding-bottom:0}
+.ajk-outlook-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;color:#f3fffd;font-size:clamp(11px,.85vw,14px)}
+.ajk-outlook-head strong{color:#d8fff2;font-size:clamp(11px,.9vw,15px)}
+.ajk-outlook-head .ajk-outlook-xp{color:#7cf4c3;font-weight:800;white-space:nowrap}
+.ajk-outlook-meter{height:5px;margin:7px 0 5px;background:rgba(120,186,189,.13);border-radius:99px;overflow:hidden}
+.ajk-outlook-meter > i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#0b937b,#4bdeae)}
+.ajk-outlook-meta{color:#9abfc2;font-size:11px}
+.ajk-outlook-row.is-preview .ajk-outlook-head strong{color:#9bffd5}
+@media(max-width:700px){[data-testid="stTabs"] [data-baseweb="tab"]{border-radius:9px!important}}
 
 </style>
 """, unsafe_allow_html=True)
@@ -1247,28 +1257,38 @@ with tab_team:
         st.caption("Estimated points are forecasts, not guarantees.")
 
     with upcoming_col:
-        st.markdown("<div class='ajk-panel-heading'>▤ UPCOMING FIXTURES</div>", unsafe_allow_html=True)
-        # Display fixtures for the AI-recommended captain across the horizon.
-        captain_team_id = int(automatic_captain.get("team", 0)) if automatic_captain else 0
-        fixtures_rows = []
+        st.markdown("<div class='ajk-panel-heading'>▤ GAMEWEEK OUTLOOK</div>", unsafe_allow_html=True)
+        # Show squad-wide Gameweek projections instead of repeating captain information.
+        # Each projection optimises the XI and captain independently for that GW.
+        weekly_outlook = []
         for week in gws:
-            matches = fixture_map.get((int(week), captain_team_id), []) if captain_team_id else []
-            if matches:
-                opponent_text = " · ".join(
-                    html.escape(str(clubs.get(int(fx.get("opponent", 0)), "?"))) +
-                    (" (H)" if fx.get("home") else " (A)") for fx in matches
-                )
-            else:
-                opponent_text = "Blank GW"
-            fixtures_rows.append(
-                f'<div class="ajk-fixture-row"><strong>GW {week}</strong><span>{opponent_text}</span></div>'
+            week_lineup = lineup if int(week) == int(preview_gw) else best_lineup(
+                squad, int(week), fixture_map, minutes_overrides
             )
-        fixture_player_name = captain_name
+            counts = Counter(int(p["element_type"]) for p in week_lineup["xi"])
+            weekly_outlook.append({
+                "gw": int(week),
+                "xp": float(week_lineup["total_xp"]),
+                "formation": f"{counts[2]}-{counts[3]}-{counts[4]}",
+            })
+        max_week_xp = max((entry["xp"] for entry in weekly_outlook), default=1.0)
+        outlook_markup = []
+        for entry in weekly_outlook:
+            selected = " is-preview" if entry["gw"] == int(preview_gw) else ""
+            width = max(0, min(100, (entry["xp"] / max_week_xp) * 100)) if max_week_xp > 0 else 0
+            outlook_markup.append(
+                f'<div class="ajk-outlook-row{selected}">'
+                f'<div class="ajk-outlook-head"><strong>GW {entry["gw"]}</strong>'
+                f'<span class="ajk-outlook-xp">{entry["xp"]:.1f} xP</span></div>'
+                f'<div class="ajk-outlook-meter"><i style="width:{width:.1f}%"></i></div>'
+                f'<div class="ajk-outlook-meta">AI best formation · {entry["formation"]}</div>'
+                '</div>'
+            )
         st.markdown(
-            '<div class="ajk-sidecard"><div class="ajk-side-kicker">CAPTAIN FIXTURES · '
-            + fixture_player_name + '</div>' + ''.join(fixtures_rows) + '</div>',
-            unsafe_allow_html=True,
+            '<div class="ajk-sidecard"><div class="ajk-side-kicker">SQUAD POINTS OUTLOOK</div>'
+            + ''.join(outlook_markup) + '</div>', unsafe_allow_html=True,
         )
+        st.caption("Projected starting XI points including captain; not guaranteed results.")
         st.markdown("<div class='ajk-panel-heading'>⚡ QUICK ACTIONS</div>", unsafe_allow_html=True)
         st.markdown("""
         <div class="ajk-sidecard ajk-guide">
