@@ -683,16 +683,6 @@ tab_team, tab_transfers, tab_chips = st.tabs(
     ["🏟️ My Team", "🧠 Smart Transfers", "✨ Wildcard / Free Hit"]
 )
 with tab_team:
-    if draft_has_changes():
-        st.info("You are viewing a simulated draft, not your original FPL squad. "
-                "Reset restores your imported 15-player squad and bank balance, and clears manual lineups, captaincy, and simulated transfers for all GWs.")
-        if st.button("↩️ Reset to Original FPL Team", key="reset_team_main",
-                     use_container_width=True, type="secondary"):
-            restore_original_team()
-            st.rerun()
-    else:
-        st.caption("✓ Original imported FPL team — no draft transfers applied.")
-
     with st.container():
         st.markdown("**Preview your squad across the selected Gameweeks**")
         preview_gw = st.select_slider(
@@ -746,6 +736,15 @@ with tab_team:
         vice_override = st.session_state.get("manual_vice_by_gw", {}).get(preview_gw)
         vice = (vice_override if vice_override in cap_ids and vice_override != cap
                 else max((pid for pid in cap_ids if pid != cap), key=lambda pid: gw_xp[pid]))
+        # Keep the single reset control within reach of the interactive pitch.
+        # It restores the full imported squad and clears manual GW overrides.
+        if draft_has_changes():
+            st.caption("✏️ Simulated changes active · Reset to discard transfers, substitutions and captaincy edits across all GWs.")
+            if st.button("↩️ Reset to Original FPL Team", key="reset_team_main",
+                         use_container_width=True, type="secondary"):
+                restore_original_team()
+                st.rerun()
+
         pitch_display = st.radio(
             "Show on player cards", options=["xP", "Fixture"], horizontal=True,
             key="squad_pitch_display", label_visibility="collapsed",
