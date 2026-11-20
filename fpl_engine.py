@@ -624,7 +624,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                         fixtures: dict, bank_tenths: int, free_transfers: int = 1,
                         strategy: str = "Balanced", minutes_overrides: dict[int, float] | None = None,
                         beam_width: int = 12, candidate_count: int = 9) -> dict:
-    """Compare the best ROLL-first and TRANSFER-first multi-GW strategies.
+    """Compare complete multi-GW transfer itineraries, including rolling.
 
     This is a bounded heuristic search, not a globally optimal or calibrated model.
     Its point forecast is the best legal XI plus an extra captain score, less hits.
@@ -785,6 +785,45 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                 ]
                 yield ids2, bank2, sales2, moves, 2
 
+        # Also consider three immediate transfers (e.g. 3 saved FTs).
+        # Limit the third-move branching to the first GW to keep free hosting
+        # responsive. Later weeks can still make up to two transfers each.
+        if wi == 0:
+            seen_triples = set()
+            for _, out, incoming, bank1 in first_moves[:3]:
+                ids1 = tuple(sorted((set(ids) - {out}) | {incoming}))
+                sales1 = dict(sales)
+                sales1.pop(out, None)
+                sales1[incoming] = prices[incoming]
+                for _, out2, incoming2, bank2 in swaps_for(ids1, bank1, sales1, wi, max_options=4):
+                    if out2 == incoming or incoming2 == out:
+                        continue
+                    ids2 = tuple(sorted((set(ids1) - {out2}) | {incoming2}))
+                    sales2 = dict(sales1)
+                    sales2.pop(out2, None)
+                    sales2[incoming2] = prices[incoming2]
+                    for _, out3, incoming3, bank3 in swaps_for(ids2, bank2, sales2, wi, max_options=3):
+                        if out3 in (incoming, incoming2) or incoming3 in (out, out2):
+                            continue
+                        move_pairs = tuple(sorted(((out, incoming), (out2, incoming2),
+                                                   (out3, incoming3))))
+                        if move_pairs in seen_triples:
+                            continue
+                        seen_triples.add(move_pairs)
+                        ids3 = tuple(sorted((set(ids2) - {out3}) | {incoming3}))
+                        sales3 = dict(sales2)
+                        sales3.pop(out3, None)
+                        sales3[incoming3] = prices[incoming3]
+                        moves = [{"out": old, "in": new,
+                                  "out_name": market[old].get("web_name", "?"),
+                                  "in_name": market[new].get("web_name", "?"),
+                                  "out_price": sale_price, "in_price": prices[new]}
+                                 for old, new, sale_price in
+                                 ((out, incoming, sales.get(out, prices[out])),
+                                  (out2, incoming2, sales1.get(out2, prices[out2])),
+                                  (out3, incoming3, sales2.get(out3, prices[out3])))]
+                        yield ids3, bank3, sales3, moves, 3
+
     states = [{"ids": ids0, "sales": sales0, "bank": int(bank_tenths),
                "ft": int(free_transfers), "score": 0.0, "cover": 0.0,
                "first_action": None, "plan": []}]
@@ -800,7 +839,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                 future = sum(lineup_metrics(next_ids, j)[0] + bench_weight * lineup_metrics(next_ids, j)[1]
                              for j in range(wi + 1, len(gameweeks)))
                 ranking = cumulative + cumulative_cover + future + ft_value * next_ft
-                first_action = state["first_action"] or ("ROLL" if count == 0 else "TRANSFER")
+                first_action = state["first_action"] or ("ROLL" if count == 0 else ("ONE" if count == 1 else ("TWO" if count == 2 else "THREE")))
                 plan_item = {"gw": gw, "moves": moves, "hits": hit, "bank": next_bank,
                              "free_transfers_before": state["ft"], "free_transfers_after": next_ft,
                              "projected_xp": round(points, 2), "net_xp": round(points - hit, 2)}
@@ -813,7 +852,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         # Separate beams ensure the ROLL path cannot be pruned simply because
         # early transfer states have temporarily higher projected points.
         kept = []
-        for kind in ("ROLL", "TRANSFER"):
+        for kind in ("ROLL", "ONE", "TWO", "THREE"):
             unique = {}
             candidates = sorted((s for s in expanded if s["first_action"] == kind),
                                 key=lambda s: (s["rank"], s["score"]), reverse=True)
@@ -832,31 +871,134 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     def decision_utility(state: dict) -> float:
         return state["score"] + state["cover"] + ft_value * state["ft"]
 
-    roll_plans = [s for s in states if s["first_action"] == "ROLL"]
-    transfer_plans = [s for s in states if s["first_action"] == "TRANSFER"]
-    best_roll = max(roll_plans, key=decision_utility) if roll_plans else None
-    best_transfer = max(transfer_plans, key=decision_utility) if transfer_plans else None
-    if best_transfer is None:
-        best = best_roll
-    elif best_roll is None:
-        best = best_transfer
-    else:
-        # The threshold is a heuristic protection against forecast noise.
-        # The two branches each optimise their *subsequent* Gameweeks.
-        best = (best_transfer if decision_utility(best_transfer) - decision_utility(best_roll)
-                > min_transfer_edge else best_roll)
-    assert best is not None
+    # Preserve the best complete plan for each first-GW choice. All three
+    # alternatives optimise subsequent weeks independently.
+    best_by_kind = {
+        kind: max((s for s in states if s["first_action"] == kind),
+                  key=decision_utility, default=None)
+        for kind in ("ROLL", "ONE", "TWO", "THREE")
+    }
+    available = {kind: state for kind, state in best_by_kind.items() if state is not None}
+    if not available:
+        raise ValueError("No valid transfer strategies were found.")
+
+    # Penalise marginal transfer recommendations relative to rolling, to avoid
+    # acting on tiny, noisy model differences. This is a decision heuristic,
+    # not a deduction from the reported projected FPL points.
+    def adjusted_utility(kind: str, state: dict) -> float:
+        return decision_utility(state) - (min_transfer_edge if kind != "ROLL" else 0.0)
+
+    # Prefer rolling, then one transfer, on exact ties.
+    preference = {"ROLL": 3, "ONE": 2, "TWO": 1, "THREE": 0}
+    recommended_kind = max(
+        available,
+        key=lambda kind: (adjusted_utility(kind, available[kind]), preference[kind]),
+    )
+    best = available[recommended_kind]
+    best_transfer = max((available[k] for k in ("ONE", "TWO", "THREE") if k in available),
+                        key=decision_utility, default=None)
+    best_roll = best_by_kind["ROLL"]
+
+    options = []
+    for kind in ("ROLL", "ONE", "TWO", "THREE"):
+        state = best_by_kind[kind]
+        if state is None:
+            options.append({"key": kind, "available": False, "recommended": False,
+                            "label": {"ROLL": "Roll", "ONE": "1 Transfer", "TWO": "2 Transfers", "THREE": "3 Transfers"}[kind]})
+            continue
+        plan = state["plan"]
+        first = plan[0]
+        options.append({
+            "key": kind, "label": {"ROLL": "Roll", "ONE": "1 Transfer", "TWO": "2 Transfers", "THREE": "3 Transfers"}[kind],
+            "available": True, "recommended": kind == recommended_kind,
+            "action": "ROLL" if kind == "ROLL" else "TRANSFER",
+            "first_moves": first["moves"], "first_hit": first["hits"],
+            "first_free_transfers_after": first["free_transfers_after"],
+            "plan": plan, "expected_gain": round(state["score"] - baseline, 2),
+            "planned_net_xp": round(state["score"], 2),
+            "decision_utility": round(decision_utility(state), 3),
+            "decision_score": round(adjusted_utility(kind, state), 3),
+            "total_hits": sum(item["hits"] for item in plan),
+            "final_bank": state["bank"], "final_free_transfers": state["ft"],
+        })
+    ranked = sorted((o for o in options if o["available"]),
+                    key=lambda o: (o["decision_score"], preference[o["key"]]), reverse=True)
+    for rank, option in enumerate(ranked, start=1):
+        option["rank"] = rank
+
+    # Three ranked, complete transfer itineraries rather than three fixed
+    # first-GW transfer counts. Distinct first-GW moves make the comparison
+    # meaningful; a ROLL itinerary can still rank first if it is strongest.
+    preference = {"ROLL": 3, "ONE": 2, "TWO": 1, "THREE": 0}
+    ranked_states = sorted(
+        states,
+        key=lambda s: (adjusted_utility(s["first_action"], s),
+                       preference[s["first_action"]], s["score"]),
+        reverse=True,
+    )
+    distinct = []
+    first_move_signatures = set()
+    full_signatures = set()
+    for candidate in ranked_states:
+        # Distinguish plans by their immediate incoming targets, not merely
+        # by which equivalent bench player gets sold.
+        first_signature = tuple(sorted(m["in"] for m in candidate["plan"][0]["moves"]))
+        full_signature = tuple(
+            tuple(sorted((m["out"], m["in"]) for m in week["moves"]))
+            for week in candidate["plan"]
+        )
+        if full_signature in full_signatures or first_signature in first_move_signatures:
+            continue
+        distinct.append(candidate)
+        full_signatures.add(full_signature)
+        first_move_signatures.add(first_signature)
+        if len(distinct) == 3:
+            break
+    if len(distinct) < 3:
+        for candidate in ranked_states:
+            full_signature = tuple(
+                tuple(sorted((m["out"], m["in"]) for m in week["moves"]))
+                for week in candidate["plan"]
+            )
+            if full_signature in full_signatures:
+                continue
+            distinct.append(candidate)
+            full_signatures.add(full_signature)
+            if len(distinct) == 3:
+                break
+
+    ranked_plans = []
+    for number, candidate in enumerate(distinct, 1):
+        first_week = candidate["plan"][0]
+        kind = candidate["first_action"]
+        ranked_plans.append({
+            "plan_number": number,
+            "label": f"Plan {number}",
+            "first_action": kind,
+            "recommended": number == 1,
+            "plan": candidate["plan"],
+            "first_moves": first_week["moves"],
+            "first_hit": first_week["hits"],
+            "first_free_transfers_after": first_week["free_transfers_after"],
+            "expected_gain": round(candidate["score"] - baseline, 2),
+            "planned_net_xp": round(candidate["score"], 2),
+            "decision_score": round(adjusted_utility(kind, candidate), 3),
+            "total_hits": sum(w["hits"] for w in candidate["plan"]),
+            "final_bank": candidate["bank"],
+            "final_free_transfers": candidate["ft"],
+        })
 
     plan = best["plan"]
     first = plan[0]
-    total_hit = sum(item["hits"] for item in plan)
     return {
-        "action": "ROLL" if not first["moves"] else "TRANSFER",
+        "ranked_plans": ranked_plans,
+        "action": "ROLL" if recommended_kind == "ROLL" else "TRANSFER",
+        "recommended_option": recommended_kind, "options": options,
         "plan": plan, "first_moves": first["moves"], "first_hit": first["hits"],
         "expected_gain": round(best["score"] - baseline, 2),
         "baseline_xp": round(baseline, 2),
         "planned_net_xp": round(best["score"], 2),
-        "total_hits": total_hit, "final_bank": best["bank"],
+        "total_hits": sum(item["hits"] for item in plan), "final_bank": best["bank"],
         "final_free_transfers": best["ft"],
         "baseline_weekly": [round(v, 2) for v in base_weekly],
         "roll_first_net_xp": round(best_roll["score"], 2) if best_roll else None,
@@ -864,7 +1006,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         "roll_first_decision_utility": round(decision_utility(best_roll), 2) if best_roll else None,
         "transfer_first_decision_utility": round(decision_utility(best_transfer), 2) if best_transfer else None,
         "decision_margin": min_transfer_edge,
-        "method": ("Bounded two-branch beam search: compare ROLL-first vs TRANSFER-first; "
-                   "1–2 moves per GW, legal squads, current selling prices, 4-point hits; "
+        "method": ("Bounded three-branch beam search: compare ROLL vs 1 vs 2 transfers this GW; "
+                   "up to 3 immediate moves and 1–2 per subsequent GW, legal squads, current selling prices, 4-point hits; "
                    "XI+captain xP, with uncalibrated bench/FT tie-breakers; no chips/price forecasts"),
     }
