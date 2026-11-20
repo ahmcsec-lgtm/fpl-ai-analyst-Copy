@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.18: free, transparent FPL estimators and squad tools.
+"""AJK Bola Wawei AI v7.19: full-market transfer discovery with bounded planning.
 
 No paid model, no official xP claim. All monetary amounts are FPL tenths.
 """
@@ -1052,21 +1052,26 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                               for wi, gw in enumerate(gameweeks))
                    for pid in market}
 
+    # v7.19: ALL eligible market players enter the cheap first-stage search.
+    # Global top-N shortlists were unsafe: a highly projected but unaffordable
+    # player could occupy a slot needed by a strong, affordable alternative.
+    # Every player gets full horizon / individual-week xP before filtering;
+    # affordability and the three-per-club rule are checked for each sale.
     horizon = {pid: sum(values) for pid, values in xp.items()}
-    shortlist: dict[int, list[int]] = {}
-    for pos in QUOTAS:
-        eligible = [pid for pid in market if positions[pid] == pos and prices[pid] > 0 and
-                    market[pid].get("status", "a") not in ("u", "n", "s", "i")]
-        # Diversify: whole-horizon prospects, future GW specialists, cheaper
-        # budget enablers, and players with high points/price. The old shortlist
-        # sometimes missed the first leg of a useful two-player combination.
-        by_horizon = sorted(eligible, key=lambda pid: horizon[pid], reverse=True)[:candidate_count]
-        by_week = [pid for wi in range(n_weeks)
-                   for pid in sorted(eligible, key=lambda p: xp[p][wi], reverse=True)[:3]]
-        by_value = sorted(eligible, key=lambda pid: horizon[pid] / max(35, prices[pid]),
-                          reverse=True)[:4]
-        by_price = sorted(eligible, key=lambda pid: (prices[pid], -horizon[pid]))[:5]
-        shortlist[pos] = list(dict.fromkeys(by_horizon + by_week + by_value + by_price))
+    eligible_by_pos = {
+        pos: tuple(pid for pid, p in market.items()
+                   if positions[pid] == pos and prices[pid] > 0
+                   and p.get("status", "a") not in ("u", "n", "s", "i"))
+        for pos in QUOTAS
+    }
+    # These are discovery tie-break signals only. Public FPL 'form' includes
+    # realised returns and is NOT a calibrated xG or xA forecast; it must not
+    # be added to predicted points or overrule the exact squad evaluation.
+    recent_form = {pid: clamp(num(p.get("form")), 0, 12) for pid, p in market.items()}
+    discovery_rough_first_week: set[int] = set()
+    discovery_exact_first_week: set[int] = set()
+    first_week_affordable_swaps = 0
+    sample_limit = min(64, max(32, int(candidate_count) * 4))
 
     lineup_cache: dict[tuple[tuple[int, ...], int], tuple[float, float, float]] = {}
 
@@ -1112,6 +1117,15 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
 
     def swaps_for(ids: tuple[int, ...], bank: int, sales: dict[int, int], wi: int,
                   max_options: int = 12) -> list[tuple[float, int, int, int]]:
+        """Screen EVERY affordable transfer cheaply, then score a diverse sample.
+
+        Full enumeration of 15-player squads across every pair/week is not
+        tractable, but no player is rejected by a GLOBAL top-xP shortlist.
+        We choose detailed candidates by multiple routes (horizon, immediate,
+        future swing, value, cash release, and price band) so the cheap stage
+        cannot drown out budget enablers or emerging players.
+        """
+        nonlocal first_week_affordable_swaps
         key = (ids, bank, tuple(sorted(sales.items())), wi)
         raw = swap_cache.get(key)
         if raw is None:
@@ -1121,7 +1135,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
             for old in ids:
                 sale = sales.get(old, prices[old])
                 budget = bank + sale
-                for incoming in shortlist[positions[old]]:
+                for incoming in eligible_by_pos[positions[old]]:
                     if incoming in owned or prices[incoming] > budget:
                         continue
                     if counts[clubs[incoming]] >= 3 and clubs[incoming] != clubs[old]:
@@ -1130,51 +1144,107 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                     released = new_bank - bank
                     rough_gain = suffix_xp[incoming][wi] - suffix_xp[old][wi]
                     immediate = xp[incoming][wi] - xp[old][wi]
-                    rough.append((rough_gain, immediate, released, old, incoming, new_bank))
+                    future_swing = max(xp[incoming][j] - xp[old][j]
+                                       for j in range(wi, n_weeks))
+                    value = suffix_xp[incoming][wi] / max(35, prices[incoming])
+                    # Includes a small form-discovery signal but never changes
+                    # projections, net xP or the final ranking objective.
+                    momentum = rough_gain + .14 * recent_form[incoming]
+                    row = (rough_gain, immediate, released, old, incoming,
+                           new_bank, future_swing, value, momentum)
+                    rough.append(row)
+                    if wi == 0 and ids == ids0:
+                        discovery_rough_first_week.add(incoming)
+            if wi == 0 and ids == ids0:
+                first_week_affordable_swaps = len(rough)
+
             if not rough:
-                swap_cache[key] = []
+                raw = []
             else:
-                # Compare exactly only a diversified candidate group. A large
-                # league-wide shortlist otherwise creates thousands of costly
-                # formation evaluations for each beam state.
-                by_rough = sorted(rough, key=lambda r: (r[0], r[2]), reverse=True)
-                by_release = sorted((r for r in rough if r[2] >= 10),
-                                    key=lambda r: (r[2], r[0]), reverse=True)
-                by_immediate = sorted(rough, key=lambda r: (r[1], r[0]), reverse=True)
+                by_gain = sorted(rough, key=lambda r: (r[0], r[1]), reverse=True)
+                by_now = sorted(rough, key=lambda r: (r[1], r[0]), reverse=True)
+                by_future = sorted(rough, key=lambda r: (r[6], r[0]), reverse=True)
+                by_value = sorted(rough, key=lambda r: (r[7], r[0]), reverse=True)
+                by_momentum = sorted(rough, key=lambda r: (r[8], r[0]), reverse=True)
+                by_cash = sorted((r for r in rough if r[2] >= 8),
+                                 key=lambda r: (r[2], r[0]), reverse=True)
+                # Balance future xP lost with cash released. An ultra-cheap
+                # player with enormous lost xP must not monopolise funding.
+                by_funding = sorted((r for r in rough if r[2] >= 8),
+                                    key=lambda r: (r[0] + .27 * r[2], r[2]),
+                                    reverse=True)
+                # One candidate in each feasible 0.5m selling-price bracket.
+                # This protects mid-priced options squeezed between premium
+                # xP leaders and very cheap value leaders.
+                price_band_best = {}
+                for row in rough:
+                    band = prices[row[4]] // 5
+                    if band not in price_band_best or row[0] > price_band_best[band][0]:
+                        price_band_best[band] = row
+                by_band = sorted(price_band_best.values(),
+                                 key=lambda r: (r[0], r[1]), reverse=True)
                 sample = []
                 seen = set()
-                for bucket in (by_rough[:30], by_release[:10], by_immediate[:9]):
+                # CPU guard: bounded distinct moves receive expensive full
+                # XI evaluation per state; candidate_count scales this bound.
+                # All affordable candidates
+                # have still been scored in the cheap phase above.
+                for bucket in (by_gain[:min(24, max(12, 2 * candidate_count - 4))],
+                               by_funding[:min(12, max(6, candidate_count - 2))],
+                               by_cash[:4], by_future[:6],
+                               by_now[:6], by_momentum[:5],
+                               by_value[:5], by_band[:min(18, max(8, candidate_count))]):
                     for r in bucket:
-                        if (r[3], r[4]) not in seen:
+                        sig = (r[3], r[4])
+                        if sig not in seen:
+                            seen.add(sig)
                             sample.append(r)
-                            seen.add((r[3], r[4]))
-                baseline_future = sum(lineup_metrics(ids, j)[0] for j in range(wi, n_weeks))
+                            if len(sample) >= sample_limit:
+                                break
+                    if len(sample) >= sample_limit:
+                        break
+                baseline_future = sum(lineup_metrics(ids, j)[0]
+                                      for j in range(wi, n_weeks))
                 raw = []
-                for _, _, released, old, incoming, new_bank in sample:
+                for _, _, released, old, incoming, new_bank, *_ in sample:
+                    if wi == 0 and ids == ids0:
+                        discovery_exact_first_week.add(incoming)
                     next_ids = tuple(sorted((owned - {old}) | {incoming}))
                     gain = sum(lineup_metrics(next_ids, j)[0]
                                for j in range(wi, n_weeks)) - baseline_future
-                    if gain < -3.5 and released < 10:
+                    if gain < -3.5 and released < 8:
                         continue
                     raw.append((gain, old, incoming, new_bank, released))
-                swap_cache[key] = raw
+            swap_cache[key] = raw
+
         if not raw:
             return []
         by_gain = sorted(raw, key=lambda r: (r[0], r[4]), reverse=True)
-        by_release = sorted((r for r in raw if r[4] >= 10),
-                            key=lambda r: (r[4], r[0]), reverse=True)
-        by_now = sorted(raw, key=lambda r: (xp[r[2]][wi] - xp[r[1]][wi], r[0]), reverse=True)
+        by_cash = sorted((r for r in raw if r[4] >= 8),
+                         key=lambda r: (r[4], r[0]), reverse=True)
+        by_funding = sorted((r for r in raw if r[4] >= 8),
+                            key=lambda r: (r[0] + .27 * r[4], r[4]), reverse=True)
+        by_now = sorted(raw, key=lambda r: (xp[r[2]][wi] - xp[r[1]][wi], r[0]),
+                        reverse=True)
+        # Guarantee allocation for cash-releasing moves even when there are
+        # more high-xP immediate swaps than the final option limit.
         chosen: list[tuple] = []
         seen = set()
-        for bucket in (by_gain[:max(1, max_options - 3)], by_release[:3], by_now[:3], by_gain):
+        groups = ((by_gain, max(1, max_options - 5)),
+                  (by_funding, 2), (by_cash, 2), (by_now, 1),
+                  (by_gain, max_options))
+        for bucket, quota in groups:
+            added = 0
             for row in bucket:
                 signature = (row[1], row[2])
-                if signature not in seen:
-                    chosen.append(row)
-                    seen.add(signature)
-                    if len(chosen) == max_options:
-                        break
-            if len(chosen) == max_options:
+                if signature in seen:
+                    continue
+                chosen.append(row)
+                seen.add(signature)
+                added += 1
+                if len(chosen) >= max_options or added >= quota:
+                    break
+            if len(chosen) >= max_options:
                 break
         return [(r[0], r[1], r[2], r[3]) for r in chosen]
 
@@ -1198,14 +1268,24 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
 
         seen_pairs: set[tuple[tuple[int, int], ...]] = set()
         pair_states = []
-        # Bring at least one cash-releasing first step into pair search.
-        for _, old, incoming, bank1 in first_moves[:6]:
+        # The single-move list is stratified (gain, funding, cash, immediate).
+        # IMPORTANT: do not take only the first six gain-ranked swaps: that
+        # silently excluded the downgrades required to fund premium upgrades.
+        # Reserve places for budget-enabling moves regardless of gain rank.
+        pair_first_moves = list(first_moves[:5])
+        for move in sorted(first_moves[6:], key=lambda m: (m[3] - bank, m[0]),
+                           reverse=True):
+            if move not in pair_first_moves:
+                pair_first_moves.append(move)
+                if len(pair_first_moves) >= 8:
+                    break
+        for _, old, incoming, bank1 in pair_first_moves:
             ids1 = tuple(sorted((set(ids) - {old}) | {incoming}))
             sales1 = dict(sales)
             sold = sales1.pop(old, prices[old])
             sales1[incoming] = prices[incoming]
             move1 = move_data(old, incoming, sold)
-            for _, old2, incoming2, bank2 in swaps_for(ids1, bank1, sales1, wi, max_options=6):
+            for _, old2, incoming2, bank2 in swaps_for(ids1, bank1, sales1, wi, max_options=5):
                 if old2 == incoming or incoming2 == old:
                     continue
                 pair_key = tuple(sorted(((old, incoming), (old2, incoming2))))
@@ -1473,9 +1553,65 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         "roll_first_decision_utility": round(utility(best_roll), 2) if best_roll else None,
         "transfer_first_decision_utility": round(utility(best_transfer), 2) if best_transfer else None,
         "decision_margin": min_transfer_edge,
-        "method": ("Bounded opportunity-aware beam search: 0–3 moves in the first GW; 0–2 later, "
+        "discovery_audit": {
+            "eligible_players": sum(len(group) for group in eligible_by_pos.values()),
+            "eligible_by_position": {POSITION_NAMES[pos]: len(eligible_by_pos[pos]) for pos in QUOTAS},
+            "affordable_legal_first_week_swaps": first_week_affordable_swaps,
+            "first_week_rough_targets": len(discovery_rough_first_week),
+            "first_week_exact_targets": len(discovery_exact_first_week),
+            # Internal diagnostics; the existing UI can safely ignore them.
+            "eligible_player_ids": sorted(pid for group in eligible_by_pos.values() for pid in group),
+            "initial_owned_ids": list(ids0),
+            "first_week_rough_target_ids": sorted(discovery_rough_first_week),
+            "first_week_exact_target_ids": sorted(discovery_exact_first_week),
+            "exhaustive_planning": False,
+        },
+        "method": ("v7.19 full-market per-squad-budget screening + bounded diverse search: "
+                   "0–3 moves in the first GW; 0–2 later, "
                    "legal 15-player squads, 5-FT rollover, 4-point hits, manager selling prices. "
                    "Rank by XI+captain+vice and legal auto-sub expected points (post-search), with heuristic "
                    "appearance/downside and small transfer-friction tie-breakers. "
                    "Current prices held fixed; no chips or adaptive future scenario tree."),
+    }
+
+
+def audit_transfer_candidate(plan_result: dict, player_id: int) -> dict:
+    """Explain how a particular target progressed through FIRST-GW discovery.
+
+    This does NOT claim a complete causal explanation of why a player was
+    excluded from a multi-GW plan; the beam search is deliberately bounded.
+    It is a stage audit that distinguishes absence from initial screening,
+    exclusion by legality/price, and inclusion in a shortlisted plan.
+    """
+    pid = int(player_id)
+    diagnostics = plan_result.get("discovery_audit", {})
+    owned = pid in diagnostics.get("initial_owned_ids", [])
+    eligible = pid in diagnostics.get("eligible_player_ids", [])
+    affordable = pid in diagnostics.get("first_week_rough_target_ids", [])
+    exact = pid in diagnostics.get("first_week_exact_target_ids", [])
+    chosen = [int(p["plan_number"]) for p in plan_result.get("ranked_plans", [])
+              if any(int(m["in"]) == pid for week in p.get("plan", [])
+                     for m in week.get("moves", []))]
+    if owned:
+        status = "already_owned"
+    elif chosen:
+        status = "appears_in_top_plans"
+    elif not eligible:
+        status = "not_eligible_for_new_transfer"
+    elif exact:
+        status = "first_week_full_squad_evaluated_but_not_selected"
+    elif affordable:
+        status = "first_week_affordable_screened_only"
+    else:
+        status = "not_directly_affordable_or_legal_in_first_week"
+    return {
+        "player_id": pid, "status": status,
+        "initially_owned": owned, "eligible": eligible,
+        "first_week_roughly_screened": affordable,
+        "first_week_full_squad_evaluated": exact,
+        "top_plan_numbers": chosen,
+        "exhaustive_search": False,
+        "caution": ("This is a first-week candidate-discovery audit, not a "
+                    "complete attribution of forecast or strategy differences. "
+                    "Later-week candidates and transfer combinations may differ."),
     }
