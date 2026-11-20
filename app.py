@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.20 — source-aware player availability + multi-GW previews.
+"""AJK Bola Wawei AI v7.20.1 — source-aware player availability + multi-GW previews.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -19,6 +19,26 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 import requests
 import streamlit as st
+
+# Startup compatibility guard: v7.20.1.
+# Keep import errors readable on Streamlit Cloud when app.py and fpl_engine.py
+# are deployed from different commits. This does not change model behaviour.
+try:
+    import fpl_engine as _ajk_engine
+except ImportError as _ajk_error:
+    st.error("AJK engine failed to load. Upload app.py and fpl_engine.py from the same release, then reboot the app.")
+    st.code(f"{type(_ajk_error).__name__}: {_ajk_error}")
+    st.stop()
+
+_REQUIRED_ENGINE_EXPORTS = ('POSITION_NAMES', 'best_lineup', 'configure_calibration', 'configure_projection_context', 'fixture_lookup', 'horizon_xp', 'join_actuals', 'num', 'optimise_chip_squad', 'player_fixture_xp', 'player_prediction', 'projected_minutes', 'smart_transfer_plan', 'team_rating', 'valid_squad', 'validate_snapshots', 'recent_minutes_evidence', 'transfer_history_candidates', 'configure_availability_context', 'attach_verified_availability_reports', 'availability_explanation')
+_missing_exports = [name for name in _REQUIRED_ENGINE_EXPORTS
+                    if not callable(getattr(_ajk_engine, name, None))
+                    and not (name == "POSITION_NAMES" and isinstance(getattr(_ajk_engine, name, None), dict))]
+if _missing_exports:
+    st.error("AJK engine/app version mismatch. Re-upload BOTH app.py and fpl_engine.py from the same ZIP.")
+    st.code("Missing engine exports: " + ", ".join(_missing_exports))
+    st.caption("Engine module: " + str(getattr(_ajk_engine, "__file__", "unknown")))
+    st.stop()
 
 from fpl_engine import (
     POSITION_NAMES, best_lineup,
