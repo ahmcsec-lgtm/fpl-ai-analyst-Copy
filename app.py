@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.14 — clean FPL ID landing page; planning controls appear after team import.
+"""AJK Bola Wawei AI v7.16.1 — reliability data refresh; unchanged dashboard and team import.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -28,7 +28,7 @@ from fpl_engine import (
     horizon_xp, join_actuals, num, optimise_chip_squad,
     player_fixture_xp, player_prediction, projected_minutes,
     smart_transfer_plan, team_rating, valid_squad, validate_snapshots,
-    recent_minutes_evidence,
+    recent_minutes_evidence, transfer_history_candidates,
 )
 
 API = "https://fantasy.premierleague.com/api"
@@ -909,20 +909,25 @@ def get_json(path: str) -> dict | list:
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def get_one_recent_player_history(pid: int) -> list[dict]:
+    """Cache per player, so repeated users share data rather than re-fetching."""
+    try:
+        response = requests.get(f"{API}/element-summary/{pid}/", headers=HEADERS, timeout=7)
+        response.raise_for_status()
+        data = response.json()
+        return list(data.get("history", []))
+    except (requests.RequestException, ValueError, TypeError):
+        return []
+
+
 def get_recent_player_histories(ids: tuple[int, ...]) -> dict[int, list[dict]]:
-    """Public per-player FPL histories. Cached, bounded and failure tolerant."""
+    """Bounded concurrent lookups; missing histories fall back to season data."""
     if not ids:
         return {}
     def one(pid: int) -> tuple[int, list[dict]]:
-        try:
-            response = requests.get(f"{API}/element-summary/{pid}/", headers=HEADERS, timeout=7)
-            response.raise_for_status()
-            data = response.json()
-            return pid, list(data.get("history", []))
-        except (requests.RequestException, ValueError, TypeError):
-            return pid, []
+        return pid, get_one_recent_player_history(pid)
     with ThreadPoolExecutor(max_workers=5) as pool:
-        return dict(pool.map(one, ids))
+        return dict(pool.map(one, sorted(set(ids))))
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -972,9 +977,29 @@ def match_news_for_player(player: dict, headlines: list[dict], squad: list[dict]
     return [article for article in headlines if regex.search(article["title"])][:4]
 
 
+def refresh_draft_player_data(squad: list[dict], index: dict[int, dict]) -> None:
+    """Refresh public FPL fields without losing each manager's selling price.
+
+    Streamlit session drafts can survive several public API cache refreshes.
+    Keeping their original status/minutes would silently distort the comparison
+    with potential purchases, which always use the newest bootstrap data.
+    """
+    for player in squad:
+        latest = index.get(int(player["id"]))
+        if not latest:
+            continue
+        player.update({key: value for key, value in latest.items()
+                       if key != "selling_price" and not key.startswith("_ajk_")})
+
+
 def attach_recent_minutes(squad: list[dict], players: list[dict], fixture_rows: list[dict],
-                          events: list[dict]) -> tuple[int, int]:
-    """Enrich the current 15, maintaining identical values in the draft and pool."""
+                          events: list[dict], target_ids: tuple[int, ...] | None = None
+                          ) -> tuple[int, int]:
+    """Attach completed-FPL-match evidence to owned or selected candidate players.
+
+    Every fetch is bounded and failure-tolerant; missing API history removes
+    any previous recent-history override and falls back to season statistics.
+    """
     finished = {int(e["id"]) for e in events if e.get("finished")}
     fixture_counts: dict[int, dict[int, int]] = {}
     for match in fixture_rows:
@@ -985,25 +1010,59 @@ def attach_recent_minutes(squad: list[dict], players: list[dict], fixture_rows: 
             if team is not None:
                 t = fixture_counts.setdefault(int(team), {})
                 t[gw] = t.get(gw, 0) + 1
-    ids = tuple(sorted(int(p["id"]) for p in squad))
-    histories = get_recent_player_histories(ids)
     index = {int(p["id"]): p for p in players}
+    owned = {int(p["id"]): p for p in squad}
+    ids = tuple(sorted(set(int(pid) for pid in (
+        target_ids if target_ids is not None else tuple(owned)) if int(pid) in index)))
+    # Never retain stale minutes if a network request fails or the player's
+    # new team has no completed fixtures in the recent window.
+    keys = ("_ajk_recent_minutes", "_ajk_recent_matches", "_ajk_recent_played")
+    for pid in ids:
+        for p in (index[pid], owned.get(pid)):
+            if p is not None:
+                for key in keys:
+                    p.pop(key, None)
+    histories = get_recent_player_histories(ids)
     updated = 0
-    for p in squad:
-        pid = int(p["id"])
-        team = int(p["team"])
-        weeks = sorted((gw for gw in finished if fixture_counts.get(team, {}).get(gw, 0)), reverse=True)[:5]
-        if not histories.get(pid):
+    for pid in ids:
+        history = histories.get(pid)
+        if not history:
             continue
-        evidence = recent_minutes_evidence(histories[pid], weeks, fixture_counts.get(team, {}))
-        if evidence["matches"] >= 2:
-            p["_ajk_recent_minutes"] = evidence["minutes"]
-            p["_ajk_recent_matches"] = evidence["matches"]
-            p["_ajk_recent_played"] = evidence["played"]
-            index[pid].update({k: p[k] for k in (
-                "_ajk_recent_minutes", "_ajk_recent_matches", "_ajk_recent_played")})
-            updated += 1
+        p = index[pid]
+        team = int(p["team"])
+        weeks = sorted((gw for gw in finished
+                        if fixture_counts.get(team, {}).get(gw, 0)), reverse=True)[:5]
+        evidence = recent_minutes_evidence(history, weeks, fixture_counts.get(team, {}))
+        if evidence["matches"] < 2:
+            continue
+        for key, value in (("_ajk_recent_minutes", evidence["minutes"]),
+                           ("_ajk_recent_matches", evidence["matches"]),
+                           ("_ajk_recent_played", evidence["played"])):
+            p[key] = value
+            if pid in owned:
+                owned[pid][key] = value
+        updated += 1
     return updated, len(ids)
+
+
+def advisor_data_signature(players: list[dict], fixture_rows: list[dict]) -> tuple:
+    """Stable fingerprint of the public inputs used by the transfer model.
+
+    Recompute on every Streamlit rerun. When public FPL data changes, any cached
+    recommendation is invalidated rather than shown as current analysis.
+    """
+    watched = ("id", "team", "element_type", "now_cost", "status",
+               "chance_of_playing_next_round", "minutes", "starts",
+               "appearances", "expected_goals", "expected_assists", "bonus",
+               "saves", "yellow_cards", "defensive_contribution", "form")
+    return (
+        tuple(sorted(tuple(str(p.get(field)) for field in watched) for p in players)),
+        tuple(sorted(tuple(str(f.get(field)) for field in
+                           ("id", "event", "team_h", "team_a", "finished",
+                            "team_h_score", "team_a_score", "team_h_difficulty",
+                            "team_a_difficulty", "kickoff_time"))
+                     for f in fixture_rows)),
+    )
 
 
 def money(tenths: int | float) -> str:
@@ -1592,6 +1651,9 @@ if missing_session_keys:
     st.stop()
 
 squad = st.session_state.draft
+# Keep long-lived session drafts aligned with current FPL injury/playing-time
+# data while preserving the manager's actual transfer selling prices.
+refresh_draft_player_data(squad, player_by_id)
 bank = int(st.session_state.bank)
 profile = st.session_state.manager_profile
 if not valid_squad(squad):
@@ -2112,7 +2174,10 @@ with tab_transfers:
                "News headlines are context only.")
     settings_key = (st.session_state.loaded_id, tuple(sorted(int(p["id"]) for p in squad)),
                     bank, ft, tuple(gws), strategy, tuple(sorted(minutes_overrides.items())),
-                    tuple(sorted((int(p["id"]), p.get("_ajk_recent_minutes")) for p in squad)))
+                    tuple(sorted((int(p["id"]), p.get("selling_price"),
+                                  p.get("_ajk_recent_minutes"), p.get("_ajk_recent_matches"),
+                                  p.get("_ajk_recent_played")) for p in squad)),
+                    advisor_data_signature(players, fixture_rows))
     if st.session_state.get("advisor_key") != settings_key:
         st.session_state.advisor_result = None
 
@@ -2133,7 +2198,16 @@ with tab_transfers:
 
     if st.button("✨ Generate my 3 best transfer plans", type="primary", use_container_width=True):
         try:
-            with st.spinner("Searching and ranking complete Gameweek transfer plans..."):
+            with st.spinner("Checking potential transfers and ranking complete Gameweek plans..."):
+                # Avoid fetching hundreds of element-summary endpoints on page
+                # load. Enrich only a small diversified candidate set when
+                # the user explicitly asks for transfer recommendations.
+                candidates = transfer_history_candidates(
+                    squad, players, gws, fixture_map, bank,
+                    minutes_overrides=minutes_overrides, max_candidates=32,
+                )
+                if candidates:
+                    attach_recent_minutes(squad, players, fixture_rows, events, candidates)
                 result = smart_transfer_plan(
                     squad, players, gws, fixture_map, bank,
                     free_transfers=ft, strategy=strategy,
