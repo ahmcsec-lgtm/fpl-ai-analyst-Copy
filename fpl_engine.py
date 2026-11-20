@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.19.3: injury-aware Best XI selection + v7.19.1 transfers.
+"""AJK Bola Wawei AI v7.19.4: persistent manual XI injury reconciliation + transfer engine.
 
 No paid model, no official xP claim. All monetary amounts are FPL tenths.
 """
@@ -588,6 +588,28 @@ def _scenario_lineup_evaluation(xi_ids: list[int], bench_ids: list[int],
 
 
 
+def _confirmed_unavailable_for_xi(player: dict, projected_xp: float,
+                                  appearance_probability: float) -> bool:
+    """Identify *near-zero-xP* non-players for lineup selection.
+
+    An FPL injury can have a missing `chance_of_playing_next_round`, which
+    does NOT mean the player is fit. In v7.19.3 the contingency estimator
+    gave such a player up to 12% appearance probability and the no-show
+    guard ignored him, despite displaying 0.0 xP. This is a *selection*
+    preference, not an assertion that doubtful players cannot play.
+
+    Retain partially fit, positive-xP players as legitimate alternatives.
+    """
+    if projected_xp > 0.10:
+        return False
+    status = str(player.get('status', 'a')).lower()
+    chance = player.get('chance_of_playing_next_round')
+    zero_chance = chance is not None and num(chance, -1) == 0
+    return bool(status in {'i', 's', 'u', 'n'}
+                or zero_chance or appearance_probability <= .02)
+
+
+
 def best_lineup(squad: list[dict], gw: int, fixtures: dict,
                 minutes_overrides: dict[int, float] | None = None,
                 captain_id: int | None = None) -> dict:
@@ -608,8 +630,11 @@ def best_lineup(squad: list[dict], gw: int, fixtures: dict,
     minutes = {pid: clamp(num(overrides[pid]), 0, 90) if pid in overrides
                else projected_minutes(p) for pid, p in by_id.items()}
     groups = {pos: sorted((p for p in squad if int(p['element_type']) == pos),
-                          key=lambda p: (xp[int(p['id'])], minutes[int(p['id'])]),
-                          reverse=True) for pos in QUOTAS}
+                          key=lambda p: (
+                              not _confirmed_unavailable_for_xi(
+                                  p, xp[int(p['id'])], appearances[int(p['id'])]),
+                              xp[int(p['id'])], minutes[int(p['id'])]
+                          ), reverse=True) for pos in QUOTAS}
     # Scenario-aware scoring includes automatic substitutions. A confirmed
     # non-player can otherwise be selected *on purpose* so that the projected
     # bench replacement earns points via auto-sub: sometimes this even ranks
@@ -618,8 +643,8 @@ def best_lineup(squad: list[dict], gw: int, fixtures: dict,
     # formations requiring the fewest confirmed no-show starters first.
     # A 0-xP player with a meaningful chance to feature is NOT excluded.
     confirmed_no_shows = {
-        pid for pid in by_id
-        if xp[pid] <= .05 and appearances[pid] <= .02
+        pid for pid, player in by_id.items()
+        if _confirmed_unavailable_for_xi(player, xp[pid], appearances[pid])
     }
     formations = []
     for defenders, midfielders, forwards in FORMATIONS:
@@ -1491,17 +1516,25 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         cached = contingency_cache.get(key)
         if cached is not None:
             return cached
-        groups = {pos: sorted((pid for pid in ids if positions[pid] == pos),
-                              key=lambda pid: xp[pid][wi], reverse=True)
-                  for pos in QUOTAS}
         normal_points = {pid: xp[pid][wi] for pid in ids}
         downside_points = {pid: downside_xp[pid][wi] for pid in ids}
         chance = {pid: appearances[pid][wi] for pid in ids}
-        best_normal, best_down = float('-inf'), 0.0
+        no_shows = {pid for pid in ids if _confirmed_unavailable_for_xi(
+            market[pid], normal_points[pid], chance[pid])}
+        groups = {pos: sorted((pid for pid in ids if positions[pid] == pos),
+                              key=lambda pid: (pid not in no_shows,
+                                               normal_points[pid]), reverse=True)
+                  for pos in QUOTAS}
+        formation_candidates = []
         for defenders, midfielders, forwards in FORMATIONS:
             xi = (groups[1][:1] + groups[2][:defenders] +
                   groups[3][:midfielders] + groups[4][:forwards])
-            if len(xi) != 11:
+            if len(xi) == 11:
+                formation_candidates.append((xi, len(no_shows.intersection(xi))))
+        fewest_no_shows = min((count for _, count in formation_candidates), default=0)
+        best_normal, best_down = float('-inf'), 0.0
+        for xi, count in formation_candidates:
+            if count > fewest_no_shows:
                 continue
             selected = set(xi)
             bench = sorted((pid for pid in ids if pid not in selected),
