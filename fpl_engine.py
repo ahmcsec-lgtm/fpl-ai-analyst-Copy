@@ -97,32 +97,51 @@ def availability(player: dict) -> float:
 
 
 def projected_minutes(player: dict) -> float:
-    """Unconditional expected minutes per fixture, including non-start risk."""
+    """Conservative expected minutes using season and recent completed FPL matches.
+
+    The result is *unconditional* minutes per fixture, not a starting XI
+    probability. Recent evidence is shrunk toward season usage; a single
+    absence or cameo cannot overwhelm a substantial season sample.
+    """
     appearances = num(player.get("appearances"))
     starts = num(player.get("starts"))
     played = num(player.get("minutes"))
     team_games = _MODEL["games"].get(int(player.get("team", 0)), 0)
     if team_games >= 3:
-        # Recent-season minutes per team match, with small prior for new signings.
-        prior = 16 if appearances == 0 else 48
+        # The public bootstrap payload does not always expose appearances.
+        # Minutes and starts are sufficient evidence that a player is active.
+        prior = 16 if played <= 0 and starts <= 0 and appearances <= 0 else 48
         effective = (played + 2 * prior) / (team_games + 2)
     elif appearances:
         effective = (played / appearances) * clamp(appearances / max(3, team_games), .35, 1)
     elif starts:
         effective = played / starts
+    elif team_games > 0 and played > 0:
+        effective = (played + 96) / (team_games + 2)
     else:
         effective = 40 if num(player.get("now_cost")) <= 45 else 57
-    # Optional *completed-match* minutes evidence, fetched from the FPL public
-    # element-summary endpoint. Shrink back toward the season estimate when the
-    # recent window contains little evidence. No future matches are included.
-    recent = player.get("_ajk_recent_minutes")
-    sample = int(player.get("_ajk_recent_matches", 0) or 0)
-    if recent is not None and sample > 0:
-        weight = min(0.40, sample * 0.08)
-        effective = (1.0 - weight) * effective + weight * clamp(num(recent), 0, 90)
-    # FPL availability remains authoritative; news headlines do not change xP.
-    return round(clamp(effective * availability(player), 0, 90), 1)
 
+    recent = player.get("_ajk_recent_minutes")
+    sample = max(0, int(num(player.get("_ajk_recent_matches"))))
+    if recent is not None and sample >= 2:
+        # Maximum 40% recent weighting, capped at five observed fixtures.
+        weight = min(.40, .08 * min(sample, 5))
+        recent_avg = clamp(num(recent), 0, 90)
+        effective = (1 - weight) * effective + weight * recent_avg
+
+        # Match participation is corroborating evidence, not an independent
+        # availability probability. Apply only a SMALL bounded correction for
+        # persistent zero-minute matches, never for a single benching.
+        played_recent = player.get("_ajk_recent_played")
+        if played_recent is not None and sample >= 4:
+            played_recent = int(clamp(num(played_recent), 0, sample))
+            missed = sample - played_recent
+            if missed >= 3 and recent_avg <= 30:
+                effective *= .92
+
+    # FPL availability flags are applied exactly once. External news headlines
+    # remain informational; unverified non-EPL minutes are never inferred.
+    return round(clamp(effective * availability(player), 0, 90), 1)
 
 
 
@@ -141,7 +160,12 @@ def recent_minutes_evidence(history: list[dict], finished_gws: list[int],
     games = sum(max(0, int(counts.get(gw, 1))) for gw in weeks)
     if games < 1:
         return {"minutes": None, "matches": 0, "played": 0, "window": weeks}
-    relevant = [row for row in history if int(row.get("round", -1)) in weeks]
+    relevant = [row for row in history if int(num(row.get("round"), -1)) in weeks]
+    # A stale/incomplete element-summary response is not evidence that the
+    # player missed the most recently completed GW. Treat uncertain coverage
+    # as missing data instead of fabricating zero-minute appearances.
+    if not any(int(num(row.get("round"), -1)) == weeks[0] for row in relevant):
+        return {"minutes": None, "matches": 0, "played": 0, "window": weeks}
     minutes = sum(clamp(num(row.get("minutes")), 0, 130) for row in relevant)
     played = sum(1 for row in relevant if num(row.get("minutes")) > 0)
     return {"minutes": round(clamp(minutes / games, 0, 90), 1),
@@ -283,6 +307,72 @@ def horizon_xp(player: dict, gameweeks: list[int], fixtures: dict,
                minutes_overrides: dict[int, float] | None = None) -> float:
     return round(sum(player_fixture_xp(player, gw, fixtures, minutes_overrides)
                      for gw in gameweeks), 2)
+
+
+
+def transfer_history_candidates(squad: list[dict], player_pool: list[dict],
+                                gameweeks: list[int], fixtures: dict,
+                                bank_tenths: int,
+                                minutes_overrides: dict[int, float] | None = None,
+                                max_candidates: int = 32) -> tuple[int, ...]:
+    """Select a *bounded* set of prospective purchases for recent-minutes lookup.
+
+    This is an optional data-preparation step, not a transfer recommendation.
+    It considers premium targets, immediate xP, affordable candidates, cheap
+    funding options and points per price. Network callers should fetch these
+    only on request, not during every page load. Candidates outside this
+    shortlist keep the conservative season-based fallback.
+    """
+    weeks = sorted({int(gw) for gw in gameweeks})[:6]
+    if not weeks or max_candidates < 1:
+        return ()
+    owned = {int(p["id"]) for p in squad}
+    bank = max(0, int(bank_tenths))
+    max_sale = {pos: max((int(p.get("selling_price", p.get("now_cost", 0)))
+                          for p in squad if int(p.get("element_type", 0)) == pos),
+                         default=0) for pos in QUOTAS}
+    by_position: dict[int, list[int]] = {}
+    for pos in QUOTAS:
+        candidates = [p for p in player_pool
+                      if int(p.get("id", 0)) not in owned
+                      and int(p.get("element_type", 0)) == pos
+                      and int(p.get("now_cost", 0)) > 0
+                      and p.get("status", "a") not in ("i", "n", "s", "u")]
+        if not candidates:
+            by_position[pos] = []
+            continue
+        projections = []
+        for player in candidates:
+            scores = [player_fixture_xp(player, gw, fixtures, minutes_overrides)
+                      for gw in weeks]
+            cost = int(player["now_cost"])
+            projections.append((int(player["id"]), sum(scores), scores[0],
+                                sum(scores) / max(35, cost), cost))
+        affordable = [r for r in projections if r[4] <= bank + max_sale[pos]]
+        # Construct interleaved buckets rather than letting all 32 requests
+        # come from one position or from expensive, unaffordable players.
+        buckets = (
+            sorted(projections, key=lambda r: r[1], reverse=True)[:8],
+            sorted(affordable, key=lambda r: r[1], reverse=True)[:8],
+            sorted(projections, key=lambda r: r[2], reverse=True)[:5],
+            sorted(affordable, key=lambda r: r[3], reverse=True)[:5],
+            sorted(projections, key=lambda r: (r[4], -r[1]))[:4],
+        )
+        ordered = []
+        for bucket in buckets:
+            for row in bucket:
+                if row[0] not in ordered:
+                    ordered.append(row[0])
+        by_position[pos] = ordered
+    result = []
+    # Round robin across positions for coverage even when cap is small.
+    for i in range(max((len(rows) for rows in by_position.values()), default=0)):
+        for pos in QUOTAS:
+            if i < len(by_position[pos]):
+                result.append(by_position[pos][i])
+                if len(result) >= max_candidates:
+                    return tuple(result)
+    return tuple(result)
 
 
 def valid_squad(squad: list[dict]) -> bool:
