@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.19: full-market transfer discovery with bounded planning.
+"""AJK Bola Wawei AI v7.19.1: transfer patience and long-term plan hygiene.
 
 No paid model, no official xP claim. All monetary amounts are FPL tenths.
 """
@@ -1002,11 +1002,23 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     # Ranking factors are deliberately small, and never added to reported xP.
     downside_weight = {"Safe": .30, "Balanced": .14, "Aggressive": .04}[strategy]
     cover_weight = {"Safe": .06, "Balanced": .035, "Aggressive": .012}[strategy]
-    action_friction = {"Safe": .10, "Balanced": .055, "Aggressive": .018}[strategy]
+    # No move is an actual search action every week; there is NO transfer quota.
+    # Because xP is uncertain, each optional move carries a small *decision*
+    # cost (not an FPL hit and never subtracted from displayed FPL points).
+    action_friction = {"Safe": .65, "Balanced": .45, "Aggressive": .20}[strategy]
     min_transfer_edge = {"Safe": .90, "Balanced": .55, "Aggressive": .22}[strategy]
     if free_transfers == 5:
         min_transfer_edge *= .5   # rolling cannot increase the FT balance at the cap
-    terminal_ft_tiebreak = .025    # << one projected FPL point, never presented as xP
+    # These are deliberately modest, uncalibrated terminal option values, in
+    # decision-score units rather than realised/expected FPL points.  Saving a
+    # fourth FT is less valuable than saving the first extra FT; hitting the
+    # 5-FT cap must not award infinite banking value.
+    future_ft_values = (0.0, 0.0, .80, 1.40, 1.85, 2.20)
+    churn_cost = {"Safe": 1.65, "Balanced": 1.25, "Aggressive": .80}[strategy]
+    early_commit_cost = {"Safe": .35, "Balanced": .25, "Aggressive": .12}[strategy]
+
+    def ft_option_value(ft: int) -> float:
+        return future_ft_values[max(0, min(5, int(ft)))]
 
     market = {int(p["id"]): p for p in player_pool}
     market.update({int(p["id"]): p for p in squad})
@@ -1017,12 +1029,25 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     clubs = {pid: int(p["team"]) for pid, p in market.items()}
     prices = {pid: int(p.get("now_cost", 0)) for pid, p in market.items()}
     n_weeks = len(gameweeks)
+    # Even with a short 1–3 GW display horizon, the last GW is not the end of
+    # a real FPL season.  Look a little further for the *quality of holdings*,
+    # but do not count this soft tail as reported xP or pretend to optimise
+    # future transfers not shown in the UI. Skip incomplete fixture calendars.
+    tail_weeks: list[int] = []
+    tail_weights: list[float] = []
+    for offset, weight in ((1, .35), (2, .18)):
+        later = gameweeks[-1] + offset
+        coverage = sum(bool(fixtures.get((later, int(p["team"])), [])) for p in squad)
+        if later <= 38 and coverage >= 10:
+            tail_weeks.append(later)
+            tail_weights.append(weight)
+    projection_weeks = gameweeks + tail_weeks
 
     xp: dict[int, tuple[float, ...]] = {}
     downside_xp: dict[int, tuple[float, ...]] = {}
     for pid, player in market.items():
         series = tuple(max(0.0, player_fixture_xp(player, gw, fixtures, minutes_overrides))
-                       for gw in gameweeks)
+                       for gw in projection_weeks)
         xp[pid] = series
         # The base prediction already incorporates available FPL injury flags.
         # This is an additional conditional stress test, NOT another predicted
@@ -1049,7 +1074,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     # there is no claim to reproduce Solio's proprietary stochastic solver.
     appearances = {pid: tuple(estimated_appearance_probability(market[pid], gw,
                          fixtures, minutes_overrides, xp[pid][wi])
-                              for wi, gw in enumerate(gameweeks))
+                              for wi, gw in enumerate(projection_weeks))
                    for pid in market}
 
     # v7.19: ALL eligible market players enter the cheap first-stage search.
@@ -1057,7 +1082,6 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     # player could occupy a slot needed by a strong, affordable alternative.
     # Every player gets full horizon / individual-week xP before filtering;
     # affordability and the three-per-club rule are checked for each sale.
-    horizon = {pid: sum(values) for pid, values in xp.items()}
     eligible_by_pos = {
         pos: tuple(pid for pid, p in market.items()
                    if positions[pid] == pos and prices[pid] > 0
@@ -1105,13 +1129,31 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
 
     baseline_weekly = [lineup_metrics(ids0, wi)[0] for wi in range(n_weeks)]
     baseline = sum(baseline_weekly)
+    baseline_tail_weekly = [lineup_metrics(ids0, n_weeks + j)[0]
+                            for j in range(len(tail_weeks))]
+    tail_cache: dict[tuple[int, ...], float] = {}
+
+    def holding_quality(ids: tuple[int, ...]) -> float:
+        """Heuristic post-horizon advantage, relative to keeping this squad.
+
+        This is used ONLY to rank choices, never added to visible projected xP.
+        It is deliberately discounted: there may be future free transfers.
+        """
+        if ids not in tail_cache:
+            tail_cache[ids] = sum(weight * (
+                lineup_metrics(ids, n_weeks + j)[0] - baseline_tail_weekly[j])
+                for j, weight in enumerate(tail_weights))
+        return tail_cache[ids]
 
     def next_ft_balance(ft: int, count: int) -> int:
         return min(5, max(0, ft - count) + 1)
 
     # A cheap per-player bound limits expensive full-XI recomputations.
     # Exact points are still used before any transfer is put in a plan.
-    suffix_xp = {pid: tuple(sum(values[wi:]) for wi in range(n_weeks))
+    # Keep the cheap discovery window aligned with the displayed plan. The
+    # post-horizon tail is discounted separately; it must NOT sneak into this
+    # shortlist at full xP weight.
+    suffix_xp = {pid: tuple(sum(values[wi:n_weeks]) for wi in range(n_weeks))
                  for pid, values in xp.items()}
     swap_cache: dict[tuple[tuple[int, ...], int, tuple[tuple[int, int], ...], int], list[tuple]] = {}
 
@@ -1325,7 +1367,9 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     # even with identical 15-player squads after different paths.
     states = [{"ids": ids0, "sales": selling0, "bank": int(bank_tenths),
                "ft": int(free_transfers), "net": 0.0, "down": 0.0,
-               "cover": 0.0, "transfers": 0, "plan": [], "first_action": None}]
+               "cover": 0.0, "transfers": 0, "plan": [], "first_action": None,
+               "purchased_at": {}, "sold_at": {}, "churn_penalty": 0.0,
+               "early_commit_penalty": 0.0}]
 
     for wi, gw in enumerate(gameweeks):
         expanded: list[dict] = []
@@ -1338,13 +1382,48 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                 down = state["down"] + downside - hits
                 cover = state["cover"] + bench
                 transfers = state["transfers"] + count
+                # Penalise unnecessary short-term rentals and buybacks, but do
+                # NOT forbid them: a large xP gain or real injury can still
+                # justify the extra transfer. Track by player ID, not name.
+                purchased_at = dict(state["purchased_at"])
+                sold_at = dict(state["sold_at"])
+                extra_churn = 0.0
+                for move in moves:
+                    outgoing, incoming = int(move["out"]), int(move["in"])
+                    if outgoing in purchased_at:
+                        age = wi - purchased_at[outgoing]
+                        if age == 1:
+                            extra_churn += churn_cost
+                        elif age == 2:
+                            extra_churn += churn_cost * .40
+                    if incoming in sold_at:
+                        age = wi - sold_at[incoming]
+                        if age == 1:
+                            extra_churn += churn_cost * .70
+                        elif age == 2:
+                            extra_churn += churn_cost * .25
+                    purchased_at.pop(outgoing, None)
+                    purchased_at[incoming] = wi
+                    sold_at[outgoing] = wi
+                    sold_at.pop(incoming, None)
+                total_churn = state["churn_penalty"] + extra_churn
+                # With static future prices, an early transfer that helps the
+                # XI *zero* this week can usually wait for additional news.
+                # Prefer deferring it; don't penalise meaningful immediate
+                # upgrades, and do not prohibit funding moves outright.
+                gain_this_week = normal - lineup_metrics(state["ids"], wi)[0]
+                premature_cost = (early_commit_cost * min(count, 2)
+                                  if count and wi < n_weeks - 1
+                                  and gain_this_week <= .10 else 0.0)
+                total_early_commit = state["early_commit_penalty"] + premature_cost
                 future = sum(lineup_metrics(ids, j)[0] for j in range(wi + 1, n_weeks))
                 future_down = sum(lineup_metrics(ids, j)[1] for j in range(wi + 1, n_weeks))
                 # Accumulate risk penalty relative to the base forecast.
                 rank = (net + future
                         - downside_weight * ((net + future) - (down + future_down))
                         + cover_weight * cover - action_friction * transfers
-                        + terminal_ft_tiebreak * ft_after)
+                        - total_churn - total_early_commit
+                        + ft_option_value(ft_after) + holding_quality(ids))
                 first_action = state["first_action"]
                 if first_action is None:
                     first_action = ("ROLL" if count == 0 else
@@ -1353,11 +1432,16 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                         "free_transfers_before": state["ft"],
                         "free_transfers_after": ft_after,
                         "projected_xp": round(normal, 2),
-                        "net_xp": round(normal - hits, 2)}
+                        "net_xp": round(normal - hits, 2),
+                        "short_term_reversal_cost": round(extra_churn, 3),
+                        "premature_commitment_cost": round(premature_cost, 3)}
                 expanded.append({"ids": ids, "sales": sales, "bank": new_bank,
                                  "ft": ft_after, "net": net, "down": down,
                                  "cover": cover, "transfers": transfers, "rank": rank,
                                  "first_action": first_action,
+                                 "purchased_at": purchased_at, "sold_at": sold_at,
+                                 "churn_penalty": total_churn,
+                                 "early_commit_penalty": total_early_commit,
                                  "plan": state["plan"] + [week]})
         # Preserve four independent first-week strategies so the search can
         # evaluate ROLL even when today's transfer has tempting immediate xP.
@@ -1437,8 +1521,9 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     def utility(s: dict) -> float:
         return (s["net"] - downside_weight * (s["net"] - s["down"])
                 + cover_weight * s["cover"]
-                - action_friction * s["transfers"]
-                + terminal_ft_tiebreak * s["ft"])
+                - action_friction * s["transfers"] - s["churn_penalty"]
+                - s["early_commit_penalty"]
+                + ft_option_value(s["ft"]) + holding_quality(s["ids"]))
 
     def decision_score(s: dict) -> float:
         return utility(s) - (min_transfer_edge if s["first_action"] != "ROLL" else 0.0)
@@ -1477,6 +1562,10 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
             "decision_utility": round(utility(s), 3),
             "decision_score": round(decision_score(s), 3),
             "downside_scenario_net_xp": round(s["down"], 2),
+            "future_ft_option_value": round(ft_option_value(s["ft"]), 2),
+            "post_horizon_holding_score": round(holding_quality(s["ids"]), 2),
+            "short_term_reversal_cost": round(s["churn_penalty"], 2),
+            "premature_commitment_cost": round(s["early_commit_penalty"], 2),
             "total_hits": sum(row["hits"] for row in s["plan"]),
             "final_bank": s["bank"], "final_free_transfers": s["ft"],
         })
@@ -1520,6 +1609,19 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     if distinct and distinct[0] is not best:
         distinct = [best] + [s for s in distinct if s is not best][:2]
 
+    # Plans are alternatives, not three near-copies of the same immediate
+    # spend. If waiting is competitively close to the winning transfer plan,
+    # reserve one of the three slots for that first-GW ROLL counterfactual.
+    # Do not show it as a top-three alternative when it is far worse.
+    competitive_roll = (best_roll is not None and best is not best_roll
+                        and best['first_action'] != 'ROLL'
+                        and decision_score(best) - decision_score(best_roll) <= 1.5)
+    if competitive_roll and not any(s['first_action'] == 'ROLL' for s in distinct):
+        if len(distinct) >= 3:
+            distinct[-1] = best_roll
+        else:
+            distinct.append(best_roll)
+
     ranked_plans = []
     for i, s in enumerate(distinct, 1):
         first = s["plan"][0]
@@ -1533,6 +1635,10 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
             "planned_net_xp": round(s["net"], 2),
             "decision_score": round(decision_score(s), 3),
             "downside_scenario_net_xp": round(s["down"], 2),
+            "future_ft_option_value": round(ft_option_value(s["ft"]), 2),
+            "post_horizon_holding_score": round(holding_quality(s["ids"]), 2),
+            "short_term_reversal_cost": round(s["churn_penalty"], 2),
+            "premature_commitment_cost": round(s["early_commit_penalty"], 2),
             "total_hits": sum(row["hits"] for row in s["plan"]),
             "final_bank": s["bank"], "final_free_transfers": s["ft"],
         })
@@ -1553,6 +1659,20 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         "roll_first_decision_utility": round(utility(best_roll), 2) if best_roll else None,
         "transfer_first_decision_utility": round(utility(best_transfer), 2) if best_transfer else None,
         "decision_margin": min_transfer_edge,
+        "long_term_audit": {
+            "visible_gameweeks": list(gameweeks),
+            "holding_view_gameweeks": list(tail_weeks),
+            "holding_view_weights": [round(w, 2) for w in tail_weights],
+            "roll_first_decision_score": round(decision_score(best_roll), 3) if best_roll else None,
+            "recommended_decision_score": round(decision_score(best), 3),
+            "recommended_vs_roll_decision_margin": (
+                round(decision_score(best) - decision_score(best_roll), 3)
+                if best_roll else None),
+            "recommended_short_term_reversal_cost": round(best["churn_penalty"], 2),
+            "recommended_premature_commitment_cost": round(best["early_commit_penalty"], 2),
+            "recommended_saved_ft_value": round(ft_option_value(best["ft"]), 2),
+            "competitive_roll_shown": bool(competitive_roll),
+        },
         "discovery_audit": {
             "eligible_players": sum(len(group) for group in eligible_by_pos.values()),
             "eligible_by_position": {POSITION_NAMES[pos]: len(eligible_by_pos[pos]) for pos in QUOTAS},
@@ -1566,12 +1686,17 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
             "first_week_exact_target_ids": sorted(discovery_exact_first_week),
             "exhaustive_planning": False,
         },
-        "method": ("v7.19 full-market per-squad-budget screening + bounded diverse search: "
+        "method": ("v7.19.1 full-market per-squad-budget screening + bounded diverse search: "
                    "0–3 moves in the first GW; 0–2 later, "
                    "legal 15-player squads, 5-FT rollover, 4-point hits, manager selling prices. "
                    "Rank by XI+captain+vice and legal auto-sub expected points (post-search), with heuristic "
-                   "appearance/downside and small transfer-friction tie-breakers. "
-                   "Current prices held fixed; no chips or adaptive future scenario tree."),
+                   "appearance/downside, declining option value of saved free transfers, "
+                   "short-term buy/sell churn, deferral of no-benefit early moves, "
+                   "and a discounted post-horizon holding view "
+                   "when fixtures are available. These decision heuristics never change "
+                   "reported net xP. A competitive ROLL-first counterfactual "
+                   "is shown as an alternative when available. Current prices fixed; "
+                   "no chips or adaptive future scenario tree."),
     }
 
 
