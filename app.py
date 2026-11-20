@@ -1979,35 +1979,17 @@ with tab_team:
         ])
         st.markdown(''.join(price_html), unsafe_allow_html=True)
 
-        # FPL news remains visible, augmented only by dated, source-linked
-        # reports specifically relevant to the selected Gameweek.
+        # Keep the regular FPL team-news warnings visible. Independent source
+        # evidence continues to affect engine predictions but is not displayed.
         st.markdown("<div class='ajk-panel-heading'>🩺 TEAM NEWS & RELIABILITY</div>", unsafe_allow_html=True)
-        at_risk = sorted((p for p in preview_squad if p.get('status', 'a') != 'a'
-                          or p.get('_ajk_reports')),
+        at_risk = sorted((p for p in preview_squad if p.get('status', 'a') != 'a'),
                          key=lambda p: projected_minutes(p, preview_gw))
         if at_risk:
             for p in at_risk[:7]:
-                evidence = availability_explanation(p, preview_gw)
                 text_news = str(p.get('news') or "Official FPL availability flag")
-                if p.get('status', 'a') != 'a':
-                    st.warning(f"**{p.get('web_name','Player')}** · {player_status_label(p)} — {text_news}")
-                report = evidence['report']
-                if report:
-                    st.caption(f"{p.get('web_name','Player')} · GW{preview_gw}: "
-                               f"{report['source_kind'].replace('_',' ').title()} "
-                               f"({report['signal'].replace('_',' ')}) · "
-                               f"heuristic availability factor {evidence['factor']:.0%}")
-                    if report['note']:
-                        st.caption(report['note'])
-                    st.markdown(f"[Read supporting source]({report['url']})")
+                st.warning(f"**{p.get('web_name','Player')}** · {player_status_label(p)} — {text_news}")
         else:
             st.caption("FPL currently lists this squad as available; that does not guarantee starts.")
-        if not availability_source_stats['accepted']:
-            st.caption("Independent reports not loaded: projections use official FPL availability "
-                       "and recent match minutes.")
-        else:
-            st.caption("Source-linked reports are dated and Gameweek-specific. "
-                       "Training is not confirmation of a start.")
 
     with pitch_col:
         with st.container():
