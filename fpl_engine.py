@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.17: free, transparent FPL estimators and squad tools.
+"""AJK Bola Wawei AI v7.18: free, transparent FPL estimators and squad tools.
 
 No paid model, no official xP claim. All monetary amounts are FPL tenths.
 """
@@ -442,52 +442,198 @@ def valid_squad(squad: list[dict]) -> bool:
     return all(positions[k] == v for k, v in QUOTAS.items()) and max(teams.values(), default=0) <= 3
 
 
+
+
+def estimated_appearance_probability(player: dict, gw: int, fixtures: dict,
+                                     minutes_overrides: dict[int, float] | None = None,
+                                     projected_xp: float | None = None) -> float:
+    """Estimate the chance of *any* minutes in this GW, for squad contingencies.
+
+    IMPORTANT: This is an explicit conservative heuristic, NOT a calibrated
+    start probability or a simulation of how many minutes the player will get.
+    Base xP remains unchanged; appearance probability is used *only* for the
+    vice-captain and auto-sub contingencies. No external/proprietary data.
+    """
+    pid = int(player['id'])
+    games = fixtures.get((int(gw), int(player.get('team', 0))), [])
+    if not games and (projected_xp is None or projected_xp <= 0):
+        return 0.0  # Blank GW: cannot play for FPL purposes.
+    manual = minutes_overrides is not None and pid in minutes_overrides
+    mins = clamp(num(minutes_overrides[pid]) if manual else projected_minutes(player), 0, 90)
+    if mins <= .05:
+        return 0.0
+    # Minutes proxy: low-minute substitutes may appear frequently, so do not
+    # pretend that unconditional minutes / 90 equals appearance probability.
+    proxy = clamp(.16 + .84 * (mins / 90) ** .60, .02, .985)
+    samples = int(max(0, num(player.get('_ajk_recent_matches'))))
+    recent_played = player.get('_ajk_recent_played')
+    historical = None
+    if samples >= 3 and recent_played is not None:
+        played = clamp(num(recent_played), 0, samples)
+        historical = (played + 3.5) / (samples + 4.0)
+    else:
+        games_so_far = _MODEL['games'].get(int(player.get('team', 0)), 0)
+        appearances = num(player.get('appearances'))
+        if games_so_far >= 4 and appearances > 0:
+            historical = (min(appearances, games_so_far) + 2.5) / (games_so_far + 3.5)
+    chance = (.75 * proxy + .25 * historical) if historical is not None else proxy
+    if not manual:
+        # The injury flag already reduces projected xP; applying a probability
+        # here only changes the *fallback*, never deducts points a second time.
+        chance = min(chance, availability(player))
+    chance = clamp(chance, 0.0, .985)
+    # A player in a DGW can score FPL minutes in either match. Treat match
+    # appearances as approximately independent only for this fallback proxy.
+    number_of_games = len(games) if games else 1  # synthetic xP tests
+    if number_of_games > 1:
+        chance = 1.0 - (1.0 - chance) ** number_of_games
+    return round(chance, 4)
+
+
+def _scenario_lineup_evaluation(xi_ids: list[int], bench_ids: list[int],
+                                xp: dict[int, float], appearance: dict[int, float],
+                                positions: dict[int, int],
+                                captain_id: int | None = None,
+                                vice_id: int | None = None) -> dict:
+    """Evaluate XI, armband contingency and legal bench replacements.
+
+    Assumes independent play/no-play indicators as a lightweight *unvalidated*
+    approximation. Enumerates the 4 positional absence counts via DP, then the
+    2^3 playable outfield bench patterns. Base player xP is unconditional, so
+    only the additional points earned via an auto-sub are added. This is much
+    cheaper than branching over 2^15 individual outcomes for every squad.
+    """
+    xi_set = set(xi_ids)
+    xi_total = sum(xp[pid] for pid in xi_ids)
+    ordered_captains = sorted((pid for pid in xi_ids if positions[pid] != 1),
+                              key=lambda pid: xp[pid], reverse=True)
+    if not ordered_captains:
+        ordered_captains = xi_ids[:]
+    if captain_id not in xi_set:
+        captain_id = max(ordered_captains, key=lambda c: (
+            xp[c] + (1 - appearance[c]) * max((xp[v] for v in xi_ids if v != c), default=0)))
+    if vice_id not in xi_set or vice_id == captain_id:
+        vice_id = max((pid for pid in xi_ids if pid != captain_id), key=lambda v: xp[v])
+    vice_fallback = (1.0 - appearance[captain_id]) * xp[vice_id]
+
+    start_gk = next((pid for pid in xi_ids if positions[pid] == 1), None)
+    bench_gk = next((pid for pid in bench_ids if positions[pid] == 1), None)
+    gk_cover = ((1 - appearance[start_gk]) * xp[bench_gk]
+                if start_gk is not None and bench_gk is not None else 0.0)
+
+    field = [pid for pid in xi_ids if positions[pid] != 1]
+    out_bench = [pid for pid in bench_ids if positions[pid] != 1]
+    original_counts = [sum(positions[pid] == pos for pid in field) for pos in (2, 3, 4)]
+    # Each outcome is the probability of a certain number of absent defenders,
+    # midfielders and forwards. No need to enumerate identity-equivalent cases.
+    absence_counts = {(0, 0, 0): 1.0}
+    for pid in field:
+        idx = positions[pid] - 2
+        p_missing = clamp(1 - appearance[pid], 0, 1)
+        updated = {}
+        for counts, prob in absence_counts.items():
+            updated[counts] = updated.get(counts, 0.0) + prob * (1 - p_missing)
+            nxt = list(counts)
+            nxt[idx] += 1
+            nxt = tuple(nxt)
+            updated[nxt] = updated.get(nxt, 0.0) + prob * p_missing
+        absence_counts = updated
+
+    # Probabilities are unconditional for bench players. Divide their xP by
+    # probability of playing only inside the hypothetical 'played' branches.
+    out_chance = [clamp(appearance[pid], 0, 1) for pid in out_bench]
+    expected_field_cover = 0.0
+    for missing_counts, probability in absence_counts.items():
+        if probability < 1e-7 or not any(missing_counts):
+            continue
+        cover_if_absent = 0.0
+        for played_mask in range(1 << len(out_bench)):
+            bench_pattern_prob = 1.0
+            for bi, p_play in enumerate(out_chance):
+                bench_pattern_prob *= p_play if played_mask & (1 << bi) else (1 - p_play)
+            if bench_pattern_prob < 1e-8:
+                continue
+            missing = list(missing_counts)
+            formed = list(original_counts)
+            bench_points = 0.0
+            for bi, pid in enumerate(out_bench):
+                if not played_mask & (1 << bi):
+                    continue
+                new_pos = positions[pid] - 2
+                # Same position first, then any legal positional substitution.
+                # Count placeholders for remaining non-playing starters; FPL
+                # judges automatic substitutions against the starting shape.
+                choices = [j for j in range(3) if missing[j] > 0]
+                choices.sort(key=lambda j: (j != new_pos, j))
+                for old_pos in choices:
+                    next_formed = formed[:]
+                    next_formed[old_pos] -= 1
+                    next_formed[new_pos] += 1
+                    if next_formed[0] >= 3 and next_formed[1] >= 2 and next_formed[2] >= 1:
+                        missing[old_pos] -= 1
+                        formed = next_formed
+                        bench_points += xp[pid] / max(out_chance[bi], 1e-8)
+                        break
+            cover_if_absent += bench_pattern_prob * bench_points
+        expected_field_cover += probability * cover_if_absent
+    total_cover = gk_cover + expected_field_cover
+    captain_bonus = xp[captain_id]
+    # The xi_total already includes each chosen starter once. The additional
+    # 'captain_bonus' and vice fallback account for doubles if/when eligible.
+    return {'total': xi_total + captain_bonus + vice_fallback + total_cover,
+            'xi_xp': xi_total, 'captain_xp': captain_bonus,
+            'vice_fallback_xp': vice_fallback, 'autosub_xp': total_cover,
+            'captain_id': captain_id, 'vice_id': vice_id}
+
+
+
+
 def best_lineup(squad: list[dict], gw: int, fixtures: dict,
                 minutes_overrides: dict[int, float] | None = None,
                 captain_id: int | None = None) -> dict:
-    """Select the legal XI with maximum predicted points for this Gameweek.
+    """Select an XI using xP + estimated auto-sub and vice-captain cover.
 
-    Fixture difficulty and minutes reliability are reflected in individual xP.
-    A more attractive fixture does not automatically win; when XI scores tie
-    at displayed precision, use projected minutes as the deterministic
-    reliability tiebreaker. Include an optional close-call audit in the result
-    so an explanation can be surfaced without modifying the pitch UI.
+    Expected minutes/appearance probabilities are heuristic, not backtested.
+    Returns the same core structure expected by the existing Streamlit UI.
     """
     if not valid_squad(squad):
         raise ValueError("A squad requires 2 GKP, 5 DEF, 5 MID, 3 FWD and at most 3 from each club.")
-    by_id = {int(p["id"]): p for p in squad}
+    by_id = {int(p['id']): p for p in squad}
     xp = {pid: player_fixture_xp(p, gw, fixtures, minutes_overrides)
           for pid, p in by_id.items()}
+    appearances = {pid: estimated_appearance_probability(p, gw, fixtures,
+                    minutes_overrides, xp[pid]) for pid, p in by_id.items()}
+    positions = {pid: int(p['element_type']) for pid, p in by_id.items()}
     overrides = minutes_overrides or {}
     minutes = {pid: clamp(num(overrides[pid]), 0, 90) if pid in overrides
-               else projected_minutes(p)
-               for pid, p in by_id.items()}
-    groups = {pos: sorted((p for p in squad if int(p["element_type"]) == pos),
-                          key=lambda p: (xp[int(p["id"])], minutes[int(p["id"])]),
-                          reverse=True)
-              for pos in QUOTAS}
-    goalkeeper = groups[1][0]
-    best, best_score, best_minutes = None, float("-inf"), float("-inf")
+               else projected_minutes(p) for pid, p in by_id.items()}
+    groups = {pos: sorted((p for p in squad if int(p['element_type']) == pos),
+                          key=lambda p: (xp[int(p['id'])], minutes[int(p['id'])]),
+                          reverse=True) for pos in QUOTAS}
+    best, best_score, best_minutes = None, float('-inf'), float('-inf')
+    best_bench, best_evaluation = None, None
     for defenders, midfielders, forwards in FORMATIONS:
-        candidate = [goalkeeper] + groups[2][:defenders] + groups[3][:midfielders] + groups[4][:forwards]
-        candidate_xp = sum(xp[int(p["id"])] for p in candidate)
-        candidate_minutes = sum(minutes[int(p["id"])] for p in candidate)
-        # Only tie-break when projected points are exactly equal in practice.
-        # A meaningful xP difference must not be overturned by fixture labels.
-        if (candidate_xp > best_score + .000001 or
-            (abs(candidate_xp - best_score) <= .000001 and candidate_minutes > best_minutes)):
-            best, best_score, best_minutes = candidate, candidate_xp, candidate_minutes
-    xi = best
-    ids = {int(p["id"]) for p in xi}
-    bench = sorted((p for p in squad if int(p["id"]) not in ids),
-                   key=lambda p: (int(p["element_type"]) == 1, -xp[int(p["id"])]))
-    captain = next((p for p in xi if int(p["id"]) == captain_id), None)
-    if captain is None:
-        captain = max(xi, key=lambda p: xp[int(p["id"])])
-    vice = max((p for p in xi if int(p["id"]) != int(captain["id"])),
-               key=lambda p: xp[int(p["id"])])
-    captain_xp = xp[int(captain["id"])]
-
+        candidate = ([groups[1][0]] + groups[2][:defenders] +
+                     groups[3][:midfielders] + groups[4][:forwards])
+        xi_ids = [int(p['id']) for p in candidate]
+        selected = set(xi_ids)
+        bench = sorted((p for p in squad if int(p['id']) not in selected),
+                       key=lambda p: (int(p['element_type']) == 1, -xp[int(p['id'])]))
+        bench_ids = [int(p['id']) for p in bench]
+        evaluation = _scenario_lineup_evaluation(xi_ids, bench_ids, xp,
+                                                   appearances, positions, captain_id)
+        candidate_score = evaluation['total']
+        candidate_minutes = sum(minutes[pid] for pid in xi_ids)
+        if (candidate_score > best_score + .000001 or
+            (abs(candidate_score - best_score) <= .000001 and candidate_minutes > best_minutes)):
+            best = candidate
+            best_bench = bench
+            best_evaluation = evaluation
+            best_score, best_minutes = candidate_score, candidate_minutes
+    xi, bench = best, best_bench
+    ids = {int(p['id']) for p in xi}
+    captain = by_id[best_evaluation['captain_id']]
+    vice = by_id[best_evaluation['vice_id']]
     # Each close call is a single legal XI-for-bench substitution within
     # 0.5 xP. The margin is *not* a calibrated probability/confidence bound.
     # No automatic substitution is forced for a marginal difference.
@@ -524,10 +670,13 @@ def best_lineup(squad: list[dict], gw: int, fixtures: dict,
                               alternate["element_type"]), c["starter_id"]))
             close_calls.append(alternatives[0])
     close_calls.sort(key=lambda item: (item["xp_margin"], item["starter_id"], item["alternative_id"]))
-    return {"xi": xi, "bench": bench, "captain": captain, "vice": vice,
-            "xi_xp": round(best_score, 2), "captain_xp": captain_xp,
-            "total_xp": round(best_score + captain_xp, 2),
-            "close_calls": close_calls[:6]}
+    return {'xi': xi, 'bench': bench, 'captain': captain, 'vice': vice,
+            'xi_xp': round(best_evaluation['xi_xp'], 2),
+            'captain_xp': round(best_evaluation['captain_xp'], 2),
+            'total_xp': round(best_evaluation['total'], 2),
+            'expected_autosub_xp': round(best_evaluation['autosub_xp'], 2),
+            'expected_vice_fallback_xp': round(best_evaluation['vice_fallback_xp'], 2),
+            'close_calls': close_calls[:6]}
 
 
 def team_rating(squad: list[dict], gameweeks: list[int], fixtures: dict,
@@ -831,13 +980,13 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                         beam_width: int = 12, candidate_count: int = 9) -> dict:
     """Return three distinct multi-GW transfer plans and the ROLL counterfactual.
 
-    Expected points = best legal XI + doubled captain - 4-point transfer hits.
+    Expected points = legal XI + captain contingency + legal auto-subs - hits.
     Search ranking separately considers plausible *downside scenarios*, small
     bench coverage, and a minimal transfer-friction tie-breaker. These are
     uncalibrated decision heuristics, not a guarantee or an FPL scoring rule.
 
-    All future player prices are held at current FPL values. Unverified news,
-    non-EPL workloads, autosub probabilities and chips are not modelled.
+    Future player prices are held fixed; chips and branching future
+    transfer actions are not modelled. Appearance probabilities are heuristic.
     """
     if not valid_squad(squad):
         raise ValueError("A complete legal 15-player squad is required.")
@@ -894,6 +1043,14 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         else:
             stress = .97
         downside_xp[pid] = tuple(v * stress for v in series)
+
+    # Appearance scenarios are built from the same player data as the XI.
+    # These independent appearance estimates are explicit, uncalibrated proxies;
+    # there is no claim to reproduce Solio's proprietary stochastic solver.
+    appearances = {pid: tuple(estimated_appearance_probability(market[pid], gw,
+                         fixtures, minutes_overrides, xp[pid][wi])
+                              for wi, gw in enumerate(gameweeks))
+                   for pid in market}
 
     horizon = {pid: sum(values) for pid, values in xp.items()}
     shortlist: dict[int, list[int]] = {}
@@ -1141,6 +1298,62 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
             raise ValueError("Could not find a legal transfer plan.")
         states = kept
 
+    # SECOND PASS: model all independent play/no-play outcomes for all
+    # retained beam states. Use a positional count DP plus legal bench masks,
+    # rather than the very expensive 2^15 raw scenario tree *during search*.
+    # Future actions remain fixed in each plan; this is NOT Solio's adaptive
+    # stochastic programming or a calibrated probability model.
+    def contingency_lineup(ids: tuple[int, ...], wi: int) -> tuple[float, float]:
+        key = (ids, wi)
+        cached = contingency_cache.get(key)
+        if cached is not None:
+            return cached
+        groups = {pos: sorted((pid for pid in ids if positions[pid] == pos),
+                              key=lambda pid: xp[pid][wi], reverse=True)
+                  for pos in QUOTAS}
+        normal_points = {pid: xp[pid][wi] for pid in ids}
+        downside_points = {pid: downside_xp[pid][wi] for pid in ids}
+        chance = {pid: appearances[pid][wi] for pid in ids}
+        best_normal, best_down = float('-inf'), 0.0
+        for defenders, midfielders, forwards in FORMATIONS:
+            xi = (groups[1][:1] + groups[2][:defenders] +
+                  groups[3][:midfielders] + groups[4][:forwards])
+            if len(xi) != 11:
+                continue
+            selected = set(xi)
+            bench = sorted((pid for pid in ids if pid not in selected),
+                           key=lambda pid: (positions[pid] == 1, -normal_points[pid]))
+            evaluation = _scenario_lineup_evaluation(xi, bench, normal_points,
+                                                      chance, positions)
+            if evaluation['total'] > best_normal:
+                stressed = _scenario_lineup_evaluation(xi, bench, downside_points,
+                                    chance, positions, captain_id=evaluation['captain_id'],
+                                    vice_id=evaluation['vice_id'])
+                best_normal, best_down = evaluation['total'], stressed['total']
+        contingency_cache[key] = (best_normal, best_down)
+        return best_normal, best_down
+
+    contingency_cache: dict[tuple[tuple[int, ...], int], tuple[float, float]] = {}
+    for state in states:
+        current_ids = set(ids0)
+        net = down = 0.0
+        for wi, week in enumerate(state['plan']):
+            for move in week['moves']:
+                current_ids.remove(int(move['out']))
+                current_ids.add(int(move['in']))
+            normal, downside = contingency_lineup(tuple(sorted(current_ids)), wi)
+            week['projected_xp'] = round(normal, 2)
+            week['net_xp'] = round(normal - week['hits'], 2)
+            net += normal - week['hits']
+            down += downside - week['hits']
+        state['net'] = net
+        state['down'] = down
+        # Insurance is counted in net_xP: no separate bench bonus now.
+        state['cover'] = 0.0
+    baseline_weekly = [contingency_lineup(ids0, wi)[0] for wi in range(n_weeks)]
+    baseline = sum(baseline_weekly)
+    cover_weight = 0.0
+
     def utility(s: dict) -> float:
         return (s["net"] - downside_weight * (s["net"] - s["down"])
                 + cover_weight * s["cover"]
@@ -1262,6 +1475,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         "decision_margin": min_transfer_edge,
         "method": ("Bounded opportunity-aware beam search: 0–3 moves in the first GW; 0–2 later, "
                    "legal 15-player squads, 5-FT rollover, 4-point hits, manager selling prices. "
-                   "Rank by XI+captain net xP, with explicitly heuristic downside/bench and small "
-                   "transfer-friction tie-breakers. Current prices held fixed; no chips or auto-subs."),
+                   "Rank by XI+captain+vice and legal auto-sub expected points (post-search), with heuristic "
+                   "appearance/downside and small transfer-friction tie-breakers. "
+                   "Current prices held fixed; no chips or adaptive future scenario tree."),
     }
