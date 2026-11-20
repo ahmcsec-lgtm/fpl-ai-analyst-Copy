@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.20: Gameweek-specific, source-aware availability + transfer engine.
+"""AJK Bola Wawei AI v7.21: Gameweek-specific, source-aware availability + transfer engine.
 
 No paid model, no official xP claim. All monetary amounts are FPL tenths.
 """
@@ -504,36 +504,100 @@ def _fixture_components(player: dict, opponent: int, home: bool,
             "expected_opponent_goals": expected_opp_goals}
 
 
+def playing_time_scenarios(player: dict, gw: int, minutes_override: float | None = None) -> dict:
+    """Small, auditable playing-time mixture, not calibrated start odds.
+
+    Returned probabilities sum to one. The conditional-on-appearance minutes
+    estimate comes from the existing FPL/recent-minutes estimator. Do NOT
+    multiply the expectation by availability again inside the component model.
+    Explicit overrides preserve legacy behaviour (one deterministic scenario).
+    """
+    if minutes_override is not None:
+        minutes = clamp(num(minutes_override), 0, 90)
+        return {'out': 0.0, 'cameo': 0.0, 'start': 1.0,
+                'scenarios': [(1.0, minutes)], 'mean_minutes': minutes}
+    medical_availability = clamp(availability(player, gw), 0, 1)
+    mean_minutes = clamp(projected_minutes(player, gw), 0, 90)
+    # Healthy does not mean guaranteed to feature: minutes per team fixture
+    # already contain rotation/bench evidence. Keep an independent role proxy
+    # so a seldom-used substitute can also have a no-appearance outcome.
+    base_minutes = mean_minutes / max(medical_availability, .001)
+    role_presence = clamp(.20 + .80 * (clamp(base_minutes,0,90)/90)**.65,
+                          .20, .995)
+    chance = min(medical_availability,
+                 max(medical_availability*role_presence, mean_minutes/90))
+    if chance <= 0.0001 or mean_minutes < 0.01:
+        return {'out': 1.0, 'cameo': 0.0, 'start': 0.0,
+                'scenarios': [(1.0, 0.0)], 'mean_minutes': 0.0}
+    conditional_mean = clamp(mean_minutes / chance, 0, 90)
+    # A low-usage substitute is modelled as a cameo, not an 80-minute starter.
+    # For long-minute starters use an 85-minute ceiling so all mixtures stay legal.
+    start_minutes = max(85.0, conditional_mean)
+    cameo_minutes = min(25.0, conditional_mean)
+    start_given_available = clamp((conditional_mean-cameo_minutes) /
+                                  max(1.0, start_minutes-cameo_minutes), 0, 1)
+    p_start = chance * start_given_available
+    p_cameo = chance * (1-start_given_available)
+    return {'out': round(1-chance, 5), 'cameo': round(p_cameo, 5),
+            'start': round(p_start, 5),
+            'scenarios': [(1-chance, 0.0), (p_cameo, cameo_minutes),
+                          (p_start, start_minutes)],
+            'mean_minutes': round(sum(prob * mins for prob, mins in
+                                      ((p_cameo,cameo_minutes),(p_start,start_minutes))), 2)}
+
+
 def player_prediction(player: dict, gw: int, fixtures: dict,
                       minutes_overrides: dict[int, float] | None = None) -> dict:
     """Return explainable projected FPL points and an approximate 80% range."""
     pid = int(player["id"])
     override = (minutes_overrides or {}).get(pid)
-    minutes = clamp(num(override, projected_minutes(player, gw)), 0, 90)
-    key = (pid, int(gw), round(minutes, 2), id(fixtures))
-    cached = _MODEL["cache"].get(key)
+    distribution = playing_time_scenarios(player, gw, override)
+    minutes = distribution['mean_minutes']
+    key = (pid, int(gw), round(minutes, 2), id(fixtures),
+           # Scenario distribution can change while mean stays identical.
+           distribution['out'], distribution['start'])
+    cached = _MODEL['cache'].get(key)
     if cached is not None:
         return cached
-    games = fixtures.get((int(gw), int(player.get("team", 0))), [])
-    totals = {k: 0.0 for k in ("appearance", "goals", "assists", "clean_sheet", "saves",
-                                  "goals_conceded", "bonus", "defensive_contributions", "discipline",
-                                  "goal_expectation", "assist_expectation")}
+    games = fixtures.get((int(gw), int(player.get('team', 0))), [])
+    totals = {k: 0.0 for k in ('appearance', 'goals', 'assists', 'clean_sheet', 'saves',
+                                  'goals_conceded', 'bonus', 'defensive_contributions',
+                                  'discipline', 'goal_expectation', 'assist_expectation')}
     cs_probs = []
     opponent_goals = []
     variance = 0.0
-    pos = int(player.get("element_type", 3))
+    pos = int(player.get('element_type', 3))
     for match in games:
-        comp = _fixture_components(player, int(match["opponent"]), bool(match["home"]),
-                                   minutes, int(match.get("difficulty", 3)))
+        match_totals = dict.fromkeys(totals, 0.0)
+        cs_prob, expected_goals = 0.0, 0.0
+        for prob, scenario_minutes in distribution['scenarios']:
+            if prob <= 0.0000001:
+                continue
+            if scenario_minutes <= 0.0:
+                continue
+            comp = _fixture_components(player, int(match['opponent']), bool(match['home']),
+                                       scenario_minutes, int(match.get('difficulty',3)))
+            # A playing-time scenario represents a real appearance, not a
+            # fraction of a hypothetical average-length appearance. FPL
+            # appearances are 1 point below 60 minutes, 2 at 60+.
+            comp['appearance'] = 2.0 if scenario_minutes >= 60 else 1.0
+            if scenario_minutes < 60:
+                comp['clean_sheet'] = 0.0
+                comp['cs_probability'] = 0.0
+            for k in totals:
+                match_totals[k] += prob * comp[k]
+            cs_prob += prob * comp['cs_probability']
+            expected_goals += prob * comp['expected_opponent_goals']
         for k in totals:
-            totals[k] += comp[k]
-        cs_probs.append(comp["cs_probability"])
-        opponent_goals.append(comp["expected_opponent_goals"])
-        variance += ({1: 10, 2: 6, 3: 5, 4: 4}[pos] ** 2 * comp["goal_expectation"]
-                     + 9 * comp["assist_expectation"]
-                     + ({1: 4, 2: 4, 3: 1, 4: 0}[pos] ** 2) *
-                     comp["cs_probability"] * (1 - comp["cs_probability"]) + 2.0)
-    raw_xp = max(0.0, sum(totals[k] for k in totals if k not in ("goal_expectation", "assist_expectation")))
+            totals[k] += match_totals[k]
+        cs_probs.append(cs_prob)
+        opponent_goals.append(expected_goals)
+        variance += ({1:10,2:6,3:5,4:4}[pos] ** 2 * match_totals['goal_expectation']
+                     + 9 * match_totals['assist_expectation']
+                     + ({1:4,2:4,3:1,4:0}[pos] ** 2) * cs_prob * (1-cs_prob)
+                     + 2.0)
+    raw_xp = max(0.0, sum(totals[k] for k in totals if k not in
+                           ('goal_expectation', 'assist_expectation')))
     correction = calibration_adjustment(pos, raw_xp) if games else 0.0
     xp = max(0.0, raw_xp + correction)
     # This is a Poisson/ Bernoulli approximation, NOT a calibrated forecast interval.
@@ -547,6 +611,7 @@ def player_prediction(player: dict, gw: int, fixtures: dict,
               "lower": round(max(0, xp - width), 1),
               "upper": round(xp + width, 1), "minutes": minutes,
               "fixtures_count": len(games), "cs_probability": round(sum(cs_probs), 3),
+              "playing_time_scenarios": {k:distribution[k] for k in ("out", "cameo", "start")},
               "expected_opponent_goals": round(sum(opponent_goals), 2)}
     _MODEL["cache"][key] = output
     return output
@@ -1079,7 +1144,7 @@ def make_snapshot(players: list[dict], gw: int, fixtures: dict,
             "name": str(p.get("web_name", "?")), "position": int(p["element_type"]),
             "team_id": int(p["team"]), "created_utc": created,
             "deadline_utc": deadline.astimezone(timezone.utc).isoformat(),
-            "model_version": "v4", "raw_xp": forecast["raw_xp"],
+            "model_version": "v7.21", "raw_xp": forecast["raw_xp"],
             "predicted_xp": forecast["xp"], "expected_minutes": forecast["minutes"],
             "fixtures_count": forecast["fixtures_count"],
         })
