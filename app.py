@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.13 — ranked multi-GW transfer plan comparison, preserving the premium dashboard.
+"""AJK Bola Wawei AI v7.14 — clean FPL ID landing page; planning controls appear after team import.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -1438,12 +1438,14 @@ if st.session_state.get("loaded_id"):
     pending_import = bool(st.session_state.pop("ajk_ft_refresh_after_import", False))
     update_estimated_ft(int(st.session_state.loaded_id), first_gw, force=pending_import)
 
-# One small panel for importing a team and editing every planning preference.
-# Streamlit keeps the form field empty by default: no personal Team ID is embedded.
+# A first-time visitor only needs to enter an FPL Team ID.
+# Planning controls are deliberately hidden until a squad is successfully imported.
+# Streamlit forms submit on Enter as well as the Analyse Team button.
+team_loaded = bool(st.session_state.get("loaded_id"))
 previous_profile = st.session_state.get("manager_profile") or {}
-loaded_name = str(previous_profile.get("name", "My Team")) if st.session_state.get("loaded_id") else ""
+loaded_name = str(previous_profile.get("name", "My Team")) if team_loaded else ""
 summary_range = ""
-if st.session_state.get("loaded_id"):
+if team_loaded:
     saved_start = st.session_state.get("ajk_start_gw", available_gws[0])
     if saved_start not in available_gws:
         saved_start = available_gws[0]
@@ -1455,67 +1457,94 @@ if st.session_state.get("loaded_id"):
         f" · {st.session_state.get('ajk_free_transfers', 1)} FT"
     )
 
-with st.expander(
-    f"⚙️ Team & Planning{summary_range}",
-    expanded=not bool(st.session_state.get("loaded_id")),
-):
-    with st.form("team_import"):
-        id_col, submit_col = st.columns([4, 1], gap="small", vertical_alignment="bottom")
-        with id_col:
-            team_text = st.text_input(
-                "FPL Team ID", value="", placeholder="Enter your FPL Team ID"
+# Display the planning controls on the first successful import, then allow the
+# manager to collapse the panel to save space on subsequent visits/reruns.
+expand_after_import = bool(st.session_state.pop("ajk_show_planning_after_import", False))
+
+if not team_loaded:
+    # Clean landing page: no Gameweek, strategy or free-transfer controls yet.
+    with st.container(border=True):
+        with st.form("team_import"):
+            id_col, submit_col = st.columns(
+                [4, 1], gap="small", vertical_alignment="bottom"
             )
-        with submit_col:
-            submitted = st.form_submit_button(
-                "Analyse Team", type="primary", use_container_width=True
+            with id_col:
+                team_text = st.text_input(
+                    "FPL Team ID", value="", placeholder="Enter your FPL Team ID"
+                )
+            with submit_col:
+                submitted = st.form_submit_button(
+                    "Analyse Team", type="primary", use_container_width=True
+                )
+else:
+    with st.expander(
+        f"⚙️ Team & Planning{summary_range}",
+        expanded=expand_after_import,
+    ):
+        with st.form("team_import"):
+            id_col, submit_col = st.columns(
+                [4, 1], gap="small", vertical_alignment="bottom"
+            )
+            with id_col:
+                team_text = st.text_input(
+                    "FPL Team ID", value="", placeholder="Enter another FPL Team ID"
+                )
+            with submit_col:
+                submitted = st.form_submit_button(
+                    "Analyse Team", type="primary", use_container_width=True
+                )
+
+        start_col, horizon_col = st.columns(2, gap="small")
+        if st.session_state.get("ajk_start_gw") not in available_gws:
+            st.session_state.ajk_start_gw = available_gws[0]
+        with start_col:
+            selected_gw = st.selectbox(
+                "Starting Gameweek", available_gws,
+                format_func=lambda gw: f"GW {gw}", key="ajk_start_gw",
+            )
+        horizon_list = [gw for gw in available_gws if gw >= selected_gw]
+        horizon_options = list(range(1, len(horizon_list) + 1))
+        if st.session_state.get("ajk_horizon") not in horizon_options:
+            st.session_state.ajk_horizon = min(5, len(horizon_options))
+        with horizon_col:
+            horizon = st.selectbox(
+                "Look Ahead", horizon_options,
+                format_func=lambda n: f"{n} GW" if n == 1 else f"{n} GWs",
+                key="ajk_horizon",
             )
 
-    start_col, horizon_col = st.columns(2, gap="small")
-    if st.session_state.get("ajk_start_gw") not in available_gws:
-        st.session_state.ajk_start_gw = available_gws[0]
-    with start_col:
-        selected_gw = st.selectbox(
-            "Starting Gameweek", available_gws,
-            format_func=lambda gw: f"GW {gw}", key="ajk_start_gw",
+        show_advanced = st.toggle(
+            "⚙️ Advanced settings", value=False, key="ajk_advanced_open"
         )
-    horizon_list = [gw for gw in available_gws if gw >= selected_gw]
-    horizon_options = list(range(1, len(horizon_list) + 1))
-    if st.session_state.get("ajk_horizon") not in horizon_options:
-        st.session_state.ajk_horizon = min(5, len(horizon_options))
-    with horizon_col:
-        horizon = st.selectbox(
-            "Look Ahead", horizon_options,
-            format_func=lambda n: f"{n} GW" if n == 1 else f"{n} GWs",
-            key="ajk_horizon",
-        )
-
-    # Advanced settings stay available but don't occupy homepage space.
-    show_advanced = st.toggle("⚙️ Advanced settings", value=False, key="ajk_advanced_open")
-    if show_advanced:
-        strategy_col, ft_col = st.columns(2, gap="small")
-        with strategy_col:
-            strategy = st.selectbox(
-                "AI Strategy", ["Balanced", "Safe", "Aggressive"],
-                key="ajk_strategy",
-            )
-        with ft_col:
-            ft = st.number_input(
-                "Free transfers available (−/+ to correct)",
-                min_value=0, max_value=5, step=1,
-                key="ajk_free_transfers", on_change=free_transfer_was_edited,
-            )
-            estimate = st.session_state.get("ajk_ft_estimate")
-            if st.session_state.get("ajk_ft_manual_override"):
-                st.caption("✏️ Manually adjusted · Your value takes priority.")
-            elif estimate is not None:
-                st.caption(f"🔄 Estimated from public FPL history: {estimate} FT · "
-                           "Verify against your official Transfers page.")
-            else:
-                st.caption("Public balance couldn't be estimated. Please set it with −/+.")
-        st.caption("Projections are estimates, not guaranteed outcomes.")
-    else:
-        strategy = st.session_state.get("ajk_strategy", "Balanced")
-        ft = int(st.session_state.get("ajk_free_transfers", 1))
+        if show_advanced:
+            strategy_col, ft_col = st.columns(2, gap="small")
+            with strategy_col:
+                strategy = st.selectbox(
+                    "AI Strategy", ["Balanced", "Safe", "Aggressive"],
+                    key="ajk_strategy",
+                )
+            with ft_col:
+                ft = st.number_input(
+                    "Free transfers available (−/+ to correct)",
+                    min_value=0, max_value=5, step=1,
+                    key="ajk_free_transfers", on_change=free_transfer_was_edited,
+                )
+                estimate = st.session_state.get("ajk_ft_estimate")
+                if st.session_state.get("ajk_ft_manual_override"):
+                    st.caption("✏️ Manually adjusted · Your value takes priority.")
+                elif estimate is not None:
+                    st.caption(
+                        f"🔄 Estimated from public FPL history: {estimate} FT · "
+                        "Verify against your official Transfers page."
+                    )
+                else:
+                    st.caption(
+                        "Public balance couldn't be estimated. Please set it with −/+."
+                    )
+            st.caption("Projections are estimates, not guaranteed outcomes.")
+        else:
+            strategy = st.session_state.get("ajk_strategy", "Balanced")
+            ft = int(st.session_state.get("ajk_free_transfers", 1))
 
 if submitted:
     value = team_text.strip()
@@ -1528,9 +1557,16 @@ if submitted:
             # Defer the widget-key assignment until the next script run.
             # The +/- number_input has already been instantiated in this run.
             st.session_state.ajk_ft_refresh_after_import = True
+            st.session_state.ajk_show_planning_after_import = True
             st.rerun()
         except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
             st.error(f"Team could not be imported: {exc}")
+
+# Before the first successful import, there is no squad or planning selection.
+# Stop here rather than trying to use Gameweek widgets that are intentionally hidden.
+if not st.session_state.get("loaded_id"):
+    st.info("Enter your FPL Team ID above and press Enter or click Analyse Team to get started.")
+    st.stop()
 
 # A Streamlit session can survive a code redeploy. Older app versions used
 # different session-state fields, so a leftover draft may be incomplete.
