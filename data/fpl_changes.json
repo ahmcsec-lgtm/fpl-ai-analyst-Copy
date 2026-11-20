@@ -1,51 +1,29 @@
 {
-  "updated_at": "2026-11-20T13:27:31.946640+00:00",
+  "updated_at": "2026-11-20T19:15:16.788936+00:00",
   "changes": [
     {
-      "player_id": 121,
-      "player": "Mitoma",
-      "team_id": 5,
-      "changes": {
-        "news": {
-          "before": "Hamstring injury - Expected back 22 Nov",
-          "after": "Hamstring injury - Expected back 2 Dec"
-        }
-      }
-    },
-    {
-      "player_id": 135,
-      "player": "Yohanna",
-      "team_id": 5,
-      "changes": {
-        "news": {
-          "before": "Unspecified injury - Expected back 22 Nov",
-          "after": "Unspecified injury - Unknown return date"
-        }
-      }
-    },
-    {
-      "player_id": 328,
-      "player": "Struijk",
-      "team_id": 5,
+      "player_id": 32,
+      "player": "Cash",
+      "team_id": 2,
       "changes": {
         "status": {
-          "before": "i",
-          "after": "a"
+          "before": "d",
+          "after": "i"
         },
         "chance_of_playing_next_round": {
-          "before": 0,
-          "after": 100
+          "before": 75,
+          "after": 0
         },
         "news": {
-          "before": "Hamstring injury - Expected back 8 Nov",
-          "after": ""
+          "before": "Concussion - 75% chance of playing",
+          "after": "Concussion - Expected back 28 Nov"
         }
       }
     },
     {
-      "player_id": 639,
-      "player": "Andrés",
-      "team_id": 5,
+      "player_id": 53,
+      "player": "Manzambi",
+      "team_id": 2,
       "changes": {
         "status": {
           "before": "d",
@@ -56,57 +34,376 @@
           "after": 100
         },
         "news": {
-          "before": "Hip injury - 75% chance of playing",
+          "before": "Calf injury - 75% chance of playing",
           "after": ""
         }
       }
     },
     {
-      "player_id": 652,
-      "player": "Azeez",
-      "team_id": 5,
+      "player_id": 611,
+      "player": "Wan-Bissaka",
+      "team_id": 2,
       "changes": {
         "status": {
-          "before": "i",
+          "before": "d",
           "after": "a"
         },
         "chance_of_playing_next_round": {
-          "before": 0,
+          "before": 50,
           "after": 100
         },
         "news": {
-          "before": "Hamstring injury - Expected back 8 Nov",
+          "before": "Hamstring injury - 50% chance of playing",
           "after": ""
         }
       }
     },
     {
-      "player_id": 251,
-      "player": "Lecomte",
-      "team_id": 10,
+      "player_id": 84,
+      "player": "Collins",
+      "team_id": 4,
       "changes": {
         "status": {
-          "before": "a",
+          "before": "d",
           "after": "i"
         },
         "chance_of_playing_next_round": {
-          "before": null,
+          "before": 75,
           "after": 0
         },
         "news": {
-          "before": "",
-          "after": "Achilles injury - Unknown return date"
-        },
-        "news_added": {
-          "before": null,
-          "after": "2026-11-20T11:30:05.525769Z"
+          "before": "Knee injury - 75% chance of playing",
+          "after": "Knee injury - Expected back 2 Dec"
         }
       }
     },
     {
-      "player_id": 262,
-      "player": "Smith Rowe",
-      "team_id": 10,
+      "player_id": 90,
+      "player": "Hickey",
+      "team_id": 4,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 0
+        },
+        "news": {
+          "before": "Hamstring injury - 75% chance of playing",
+          "after": "Hamstring injury - Expected back 2 Dec"
+        }
+      }
+    },
+    {
+      "player_id": 100,
+      "player": "Carvalho",
+      "team_id": 4,
+      "changes": {
+        "status": {
+          "before": "i",
+          "after": "d"
+        },
+        "chance_of_playing_next_round": {
+          "before": 0,
+          "after": 75
+        },
+        "news": {
+          "before": "Knock - Expected back 23 Nov",
+          "after": "Knock - 75% chance of playing"
+        }
+      }
+    },
+    {
+      "player_id": 103,
+      "player": "Dasilva",
+      "team_id": 4,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": 25,
+          "after": 0
+        },
+        "news": {
+          "before": "Hamstring injury - 25% chance of playing",
+          "after": "Hamstring injury - Unknown return date"
+        }
+      }
+    },
+    {
+      "player_id": 28,
+      "player": "Martinez",
+      "team_id": 6,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Head injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 148,
+      "player": "Hato",
+      "team_id": 6,
+      "changes": {
+        "news": {
+          "before": "Unspecified injury - Unknown return date",
+          "after": "Back injury - Unknown return date"
+        }
+      }
+    },
+    {
+      "player_id": 151,
+      "player": "Acheampong",
+      "team_id": 6,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Unspecified injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 159,
+      "player": "Caicedo",
+      "team_id": 6,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Unspecified injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 286,
+      "player": "Belloumi",
+      "team_id": 11,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Hamstring injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 586,
+      "player": "Mendy",
+      "team_id": 11,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Knee injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 356,
+      "player": "Virgil",
+      "team_id": 14,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Unspecified injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 357,
+      "player": "Frimpong",
+      "team_id": 14,
+      "changes": {
+        "status": {
+          "before": "i",
+          "after": "d"
+        },
+        "chance_of_playing_next_round": {
+          "before": 0,
+          "after": 75
+        },
+        "news": {
+          "before": "Hamstring injury - Unknown return date",
+          "after": "Hamstring injury - 75% chance of playing"
+        }
+      }
+    },
+    {
+      "player_id": 388,
+      "player": "Guéhi",
+      "team_id": 15,
+      "changes": {
+        "news": {
+          "before": "Unspecified injury - 75% chance of playing",
+          "after": "Hip injury - 75% chance of playing"
+        }
+      }
+    },
+    {
+      "player_id": 389,
+      "player": "Matheus N.",
+      "team_id": 15,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "d"
+        },
+        "chance_of_playing_next_round": {
+          "before": 100,
+          "after": 50
+        },
+        "news": {
+          "before": "",
+          "after": "Unspecified injury - 50% chance of playing"
+        },
+        "news_added": {
+          "before": "2026-10-19T15:30:09.094655Z",
+          "after": "2026-11-20T15:30:06.460505Z"
+        }
+      }
+    },
+    {
+      "player_id": 391,
+      "player": "Gvardiol",
+      "team_id": 15,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Unspecified injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 393,
+      "player": "Khusanov",
+      "team_id": 15,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "d"
+        },
+        "chance_of_playing_next_round": {
+          "before": null,
+          "after": 50
+        },
+        "news": {
+          "before": "",
+          "after": "Unspecified injury - 50% chance of playing"
+        },
+        "news_added": {
+          "before": null,
+          "after": "2026-11-20T15:30:06.486420Z"
+        }
+      }
+    },
+    {
+      "player_id": 325,
+      "player": "Darlow",
+      "team_id": 16,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "d"
+        },
+        "chance_of_playing_next_round": {
+          "before": 100,
+          "after": 75
+        },
+        "news": {
+          "before": "",
+          "after": "Unspecified injury - 75% chance of playing"
+        },
+        "news_added": {
+          "before": "2026-09-21T13:30:08.885505Z",
+          "after": "2026-11-20T17:00:04.943349Z"
+        }
+      }
+    },
+    {
+      "player_id": 421,
+      "player": "Heaven",
+      "team_id": 16,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "d"
+        },
+        "chance_of_playing_next_round": {
+          "before": 100,
+          "after": 75
+        },
+        "news": {
+          "before": "",
+          "after": "Unspecified injury - 75% chance of playing"
+        },
+        "news_added": {
+          "before": "2026-10-20T20:00:09.902224Z",
+          "after": "2026-11-20T17:30:06.088714Z"
+        }
+      }
+    },
+    {
+      "player_id": 147,
+      "player": "Tosin",
+      "team_id": 19,
       "changes": {
         "status": {
           "before": "a",
@@ -118,18 +415,18 @@
         },
         "news": {
           "before": "",
-          "after": "Hip injury - Expected back 29 Nov"
+          "after": "Calf injury - Expected back 29 Nov"
         },
         "news_added": {
-          "before": "2026-10-23T11:30:09.310090Z",
-          "after": "2026-11-20T11:30:05.541395Z"
+          "before": "2026-10-29T17:00:09.335810Z",
+          "after": "2026-11-20T15:30:06.265590Z"
         }
       }
     },
     {
-      "player_id": 266,
-      "player": "Cairney",
-      "team_id": 10,
+      "player_id": 403,
+      "player": "Sávio",
+      "team_id": 19,
       "changes": {
         "status": {
           "before": "i",
@@ -140,7 +437,45 @@
           "after": 100
         },
         "news": {
-          "before": "Knee injury - Expected back 21 Nov",
+          "before": "Muscular injury - Expected back 21 Nov",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 514,
+      "player": "Tel",
+      "team_id": 19,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 0
+        },
+        "news": {
+          "before": "Ankle injury - 75% chance of playing",
+          "after": "Ankle injury - Expected back 6 Dec"
+        }
+      }
+    },
+    {
+      "player_id": 520,
+      "player": "Bergvall",
+      "team_id": 19,
+      "changes": {
+        "status": {
+          "before": "i",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 0,
+          "after": 100
+        },
+        "news": {
+          "before": "Knee injury - Unknown return date",
           "after": ""
         }
       }
