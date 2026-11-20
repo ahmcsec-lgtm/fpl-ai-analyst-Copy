@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.19.2 — persistent multi-GW plan previews; original dashboard retained.
+"""AJK Bola Wawei AI v7.19.3 — injured Best XI guard + persistent multi-GW previews.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -1532,6 +1532,26 @@ def reset_draft(team_id: int, profile: dict, squad: list[dict], bank: int, from_
     clear_pitch_actions()
 
 
+def flagged_manual_no_shows(xi: list[dict], gw: int,
+                                 fixtures: dict, projections: dict[int, float]) -> list[dict]:
+    """Warn when a manually saved XI still contains clearly unavailable players.
+
+    Do not erase deliberate user changes or turn injury *doubts* into bans.
+    The engine itself independently chooses the automatic XI.
+    """
+    result = []
+    for player in xi:
+        pid = int(player['id'])
+        if projections.get(pid, 0.0) > .05:
+            continue
+        status = str(player.get('status', 'a'))
+        chance = player.get('chance_of_playing_next_round')
+        no_fixture = not fixtures.get((int(gw), int(player.get('team', 0))), [])
+        if status in {'i', 's', 'u', 'n'} or chance in (0, 0.0, '0') or no_fixture:
+            result.append(player)
+    return result
+
+
 def restore_original_team() -> None:
     """Undo all draft transfers/chip simulations, retaining the imported snapshot."""
     st.session_state.draft = [dict(p) for p in st.session_state.original_squad]
@@ -2030,6 +2050,30 @@ with tab_team:
                         f"The AI recommends {ai_formation}. Use Reset to Original FPL Team above to discard all draft changes.")
             else:
                 pass  # AI status is displayed in the formation banner above.
+            # A manual XI can persist after new injury news. Do not silently
+            # replace user choices, but offer a GW-specific return to AI XI.
+            if {int(p['id']) for p in xi} != {int(p['id']) for p in auto_xi}:
+                unavailable_manual = flagged_manual_no_shows(
+                    xi, preview_gw, fixture_map, gw_xp
+                )
+                if unavailable_manual:
+                    names = ", ".join(str(p.get("web_name", p["id"]))
+                                      for p in unavailable_manual)
+                    st.warning(
+                        f"Your manually saved GW {preview_gw} XI still starts "
+                        f"{names} despite a 0-xP availability/fixture warning. "
+                        "The AI Best XI has been recalculated."
+                    )
+                    if st.button(f"Use AI Best XI for GW {preview_gw}",
+                                 key=f"restore_ai_xi_{preview_gw}"):
+                        st.session_state.setdefault("manual_xi_by_gw", {}).pop(preview_gw, None)
+                        st.session_state.setdefault("manual_captain_by_gw", {}).pop(preview_gw, None)
+                        st.session_state.setdefault("manual_vice_by_gw", {}).pop(preview_gw, None)
+                        if preview_gw == selected_gw:
+                            st.session_state.manual_xi = []
+                            st.session_state.manual_captain = None
+                        clear_pitch_actions()
+                        st.rerun()
             cap_ids = [int(p["id"]) for p in xi]
             cap_default = st.session_state.get("manual_captain_by_gw", {}).get(
                 preview_gw, st.session_state.get("manual_captain") if preview_gw == selected_gw else None
