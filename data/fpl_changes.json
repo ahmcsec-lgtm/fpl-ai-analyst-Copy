@@ -1,4 +1,149 @@
 {
-  "updated_at": "2026-11-20T10:44:34.363279+00:00",
-  "changes": []
+  "updated_at": "2026-11-20T13:27:31.946640+00:00",
+  "changes": [
+    {
+      "player_id": 121,
+      "player": "Mitoma",
+      "team_id": 5,
+      "changes": {
+        "news": {
+          "before": "Hamstring injury - Expected back 22 Nov",
+          "after": "Hamstring injury - Expected back 2 Dec"
+        }
+      }
+    },
+    {
+      "player_id": 135,
+      "player": "Yohanna",
+      "team_id": 5,
+      "changes": {
+        "news": {
+          "before": "Unspecified injury - Expected back 22 Nov",
+          "after": "Unspecified injury - Unknown return date"
+        }
+      }
+    },
+    {
+      "player_id": 328,
+      "player": "Struijk",
+      "team_id": 5,
+      "changes": {
+        "status": {
+          "before": "i",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 0,
+          "after": 100
+        },
+        "news": {
+          "before": "Hamstring injury - Expected back 8 Nov",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 639,
+      "player": "Andrés",
+      "team_id": 5,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Hip injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 652,
+      "player": "Azeez",
+      "team_id": 5,
+      "changes": {
+        "status": {
+          "before": "i",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 0,
+          "after": 100
+        },
+        "news": {
+          "before": "Hamstring injury - Expected back 8 Nov",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 251,
+      "player": "Lecomte",
+      "team_id": 10,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": null,
+          "after": 0
+        },
+        "news": {
+          "before": "",
+          "after": "Achilles injury - Unknown return date"
+        },
+        "news_added": {
+          "before": null,
+          "after": "2026-11-20T11:30:05.525769Z"
+        }
+      }
+    },
+    {
+      "player_id": 262,
+      "player": "Smith Rowe",
+      "team_id": 10,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": 100,
+          "after": 0
+        },
+        "news": {
+          "before": "",
+          "after": "Hip injury - Expected back 29 Nov"
+        },
+        "news_added": {
+          "before": "2026-10-23T11:30:09.310090Z",
+          "after": "2026-11-20T11:30:05.541395Z"
+        }
+      }
+    },
+    {
+      "player_id": 266,
+      "player": "Cairney",
+      "team_id": 10,
+      "changes": {
+        "status": {
+          "before": "i",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 0,
+          "after": 100
+        },
+        "news": {
+          "before": "Knee injury - Expected back 21 Nov",
+          "after": ""
+        }
+      }
+    }
+  ]
 }
