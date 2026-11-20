@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.19.3 — injured Best XI guard + persistent multi-GW previews.
+"""AJK Bola Wawei AI v7.19.4 — automatic stale manual XI reconciliation + multi-GW previews.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -1534,22 +1534,45 @@ def reset_draft(team_id: int, profile: dict, squad: list[dict], bank: int, from_
 
 def flagged_manual_no_shows(xi: list[dict], gw: int,
                                  fixtures: dict, projections: dict[int, float]) -> list[dict]:
-    """Warn when a manually saved XI still contains clearly unavailable players.
+    """Flag a saved XI member with near-zero xP and clear unavailability.
 
-    Do not erase deliberate user changes or turn injury *doubts* into bans.
-    The engine itself independently chooses the automatic XI.
+    An absent FPL `chance_of_playing_next_round` is *not* an injury clearance.
+    Do not treat doubtful 75%-chance players as unavailable, and avoid
+    overriding manual selections merely because another player has more xP.
     """
     result = []
     for player in xi:
         pid = int(player['id'])
-        if projections.get(pid, 0.0) > .05:
+        if projections.get(pid, 0.0) > .10:
             continue
-        status = str(player.get('status', 'a'))
+        status = str(player.get('status', 'a')).lower()
         chance = player.get('chance_of_playing_next_round')
         no_fixture = not fixtures.get((int(gw), int(player.get('team', 0))), [])
-        if status in {'i', 's', 'u', 'n'} or chance in (0, 0.0, '0') or no_fixture:
+        zero_chance = chance is not None and str(chance).strip() in {"0", "0.0"}
+        if status in {'i', 's', 'u', 'n'} or zero_chance or no_fixture:
             result.append(player)
     return result
+
+
+def stale_manual_xi_to_reset(manual_ids: set[int], squad: list[dict],
+                              auto_xi: list[dict], gw: int, fixtures: dict,
+                              projections: dict[int, float]) -> list[dict]:
+    """Return avoidably injured saved starters; no side effects.
+
+    Every time My Team is rendered, re-check saved manual selections against
+    newly computed AI recommendations. In particular, if a 0-xP injured
+    player is now benched by the AI, avoid pinning an old selection on the
+    pitch across reruns. Deliberate *fit* substitutions stay untouched.
+    """
+    if len(manual_ids) != 11:
+        return []
+    by_id = {int(p['id']): p for p in squad}
+    manual = [by_id[pid] for pid in manual_ids if pid in by_id]
+    if len(manual) != 11:
+        return []
+    ai_ids = {int(p['id']) for p in auto_xi}
+    return [p for p in flagged_manual_no_shows(manual, gw, fixtures, projections)
+            if int(p['id']) not in ai_ids]
 
 
 def restore_original_team() -> None:
@@ -2039,6 +2062,26 @@ with tab_team:
             auto_xi = lineup["xi"]
             weekly_xi = st.session_state.get("manual_xi_by_gw", {})
             manual_ids = set(weekly_xi.get(preview_gw, st.session_state.get("manual_xi", []) if preview_gw == selected_gw else []))
+            # Revalidate old manual XIs whenever FPL injury news is refreshed.
+            # An outdated manually selected 0-xP injured starter must not keep
+            # overriding the new AI XI. Do not touch transfers or saved plans.
+            invalidated = stale_manual_xi_to_reset(
+                manual_ids, preview_squad, auto_xi, preview_gw,
+                fixture_map, gw_xp,
+            )
+            if invalidated:
+                st.session_state.setdefault("manual_xi_by_gw", {}).pop(preview_gw, None)
+                st.session_state.setdefault("manual_captain_by_gw", {}).pop(preview_gw, None)
+                st.session_state.setdefault("manual_vice_by_gw", {}).pop(preview_gw, None)
+                if preview_gw == selected_gw:
+                    st.session_state.manual_xi = []
+                    st.session_state.manual_captain = None
+                manual_ids = set()
+                cleared = ", ".join(str(p.get("web_name", p['id'])) for p in invalidated)
+                st.info(f"AI Best XI refreshed for GW {preview_gw}: "
+                        f"saved starter(s) {cleared} are now flagged as unavailable. "
+                        "Only this week's manual lineup was cleared; transfers and "
+                        "your selected future plan are unchanged.")
             xi = [p for p in preview_squad if int(p["id"]) in manual_ids] if len(manual_ids) == 11 else auto_xi
             counts = Counter(int(p["element_type"]) for p in xi)
             if len(xi) != 11 or not (counts[1] == 1 and 3 <= counts[2] <= 5 and 2 <= counts[3] <= 5 and 1 <= counts[4] <= 3):
