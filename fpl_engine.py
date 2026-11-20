@@ -617,396 +617,447 @@ def backtest_report(completed: list[dict]) -> tuple[dict, list[dict], list[dict]
              for gw in sorted({r["gw"] for r in evaluated})]
     return overall, by_position, by_gw
 
-# --- v5: budget-aware, multi-GW transfer advisor ---
-# Deliberately bounded beam search: not a proven global optimum.
+# --- v7.15: scenario-aware, opportunity-aware three-plan transfer search ---
+# Searches feasible moves over time; free-transfer opportunity cost is represented
+# by which future moves remain possible, not by a large invented terminal bonus.
 
 def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: list[int],
                         fixtures: dict, bank_tenths: int, free_transfers: int = 1,
                         strategy: str = "Balanced", minutes_overrides: dict[int, float] | None = None,
                         beam_width: int = 12, candidate_count: int = 9) -> dict:
-    """Compare complete multi-GW transfer itineraries, including rolling.
+    """Return three distinct multi-GW transfer plans and the ROLL counterfactual.
 
-    This is a bounded heuristic search, not a globally optimal or calibrated model.
-    Its point forecast is the best legal XI plus an extra captain score, less hits.
-    Decision *ranking* also values saved FTs and modest bench cover; those
-    tie-breakers are deliberately NOT presented as projected FPL points.
-    Today's prices/availability are held constant and chips are excluded.
+    Expected points = best legal XI + doubled captain - 4-point transfer hits.
+    Search ranking separately considers plausible *downside scenarios*, small
+    bench coverage, and a minimal transfer-friction tie-breaker. These are
+    uncalibrated decision heuristics, not a guarantee or an FPL scoring rule.
+
+    All future player prices are held at current FPL values. Unverified news,
+    non-EPL workloads, autosub probabilities and chips are not modelled.
     """
     if not valid_squad(squad):
         raise ValueError("A complete legal 15-player squad is required.")
+    gameweeks = sorted(set(int(g) for g in gameweeks))[:6]
     if not gameweeks:
         raise ValueError("Select at least one upcoming Gameweek.")
-    if bank_tenths < 0 or not 0 <= free_transfers <= 5:
+    if int(bank_tenths) < 0 or not 0 <= int(free_transfers) <= 5:
         raise ValueError("Bank or free-transfer count is invalid.")
     if beam_width < 1 or candidate_count < 1:
         raise ValueError("Search width and candidate count must be positive.")
 
     strategy = strategy if strategy in ("Safe", "Balanced", "Aggressive") else "Balanced"
-    gameweeks = list(dict.fromkeys(int(g) for g in gameweeks))[:6]
+    # Ranking factors are deliberately small, and never added to reported xP.
+    downside_weight = {"Safe": .30, "Balanced": .14, "Aggressive": .04}[strategy]
+    cover_weight = {"Safe": .06, "Balanced": .035, "Aggressive": .012}[strategy]
+    action_friction = {"Safe": .10, "Balanced": .055, "Aggressive": .018}[strategy]
+    min_transfer_edge = {"Safe": .90, "Balanced": .55, "Aggressive": .22}[strategy]
+    if free_transfers == 5:
+        min_transfer_edge *= .5   # rolling cannot increase the FT balance at the cap
+    terminal_ft_tiebreak = .025    # << one projected FPL point, never presented as xP
+
     market = {int(p["id"]): p for p in player_pool}
-    for p in squad:
-        market[int(p["id"])] = p  # preserve manager's selling-price metadata
+    market.update({int(p["id"]): p for p in squad})
     ids0 = tuple(sorted(int(p["id"]) for p in squad))
-    sales0 = {int(p["id"]): int(p.get("selling_price", p.get("now_cost", 0))) for p in squad}
+    selling0 = {int(p["id"]): int(p.get("selling_price", p.get("now_cost", 0)))
+                for p in squad}
     positions = {pid: int(p["element_type"]) for pid, p in market.items()}
     clubs = {pid: int(p["team"]) for pid, p in market.items()}
     prices = {pid: int(p.get("now_cost", 0)) for pid, p in market.items()}
-
-    # These are conservative *decision* tie-breakers, not empirically
-    # calibrated points, so the public xP output remains unadjusted.
-    ft_value = {"Safe": 0.75, "Balanced": 0.50, "Aggressive": 0.20}[strategy]
-    bench_weight = {"Safe": 0.10, "Balanced": 0.06, "Aggressive": 0.025}[strategy]
-    # In near-ties, do not burn a transfer just because of model noise.
-    min_transfer_edge = {"Safe": 0.90, "Balanced": 0.55, "Aggressive": 0.20}[strategy]
-    if free_transfers == 5:
-        min_transfer_edge *= 0.5  # an unused FT cannot be banked beyond five
+    n_weeks = len(gameweeks)
 
     xp: dict[int, tuple[float, ...]] = {}
+    downside_xp: dict[int, tuple[float, ...]] = {}
     for pid, player in market.items():
-        values = []
-        for gw in gameweeks:
-            points = max(0.0, player_fixture_xp(player, gw, fixtures, minutes_overrides))
-            if strategy != "Aggressive":
-                minutes = (float(minutes_overrides[pid]) if minutes_overrides and pid in minutes_overrides
-                           else projected_minutes(player))
-                shortfall = max(0.0, (65.0 - minutes) / 65.0)
-                points *= 1.0 - (0.17 if strategy == "Safe" else 0.07) * shortfall
-            values.append(points)
-        xp[pid] = tuple(values)
+        series = tuple(max(0.0, player_fixture_xp(player, gw, fixtures, minutes_overrides))
+                       for gw in gameweeks)
+        xp[pid] = series
+        # The base prediction already incorporates available FPL injury flags.
+        # This is an additional conditional stress test, NOT another predicted
+        # probability of missing a match. Do not label it a confidence interval.
+        minutes = (num(minutes_overrides[pid]) if minutes_overrides and pid in minutes_overrides
+                   else projected_minutes(player))
+        status = player.get("status", "a")
+        if status in ("i", "s", "u", "n"):
+            stress = .60
+        elif status == "d":
+            stress = .70
+        elif minutes < 30:
+            stress = .72
+        elif minutes < 55:
+            stress = .81
+        elif minutes < 75:
+            stress = .91
+        else:
+            stress = .97
+        downside_xp[pid] = tuple(v * stress for v in series)
 
     horizon = {pid: sum(values) for pid, values in xp.items()}
-    # Mix strong horizon targets, next-GW prospects and affordable alternatives.
     shortlist: dict[int, list[int]] = {}
     for pos in QUOTAS:
-        eligible = [pid for pid in market if positions[pid] == pos and
-                    market[pid].get("status", "a") not in ("u", "n", "s", "i") and
-                    prices[pid] > 0]
-        long_term = sorted(eligible, key=lambda pid: horizon[pid], reverse=True)[:candidate_count]
-        immediate = sorted(eligible, key=lambda pid: xp[pid][0], reverse=True)[:4]
-        value = sorted(eligible, key=lambda pid: horizon[pid] / max(35, prices[pid]),
-                       reverse=True)[:5]
-        shortlist[pos] = list(dict.fromkeys(long_term + immediate + value))
+        eligible = [pid for pid in market if positions[pid] == pos and prices[pid] > 0 and
+                    market[pid].get("status", "a") not in ("u", "n", "s", "i")]
+        # Diversify: whole-horizon prospects, future GW specialists, cheaper
+        # budget enablers, and players with high points/price. The old shortlist
+        # sometimes missed the first leg of a useful two-player combination.
+        by_horizon = sorted(eligible, key=lambda pid: horizon[pid], reverse=True)[:candidate_count]
+        by_week = [pid for wi in range(n_weeks)
+                   for pid in sorted(eligible, key=lambda p: xp[p][wi], reverse=True)[:3]]
+        by_value = sorted(eligible, key=lambda pid: horizon[pid] / max(35, prices[pid]),
+                          reverse=True)[:4]
+        by_price = sorted(eligible, key=lambda pid: (prices[pid], -horizon[pid]))[:5]
+        shortlist[pos] = list(dict.fromkeys(by_horizon + by_week + by_value + by_price))
 
-    lineup_cache: dict[tuple[tuple[int, ...], int], tuple[float, float]] = {}
-    def lineup_metrics(ids: tuple[int, ...], wi: int) -> tuple[float, float]:
+    lineup_cache: dict[tuple[tuple[int, ...], int], tuple[float, float, float]] = {}
+
+    def lineup_metrics(ids: tuple[int, ...], wi: int) -> tuple[float, float, float]:
+        """Normal XI xP, same-lineup downside xP, first-bench reliability proxy."""
         key = (ids, wi)
         if key in lineup_cache:
             return lineup_cache[key]
         groups = {pos: sorted((pid for pid in ids if positions[pid] == pos),
-                              key=lambda pid: xp[pid][wi], reverse=True) for pos in QUOTAS}
-        best_points, best_bench = -1.0, 0.0
+                              key=lambda pid: xp[pid][wi], reverse=True)
+                  for pos in QUOTAS}
+        best_value, best_downside, best_cover = -1.0, 0.0, 0.0
         for d, m, f in FORMATIONS:
             xi = groups[1][:1] + groups[2][:d] + groups[3][:m] + groups[4][:f]
-            xi_ids = set(xi)
-            total = sum(xp[pid][wi] for pid in xi) + max(xp[pid][wi] for pid in xi)
-            if total > best_points:
-                bench_outfield = sorted((xp[pid][wi] for pid in ids
-                                         if pid not in xi_ids and positions[pid] != 1), reverse=True)
-                best_bench = sum(bench_outfield[:2])
-                best_points = total
-        result = (best_points, best_bench)
-        lineup_cache[key] = result
-        return result
+            if len(xi) != 11:
+                continue
+            captain = max(xi, key=lambda pid: xp[pid][wi])
+            normal = sum(xp[pid][wi] for pid in xi) + xp[captain][wi]
+            if normal > best_value:
+                selected = set(xi)
+                bench = sorted((downside_xp[pid][wi] for pid in ids
+                                if pid not in selected and positions[pid] != 1), reverse=True)
+                goalkeeper = [downside_xp[pid][wi] for pid in ids
+                              if pid not in selected and positions[pid] == 1]
+                best_cover = (bench[0] if bench else 0.0) + .2 * (goalkeeper[0] if goalkeeper else 0.0)
+                best_value = normal
+                best_downside = sum(downside_xp[pid][wi] for pid in xi) + downside_xp[captain][wi]
+        answer = (best_value, best_downside, best_cover)
+        lineup_cache[key] = answer
+        return answer
 
-    base_weekly = [lineup_metrics(ids0, wi)[0] for wi in range(len(gameweeks))]
-    baseline = sum(base_weekly)
+    baseline_weekly = [lineup_metrics(ids0, wi)[0] for wi in range(n_weeks)]
+    baseline = sum(baseline_weekly)
 
     def next_ft_balance(ft: int, count: int) -> int:
-        # FPL: unused FT rolls; at most 5 stored; extra transfers cost 4 each.
         return min(5, max(0, ft - count) + 1)
+
+    # A cheap per-player bound limits expensive full-XI recomputations.
+    # Exact points are still used before any transfer is put in a plan.
+    suffix_xp = {pid: tuple(sum(values[wi:]) for wi in range(n_weeks))
+                 for pid, values in xp.items()}
+    swap_cache: dict[tuple[tuple[int, ...], int, tuple[tuple[int, int], ...], int], list[tuple]] = {}
 
     def swaps_for(ids: tuple[int, ...], bank: int, sales: dict[int, int], wi: int,
                   max_options: int = 12) -> list[tuple[float, int, int, int]]:
-        owned = set(ids)
-        counts = Counter(clubs[pid] for pid in ids)
-        baseline_future = sum(lineup_metrics(ids, j)[0] + bench_weight * lineup_metrics(ids, j)[1]
-                              for j in range(wi, len(gameweeks)))
-        options = []
-        for out in ids:
-            budget = bank + sales.get(out, prices[out])
-            for incoming in shortlist[positions[out]]:
-                if incoming in owned or prices[incoming] > budget:
-                    continue
-                if counts[clubs[incoming]] >= 3 and clubs[incoming] != clubs[out]:
-                    continue
-                new_ids = tuple(sorted((owned - {out}) | {incoming}))
-                gain = sum(lineup_metrics(new_ids, j)[0] + bench_weight * lineup_metrics(new_ids, j)[1]
-                           for j in range(wi, len(gameweeks))) - baseline_future
-                # Allow a small loss for a budget-enabling move; rank cash
-                # flexibility only for candidate diversity, not as xP.
-                if gain < -2.5:
-                    continue
-                next_bank = budget - prices[incoming]
-                priority = gain + 0.015 * max(0, next_bank - bank)
-                options.append((priority, out, incoming, next_bank))
-        options.sort(key=lambda row: row[0], reverse=True)
-        return options[:max_options]
+        key = (ids, bank, tuple(sorted(sales.items())), wi)
+        raw = swap_cache.get(key)
+        if raw is None:
+            owned = set(ids)
+            counts = Counter(clubs[pid] for pid in ids)
+            rough = []
+            for old in ids:
+                sale = sales.get(old, prices[old])
+                budget = bank + sale
+                for incoming in shortlist[positions[old]]:
+                    if incoming in owned or prices[incoming] > budget:
+                        continue
+                    if counts[clubs[incoming]] >= 3 and clubs[incoming] != clubs[old]:
+                        continue
+                    new_bank = budget - prices[incoming]
+                    released = new_bank - bank
+                    rough_gain = suffix_xp[incoming][wi] - suffix_xp[old][wi]
+                    immediate = xp[incoming][wi] - xp[old][wi]
+                    rough.append((rough_gain, immediate, released, old, incoming, new_bank))
+            if not rough:
+                swap_cache[key] = []
+            else:
+                # Compare exactly only a diversified candidate group. A large
+                # league-wide shortlist otherwise creates thousands of costly
+                # formation evaluations for each beam state.
+                by_rough = sorted(rough, key=lambda r: (r[0], r[2]), reverse=True)
+                by_release = sorted((r for r in rough if r[2] >= 10),
+                                    key=lambda r: (r[2], r[0]), reverse=True)
+                by_immediate = sorted(rough, key=lambda r: (r[1], r[0]), reverse=True)
+                sample = []
+                seen = set()
+                for bucket in (by_rough[:30], by_release[:10], by_immediate[:9]):
+                    for r in bucket:
+                        if (r[3], r[4]) not in seen:
+                            sample.append(r)
+                            seen.add((r[3], r[4]))
+                baseline_future = sum(lineup_metrics(ids, j)[0] for j in range(wi, n_weeks))
+                raw = []
+                for _, _, released, old, incoming, new_bank in sample:
+                    next_ids = tuple(sorted((owned - {old}) | {incoming}))
+                    gain = sum(lineup_metrics(next_ids, j)[0]
+                               for j in range(wi, n_weeks)) - baseline_future
+                    if gain < -3.5 and released < 10:
+                        continue
+                    raw.append((gain, old, incoming, new_bank, released))
+                swap_cache[key] = raw
+        if not raw:
+            return []
+        by_gain = sorted(raw, key=lambda r: (r[0], r[4]), reverse=True)
+        by_release = sorted((r for r in raw if r[4] >= 10),
+                            key=lambda r: (r[4], r[0]), reverse=True)
+        by_now = sorted(raw, key=lambda r: (xp[r[2]][wi] - xp[r[1]][wi], r[0]), reverse=True)
+        chosen: list[tuple] = []
+        seen = set()
+        for bucket in (by_gain[:max(1, max_options - 3)], by_release[:3], by_now[:3], by_gain):
+            for row in bucket:
+                signature = (row[1], row[2])
+                if signature not in seen:
+                    chosen.append(row)
+                    seen.add(signature)
+                    if len(chosen) == max_options:
+                        break
+            if len(chosen) == max_options:
+                break
+        return [(r[0], r[1], r[2], r[3]) for r in chosen]
+
+    def move_data(out_id: int, in_id: int, sale: int) -> dict:
+        return {"out": out_id, "in": in_id,
+                "out_name": market[out_id].get("web_name", "?"),
+                "in_name": market[in_id].get("web_name", "?"),
+                "out_price": sale, "in_price": prices[in_id]}
 
     def moves_for(state: dict, wi: int):
-        ids, bank, ft, sales = state["ids"], state["bank"], state["ft"], state["sales"]
+        ids, bank, sales = state["ids"], state["bank"], state["sales"]
         yield ids, bank, sales, [], 0
         first_moves = swaps_for(ids, bank, sales, wi)
-        for _, out, incoming, bank1 in first_moves:
-            ids1 = tuple(sorted((set(ids) - {out}) | {incoming}))
+        for _, old, incoming, bank1 in first_moves:
+            ids1 = tuple(sorted((set(ids) - {old}) | {incoming}))
             sales1 = dict(sales)
-            sales1.pop(out, None)
+            sold = sales1.pop(old, prices[old])
             sales1[incoming] = prices[incoming]
-            move1 = {"out": out, "in": incoming,
-                     "out_name": market[out].get("web_name", "?"),
-                     "in_name": market[incoming].get("web_name", "?"),
-                     "out_price": sales.get(out, prices[out]),
-                     "in_price": prices[incoming]}
+            move1 = move_data(old, incoming, sold)
             yield ids1, bank1, sales1, [move1], 1
 
-        # Two transfers are always evaluated, even when one would incur a hit.
-        # The hit itself decides whether the pair is worthwhile.
-        for _, out, incoming, bank1 in first_moves[:4]:
-            ids1 = tuple(sorted((set(ids) - {out}) | {incoming}))
+        seen_pairs: set[tuple[tuple[int, int], ...]] = set()
+        pair_states = []
+        # Bring at least one cash-releasing first step into pair search.
+        for _, old, incoming, bank1 in first_moves[:6]:
+            ids1 = tuple(sorted((set(ids) - {old}) | {incoming}))
             sales1 = dict(sales)
-            sales1.pop(out, None)
+            sold = sales1.pop(old, prices[old])
             sales1[incoming] = prices[incoming]
-            second_moves = swaps_for(ids1, bank1, sales1, wi, max_options=6)
-            for _, out2, incoming2, bank2 in second_moves:
-                if out2 == incoming or incoming2 == out:
-                    continue  # no circular/undo transfers within a GW
-                ids2 = tuple(sorted((set(ids1) - {out2}) | {incoming2}))
+            move1 = move_data(old, incoming, sold)
+            for _, old2, incoming2, bank2 in swaps_for(ids1, bank1, sales1, wi, max_options=6):
+                if old2 == incoming or incoming2 == old:
+                    continue
+                pair_key = tuple(sorted(((old, incoming), (old2, incoming2))))
+                if pair_key in seen_pairs:
+                    continue
+                seen_pairs.add(pair_key)
+                ids2 = tuple(sorted((set(ids1) - {old2}) | {incoming2}))
                 sales2 = dict(sales1)
-                sales2.pop(out2, None)
+                sold2 = sales2.pop(old2, prices[old2])
                 sales2[incoming2] = prices[incoming2]
-                moves = [
-                    {"out": out, "in": incoming,
-                     "out_name": market[out].get("web_name", "?"),
-                     "in_name": market[incoming].get("web_name", "?"),
-                     "out_price": sales.get(out, prices[out]), "in_price": prices[incoming]},
-                    {"out": out2, "in": incoming2,
-                     "out_name": market[out2].get("web_name", "?"),
-                     "in_name": market[incoming2].get("web_name", "?"),
-                     "out_price": sales1.get(out2, prices[out2]), "in_price": prices[incoming2]},
-                ]
-                yield ids2, bank2, sales2, moves, 2
+                moves2 = [move1, move_data(old2, incoming2, sold2)]
+                pair_states.append((ids2, bank2, sales2, moves2))
+                yield ids2, bank2, sales2, moves2, 2
 
-        # Also consider three immediate transfers (e.g. 3 saved FTs).
-        # Limit the third-move branching to the first GW to keep free hosting
-        # responsive. Later weeks can still make up to two transfers each.
-        if wi == 0:
-            seen_triples = set()
-            for _, out, incoming, bank1 in first_moves[:3]:
-                ids1 = tuple(sorted((set(ids) - {out}) | {incoming}))
-                sales1 = dict(sales)
-                sales1.pop(out, None)
-                sales1[incoming] = prices[incoming]
-                for _, out2, incoming2, bank2 in swaps_for(ids1, bank1, sales1, wi, max_options=4):
-                    if out2 == incoming or incoming2 == out:
+        if wi == 0:  # only first GW offers three transfers; cap computational work
+            seen_triples: set[tuple[tuple[int, int], ...]] = set()
+            # Focus triple-step search on strong pairs and budget-enabling pairs.
+            ranked_pairs = sorted(pair_states,
+                                  key=lambda p: (sum(lineup_metrics(p[0], j)[0]
+                                                     for j in range(wi, n_weeks)), p[1]),
+                                  reverse=True)
+            for ids2, bank2, sales2, moves2 in ranked_pairs[:4]:
+                for _, out3, in3, bank3 in swaps_for(ids2, bank2, sales2, wi, max_options=3):
+                    if out3 in {m["in"] for m in moves2} or in3 in {m["out"] for m in moves2}:
                         continue
-                    ids2 = tuple(sorted((set(ids1) - {out2}) | {incoming2}))
-                    sales2 = dict(sales1)
-                    sales2.pop(out2, None)
-                    sales2[incoming2] = prices[incoming2]
-                    for _, out3, incoming3, bank3 in swaps_for(ids2, bank2, sales2, wi, max_options=3):
-                        if out3 in (incoming, incoming2) or incoming3 in (out, out2):
-                            continue
-                        move_pairs = tuple(sorted(((out, incoming), (out2, incoming2),
-                                                   (out3, incoming3))))
-                        if move_pairs in seen_triples:
-                            continue
-                        seen_triples.add(move_pairs)
-                        ids3 = tuple(sorted((set(ids2) - {out3}) | {incoming3}))
-                        sales3 = dict(sales2)
-                        sales3.pop(out3, None)
-                        sales3[incoming3] = prices[incoming3]
-                        moves = [{"out": old, "in": new,
-                                  "out_name": market[old].get("web_name", "?"),
-                                  "in_name": market[new].get("web_name", "?"),
-                                  "out_price": sale_price, "in_price": prices[new]}
-                                 for old, new, sale_price in
-                                 ((out, incoming, sales.get(out, prices[out])),
-                                  (out2, incoming2, sales1.get(out2, prices[out2])),
-                                  (out3, incoming3, sales2.get(out3, prices[out3])))]
-                        yield ids3, bank3, sales3, moves, 3
+                    triple_key = tuple(sorted([(m["out"], m["in"]) for m in moves2] + [(out3, in3)]))
+                    if triple_key in seen_triples:
+                        continue
+                    seen_triples.add(triple_key)
+                    ids3 = tuple(sorted((set(ids2) - {out3}) | {in3}))
+                    sales3 = dict(sales2)
+                    sold3 = sales3.pop(out3, prices[out3])
+                    sales3[in3] = prices[in3]
+                    yield ids3, bank3, sales3, moves2 + [move_data(out3, in3, sold3)], 3
 
-    states = [{"ids": ids0, "sales": sales0, "bank": int(bank_tenths),
-               "ft": int(free_transfers), "score": 0.0, "cover": 0.0,
-               "first_action": None, "plan": []}]
+    # State dedup includes sales and bank because manager sales prices may differ
+    # even with identical 15-player squads after different paths.
+    states = [{"ids": ids0, "sales": selling0, "bank": int(bank_tenths),
+               "ft": int(free_transfers), "net": 0.0, "down": 0.0,
+               "cover": 0.0, "transfers": 0, "plan": [], "first_action": None}]
+
     for wi, gw in enumerate(gameweeks):
         expanded: list[dict] = []
         for state in states:
-            for next_ids, next_bank, next_sales, moves, count in moves_for(state, wi):
-                hit = 4 * max(0, count - state["ft"])
-                points, bench_cover = lineup_metrics(next_ids, wi)
-                next_ft = next_ft_balance(state["ft"], count)
-                cumulative = state["score"] + points - hit
-                cumulative_cover = state["cover"] + bench_weight * bench_cover
-                future = sum(lineup_metrics(next_ids, j)[0] + bench_weight * lineup_metrics(next_ids, j)[1]
-                             for j in range(wi + 1, len(gameweeks)))
-                ranking = cumulative + cumulative_cover + future + ft_value * next_ft
-                first_action = state["first_action"] or ("ROLL" if count == 0 else ("ONE" if count == 1 else ("TWO" if count == 2 else "THREE")))
-                plan_item = {"gw": gw, "moves": moves, "hits": hit, "bank": next_bank,
-                             "free_transfers_before": state["ft"], "free_transfers_after": next_ft,
-                             "projected_xp": round(points, 2), "net_xp": round(points - hit, 2)}
-                expanded.append({"ids": next_ids, "sales": next_sales,
-                                 "bank": next_bank, "ft": next_ft, "score": cumulative,
-                                 "cover": cumulative_cover, "rank": ranking,
+            for ids, new_bank, sales, moves, count in moves_for(state, wi):
+                hits = 4 * max(0, count - state["ft"])
+                normal, downside, bench = lineup_metrics(ids, wi)
+                ft_after = next_ft_balance(state["ft"], count)
+                net = state["net"] + normal - hits
+                down = state["down"] + downside - hits
+                cover = state["cover"] + bench
+                transfers = state["transfers"] + count
+                future = sum(lineup_metrics(ids, j)[0] for j in range(wi + 1, n_weeks))
+                future_down = sum(lineup_metrics(ids, j)[1] for j in range(wi + 1, n_weeks))
+                # Accumulate risk penalty relative to the base forecast.
+                rank = (net + future
+                        - downside_weight * ((net + future) - (down + future_down))
+                        + cover_weight * cover - action_friction * transfers
+                        + terminal_ft_tiebreak * ft_after)
+                first_action = state["first_action"]
+                if first_action is None:
+                    first_action = ("ROLL" if count == 0 else
+                                    "ONE" if count == 1 else "TWO" if count == 2 else "THREE")
+                week = {"gw": gw, "moves": moves, "hits": hits, "bank": new_bank,
+                        "free_transfers_before": state["ft"],
+                        "free_transfers_after": ft_after,
+                        "projected_xp": round(normal, 2),
+                        "net_xp": round(normal - hits, 2)}
+                expanded.append({"ids": ids, "sales": sales, "bank": new_bank,
+                                 "ft": ft_after, "net": net, "down": down,
+                                 "cover": cover, "transfers": transfers, "rank": rank,
                                  "first_action": first_action,
-                                 "plan": state["plan"] + [plan_item]})
-
-        # Separate beams ensure the ROLL path cannot be pruned simply because
-        # early transfer states have temporarily higher projected points.
+                                 "plan": state["plan"] + [week]})
+        # Preserve four independent first-week strategies so the search can
+        # evaluate ROLL even when today's transfer has tempting immediate xP.
         kept = []
         for kind in ("ROLL", "ONE", "TWO", "THREE"):
-            unique = {}
-            candidates = sorted((s for s in expanded if s["first_action"] == kind),
-                                key=lambda s: (s["rank"], s["score"]), reverse=True)
-            for state in candidates:
-                key = (state["ids"], state["bank"], state["ft"],
-                       tuple(sorted(state["sales"].items())))
-                if key not in unique:
-                    unique[key] = state
+            unique = set()
+            group = sorted((s for s in expanded if s["first_action"] == kind),
+                           key=lambda s: (s["rank"], s["net"], s["ft"]), reverse=True)
+            for s in group:
+                sig = (s["ids"], s["ft"], s["bank"], tuple(sorted(s["sales"].items())))
+                if sig in unique:
+                    continue
+                unique.add(sig)
+                kept.append(s)
                 if len(unique) >= beam_width:
                     break
-            kept.extend(unique.values())
+        if not kept:
+            raise ValueError("Could not find a legal transfer plan.")
         states = kept
-        if not states:
-            raise ValueError("The transfer search could not find a legal plan.")
 
-    def decision_utility(state: dict) -> float:
-        return state["score"] + state["cover"] + ft_value * state["ft"]
+    def utility(s: dict) -> float:
+        return (s["net"] - downside_weight * (s["net"] - s["down"])
+                + cover_weight * s["cover"]
+                - action_friction * s["transfers"]
+                + terminal_ft_tiebreak * s["ft"])
 
-    # Preserve the best complete plan for each first-GW choice. All three
-    # alternatives optimise subsequent weeks independently.
-    best_by_kind = {
-        kind: max((s for s in states if s["first_action"] == kind),
-                  key=decision_utility, default=None)
-        for kind in ("ROLL", "ONE", "TWO", "THREE")
-    }
-    available = {kind: state for kind, state in best_by_kind.items() if state is not None}
+    def decision_score(s: dict) -> float:
+        return utility(s) - (min_transfer_edge if s["first_action"] != "ROLL" else 0.0)
+
+    preference = {"ROLL": 3, "ONE": 2, "TWO": 1, "THREE": 0}
+    kinds = ("ROLL", "ONE", "TWO", "THREE")
+    best_by_kind = {kind: max((s for s in states if s["first_action"] == kind),
+                              key=utility, default=None) for kind in kinds}
+    available = {k: s for k, s in best_by_kind.items() if s is not None}
     if not available:
         raise ValueError("No valid transfer strategies were found.")
-
-    # Penalise marginal transfer recommendations relative to rolling, to avoid
-    # acting on tiny, noisy model differences. This is a decision heuristic,
-    # not a deduction from the reported projected FPL points.
-    def adjusted_utility(kind: str, state: dict) -> float:
-        return decision_utility(state) - (min_transfer_edge if kind != "ROLL" else 0.0)
-
-    # Prefer rolling, then one transfer, on exact ties.
-    preference = {"ROLL": 3, "ONE": 2, "TWO": 1, "THREE": 0}
-    recommended_kind = max(
-        available,
-        key=lambda kind: (adjusted_utility(kind, available[kind]), preference[kind]),
-    )
-    best = available[recommended_kind]
-    best_transfer = max((available[k] for k in ("ONE", "TWO", "THREE") if k in available),
-                        key=decision_utility, default=None)
+    best_kind = max(available, key=lambda k: (decision_score(available[k]), preference[k]))
+    best = available[best_kind]
     best_roll = best_by_kind["ROLL"]
+    best_transfer = max((available[k] for k in ("ONE", "TWO", "THREE") if k in available),
+                        key=utility, default=None)
 
     options = []
-    for kind in ("ROLL", "ONE", "TWO", "THREE"):
-        state = best_by_kind[kind]
-        if state is None:
-            options.append({"key": kind, "available": False, "recommended": False,
-                            "label": {"ROLL": "Roll", "ONE": "1 Transfer", "TWO": "2 Transfers", "THREE": "3 Transfers"}[kind]})
+    for kind in kinds:
+        s = best_by_kind[kind]
+        if s is None:
+            options.append({"key": kind, "label": {"ROLL": "Roll", "ONE": "1 Transfer",
+                        "TWO": "2 Transfers", "THREE": "3 Transfers"}[kind],
+                        "available": False, "recommended": False})
             continue
-        plan = state["plan"]
-        first = plan[0]
         options.append({
-            "key": kind, "label": {"ROLL": "Roll", "ONE": "1 Transfer", "TWO": "2 Transfers", "THREE": "3 Transfers"}[kind],
-            "available": True, "recommended": kind == recommended_kind,
+            "key": kind, "label": {"ROLL": "Roll", "ONE": "1 Transfer",
+                        "TWO": "2 Transfers", "THREE": "3 Transfers"}[kind],
+            "available": True, "recommended": kind == best_kind,
             "action": "ROLL" if kind == "ROLL" else "TRANSFER",
-            "first_moves": first["moves"], "first_hit": first["hits"],
-            "first_free_transfers_after": first["free_transfers_after"],
-            "plan": plan, "expected_gain": round(state["score"] - baseline, 2),
-            "planned_net_xp": round(state["score"], 2),
-            "decision_utility": round(decision_utility(state), 3),
-            "decision_score": round(adjusted_utility(kind, state), 3),
-            "total_hits": sum(item["hits"] for item in plan),
-            "final_bank": state["bank"], "final_free_transfers": state["ft"],
+            "plan": s["plan"], "first_moves": s["plan"][0]["moves"],
+            "first_hit": s["plan"][0]["hits"],
+            "first_free_transfers_after": s["plan"][0]["free_transfers_after"],
+            "expected_gain": round(s["net"] - baseline, 2),
+            "planned_net_xp": round(s["net"], 2),
+            "decision_utility": round(utility(s), 3),
+            "decision_score": round(decision_score(s), 3),
+            "downside_scenario_net_xp": round(s["down"], 2),
+            "total_hits": sum(row["hits"] for row in s["plan"]),
+            "final_bank": s["bank"], "final_free_transfers": s["ft"],
         })
-    ranked = sorted((o for o in options if o["available"]),
-                    key=lambda o: (o["decision_score"], preference[o["key"]]), reverse=True)
-    for rank, option in enumerate(ranked, start=1):
-        option["rank"] = rank
+    ranked_options = sorted([opt for opt in options if opt["available"]],
+                            key=lambda opt: (opt["decision_score"],
+                                             preference[opt["key"]]), reverse=True)
+    for rank, opt in enumerate(ranked_options, 1):
+        opt["rank"] = rank
 
-    # Three ranked, complete transfer itineraries rather than three fixed
-    # first-GW transfer counts. Distinct first-GW moves make the comparison
-    # meaningful; a ROLL itinerary can still rank first if it is strongest.
-    preference = {"ROLL": 3, "ONE": 2, "TWO": 1, "THREE": 0}
-    ranked_states = sorted(
-        states,
-        key=lambda s: (adjusted_utility(s["first_action"], s),
-                       preference[s["first_action"]], s["score"]),
-        reverse=True,
-    )
+    # Three different itineraries. First prefer distinct immediate incoming
+    # targets; then allow different deferred plans when no more are available.
+    ranked_states = sorted(states, key=lambda s: (decision_score(s),
+                                      preference[s["first_action"]]), reverse=True)
     distinct = []
-    first_move_signatures = set()
-    full_signatures = set()
-    for candidate in ranked_states:
-        # Distinguish plans by their immediate incoming targets, not merely
-        # by which equivalent bench player gets sold.
-        first_signature = tuple(sorted(m["in"] for m in candidate["plan"][0]["moves"]))
-        full_signature = tuple(
-            tuple(sorted((m["out"], m["in"]) for m in week["moves"]))
-            for week in candidate["plan"]
-        )
-        if full_signature in full_signatures or first_signature in first_move_signatures:
+    first_signatures: set[tuple[int, ...]] = set()
+    full_signatures: set[tuple[tuple[tuple[int, int], ...], ...]] = set()
+    for s in ranked_states:
+        first_sig = tuple(sorted(m["in"] for m in s["plan"][0]["moves"]))
+        full_sig = tuple(tuple(sorted((m["out"], m["in"]) for m in row["moves"]))
+                         for row in s["plan"])
+        if first_sig in first_signatures or full_sig in full_signatures:
             continue
-        distinct.append(candidate)
-        full_signatures.add(full_signature)
-        first_move_signatures.add(first_signature)
-        if len(distinct) == 3:
+        distinct.append(s)
+        first_signatures.add(first_sig)
+        full_signatures.add(full_sig)
+        if len(distinct) >= 3:
             break
     if len(distinct) < 3:
-        for candidate in ranked_states:
-            full_signature = tuple(
-                tuple(sorted((m["out"], m["in"]) for m in week["moves"]))
-                for week in candidate["plan"]
-            )
-            if full_signature in full_signatures:
+        for s in ranked_states:
+            full_sig = tuple(tuple(sorted((m["out"], m["in"]) for m in row["moves"]))
+                             for row in s["plan"])
+            if full_sig in full_signatures:
                 continue
-            distinct.append(candidate)
-            full_signatures.add(full_signature)
-            if len(distinct) == 3:
+            distinct.append(s)
+            full_signatures.add(full_sig)
+            if len(distinct) >= 3:
                 break
 
+    # The winner of the ranked-plan list MUST agree with the top recommendation
+    # returned elsewhere; otherwise the UI could contradict itself.
+    if distinct and distinct[0] is not best:
+        distinct = [best] + [s for s in distinct if s is not best][:2]
+
     ranked_plans = []
-    for number, candidate in enumerate(distinct, 1):
-        first_week = candidate["plan"][0]
-        kind = candidate["first_action"]
+    for i, s in enumerate(distinct, 1):
+        first = s["plan"][0]
         ranked_plans.append({
-            "plan_number": number,
-            "label": f"Plan {number}",
-            "first_action": kind,
-            "recommended": number == 1,
-            "plan": candidate["plan"],
-            "first_moves": first_week["moves"],
-            "first_hit": first_week["hits"],
-            "first_free_transfers_after": first_week["free_transfers_after"],
-            "expected_gain": round(candidate["score"] - baseline, 2),
-            "planned_net_xp": round(candidate["score"], 2),
-            "decision_score": round(adjusted_utility(kind, candidate), 3),
-            "total_hits": sum(w["hits"] for w in candidate["plan"]),
-            "final_bank": candidate["bank"],
-            "final_free_transfers": candidate["ft"],
+            "plan_number": i, "label": f"Plan {i}",
+            "first_action": s["first_action"], "recommended": i == 1,
+            "plan": s["plan"], "first_moves": first["moves"],
+            "first_hit": first["hits"],
+            "first_free_transfers_after": first["free_transfers_after"],
+            "expected_gain": round(s["net"] - baseline, 2),
+            "planned_net_xp": round(s["net"], 2),
+            "decision_score": round(decision_score(s), 3),
+            "downside_scenario_net_xp": round(s["down"], 2),
+            "total_hits": sum(row["hits"] for row in s["plan"]),
+            "final_bank": s["bank"], "final_free_transfers": s["ft"],
         })
 
-    plan = best["plan"]
-    first = plan[0]
+    first = best["plan"][0]
     return {
         "ranked_plans": ranked_plans,
-        "action": "ROLL" if recommended_kind == "ROLL" else "TRANSFER",
-        "recommended_option": recommended_kind, "options": options,
-        "plan": plan, "first_moves": first["moves"], "first_hit": first["hits"],
-        "expected_gain": round(best["score"] - baseline, 2),
-        "baseline_xp": round(baseline, 2),
-        "planned_net_xp": round(best["score"], 2),
-        "total_hits": sum(item["hits"] for item in plan), "final_bank": best["bank"],
-        "final_free_transfers": best["ft"],
-        "baseline_weekly": [round(v, 2) for v in base_weekly],
-        "roll_first_net_xp": round(best_roll["score"], 2) if best_roll else None,
-        "transfer_first_net_xp": round(best_transfer["score"], 2) if best_transfer else None,
-        "roll_first_decision_utility": round(decision_utility(best_roll), 2) if best_roll else None,
-        "transfer_first_decision_utility": round(decision_utility(best_transfer), 2) if best_transfer else None,
+        "action": "ROLL" if best_kind == "ROLL" else "TRANSFER",
+        "recommended_option": best_kind, "options": options,
+        "plan": best["plan"], "first_moves": first["moves"], "first_hit": first["hits"],
+        "expected_gain": round(best["net"] - baseline, 2),
+        "baseline_xp": round(baseline, 2), "planned_net_xp": round(best["net"], 2),
+        "total_hits": sum(row["hits"] for row in best["plan"]),
+        "final_bank": best["bank"], "final_free_transfers": best["ft"],
+        "baseline_weekly": [round(x, 2) for x in baseline_weekly],
+        "roll_first_net_xp": round(best_roll["net"], 2) if best_roll else None,
+        "transfer_first_net_xp": round(best_transfer["net"], 2) if best_transfer else None,
+        "roll_first_decision_utility": round(utility(best_roll), 2) if best_roll else None,
+        "transfer_first_decision_utility": round(utility(best_transfer), 2) if best_transfer else None,
         "decision_margin": min_transfer_edge,
-        "method": ("Bounded three-branch beam search: compare ROLL vs 1 vs 2 transfers this GW; "
-                   "up to 3 immediate moves and 1–2 per subsequent GW, legal squads, current selling prices, 4-point hits; "
-                   "XI+captain xP, with uncalibrated bench/FT tie-breakers; no chips/price forecasts"),
+        "method": ("Bounded opportunity-aware beam search: 0–3 moves in the first GW; 0–2 later, "
+                   "legal 15-player squads, 5-FT rollover, 4-point hits, manager selling prices. "
+                   "Rank by XI+captain net xP, with explicitly heuristic downside/bench and small "
+                   "transfer-friction tie-breakers. Current prices held fixed; no chips or auto-subs."),
     }
