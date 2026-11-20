@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI: free, transparent FPL estimators and squad tools.
+"""AJK Bola Wawei AI v7.17: free, transparent FPL estimators and squad tools.
 
 No paid model, no official xP claim. All monetary amounts are FPL tenths.
 """
@@ -44,18 +44,60 @@ def fixture_lookup(fixtures: list[dict]) -> dict[tuple[int, int], list[dict]]:
 
 # Match-derived team strength and per-GW projections are cached for fast optimiser runs.
 # Streamlit configures this once per rerun using current FPL public data.
-_MODEL = {"attack": {}, "defence": {}, "league_goals": 1.42, "games": {}, "cache": {}, "calibration": {}, "calibration_n": 0, "residual_width": {}}
+_MODEL = {"attack": {}, "defence": {}, "league_goals": 1.42, "games": {}, "cache": {}, "calibration": {}, "calibration_n": 0, "residual_width": {},
+          "attack_venue": {}, "defence_venue": {}}
 
 
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
-def configure_projection_context(teams: list[dict], fixtures_raw: list[dict]) -> None:
-    """Learn shrunk home/away attacking/defensive strengths from completed fixtures.
+def _official_team_priors(teams: list[dict]) -> tuple[dict, dict, dict, dict]:
+    """Bounded FPL rating priors, normalised within the current season's clubs.
 
-    Strengths are descriptive and not fitted to future results; low-sample data
-    is pulled toward league average. Clear cached xP when source data changes.
+    FPL's attack ratings are stronger when HIGHER; its defence ratings are
+    stronger when HIGHER, meaning the *goals-conceded multiplier* is inverted.
+    Missing/malformed ratings have a neutral multiplier of 1.0. Venue effects
+    are centred around each club's average, preventing home/away prior from
+    being counted twice alongside the explicit league home advantage.
+    """
+    fields = ("strength_attack_home", "strength_attack_away",
+              "strength_defence_home", "strength_defence_away")
+    averages = {}
+    for field in fields:
+        values = [num(t.get(field)) for t in teams if num(t.get(field)) > 0]
+        averages[field] = mean(values) if len(values) >= 10 else 0.0
+
+    attack_prior, conceded_prior, attack_venue, defence_venue = {}, {}, {}, {}
+    for club in teams:
+        tid = int(club["id"])
+        relative = {}
+        for field in fields:
+            rating, avg = num(club.get(field)), averages[field]
+            relative[field] = clamp(rating / avg, .65, 1.55) if rating > 0 and avg else 1.0
+        ah, aa = relative["strength_attack_home"], relative["strength_attack_away"]
+        dh, da = relative["strength_defence_home"], relative["strength_defence_away"]
+        attack_prior[tid] = clamp((ah * aa) ** .30, .78, 1.25)
+        conceded_prior[tid] = clamp((dh * da) ** (-.30), .78, 1.25)
+        attack_venue[tid] = {
+            True: clamp((ah / max((ah * aa) ** .5, .01)) ** .35, .93, 1.07),
+            False: clamp((aa / max((ah * aa) ** .5, .01)) ** .35, .93, 1.07),
+        }
+        defence_venue[tid] = {
+            True: clamp((max((dh * da) ** .5, .01) / dh) ** .35, .93, 1.07),
+            False: clamp((max((dh * da) ** .5, .01) / da) ** .35, .93, 1.07),
+        }
+    return attack_prior, conceded_prior, attack_venue, defence_venue
+
+
+def configure_projection_context(teams: list[dict], fixtures_raw: list[dict]) -> None:
+    """Estimate team goals-for and goals-against multipliers without leakage.
+
+    Mix previous *completed* league results with a bounded 8-match equivalent
+    prior from official FPL home/away team strength. Early in a season this
+    gives promoted teams and strong opponents a reasonable initial estimate;
+    completed matches gradually displace the prior. Venue ratings have only a
+    small additional effect. No future scores are used.
     """
     gf: dict[int, float] = {}
     ga: dict[int, float] = {}
@@ -76,15 +118,19 @@ def configure_projection_context(teams: list[dict], fixtures_raw: list[dict]) ->
         total_goals += int(hs) + int(aws)
         finished += 1
     league = clamp(total_goals / (2 * finished), 1.1, 1.9) if finished else 1.42
+    priors_a, priors_d, venue_a, venue_d = _official_team_priors(teams)
     attack, defence = {}, {}
     for t in teams:
         tid = int(t["id"])
         count = matches.get(tid, 0)
-        # Eight-match equivalent prior, avoiding noisy early-season rankings.
-        attack[tid] = clamp((gf.get(tid, 0) + 8 * league) / ((count + 8) * league), .67, 1.48)
-        defence[tid] = clamp((ga.get(tid, 0) + 8 * league) / ((count + 8) * league), .67, 1.48)
+        # FPL strength is a *prior*, never a guarantee and never a direct xP.
+        attack[tid] = clamp((gf.get(tid, 0) + 8 * league * priors_a[tid]) /
+                            ((count + 8) * league), .67, 1.48)
+        defence[tid] = clamp((ga.get(tid, 0) + 8 * league * priors_d[tid]) /
+                             ((count + 8) * league), .67, 1.48)
     _MODEL.update({"attack": attack, "defence": defence, "league_goals": league,
-                   "games": matches, "cache": {}})
+                   "games": matches, "attack_venue": venue_a,
+                   "defence_venue": venue_d, "cache": {}})
 
 
 def availability(player: dict) -> float:
@@ -207,9 +253,18 @@ def _fixture_components(player: dict, opponent: int, home: bool,
     opponent_factor = (a.get(team, 1) * d.get(opponent, 1)) ** .58
     fixture_factor = clamp(1.03 - .065 * (difficulty - 3), .80, 1.20)
     attack_factor = clamp(opponent_factor * fixture_factor * (1.08 if home else .94), .62, 1.48)
+    # Critical v7.17 fix: the previous model used fixture difficulty ONLY for
+    # attacking returns. Opponent strength, venue and official fixture
+    # difficulty must also influence a defender/GK's clean-sheet expectation.
+    # FDR is a *modest residual* correction because learned team strengths
+    # already capture most of the matchup; avoid counting it at full weight.
+    fdr_conceded = clamp(1.0 + .065 * (difficulty - 3), .87, 1.13)
+    venue_opp_attack = _MODEL.get("attack_venue", {}).get(opponent, {}).get(not home, 1.0)
+    venue_own_defence = _MODEL.get("defence_venue", {}).get(team, {}).get(home, 1.0)
     expected_opp_goals = clamp(_MODEL["league_goals"] *
                               a.get(opponent, 1) * d.get(team, 1) *
-                              (0.94 if home else 1.08), .45, 2.9)
+                              (0.94 if home else 1.08) * fdr_conceded *
+                              venue_opp_attack * venue_own_defence, .35, 3.3)
     played_fraction = clamp(minutes / 90, 0, 1)
     # Expected share of matches in which the player reaches 60 minutes.
     chance_60 = clamp((minutes - 14) / 70, 0, 1)
@@ -250,7 +305,8 @@ def _fixture_components(player: dict, opponent: int, home: bool,
             "clean_sheet": cs_pts, "saves": saves, "goals_conceded": conceding,
             "bonus": bonus, "defensive_contributions": dc, "discipline": discipline,
             "goal_expectation": goal_exp, "assist_expectation": assist_exp,
-            "cs_probability": cs_probability * chance_60, "expected_minutes": minutes}
+            "cs_probability": cs_probability * chance_60, "expected_minutes": minutes,
+            "expected_opponent_goals": expected_opp_goals}
 
 
 def player_prediction(player: dict, gw: int, fixtures: dict,
@@ -268,6 +324,7 @@ def player_prediction(player: dict, gw: int, fixtures: dict,
                                   "goals_conceded", "bonus", "defensive_contributions", "discipline",
                                   "goal_expectation", "assist_expectation")}
     cs_probs = []
+    opponent_goals = []
     variance = 0.0
     pos = int(player.get("element_type", 3))
     for match in games:
@@ -276,6 +333,7 @@ def player_prediction(player: dict, gw: int, fixtures: dict,
         for k in totals:
             totals[k] += comp[k]
         cs_probs.append(comp["cs_probability"])
+        opponent_goals.append(comp["expected_opponent_goals"])
         variance += ({1: 10, 2: 6, 3: 5, 4: 4}[pos] ** 2 * comp["goal_expectation"]
                      + 9 * comp["assist_expectation"]
                      + ({1: 4, 2: 4, 3: 1, 4: 0}[pos] ** 2) *
@@ -293,7 +351,8 @@ def player_prediction(player: dict, gw: int, fixtures: dict,
               "calibration": round(xp - raw_xp, 2),
               "lower": round(max(0, xp - width), 1),
               "upper": round(xp + width, 1), "minutes": minutes,
-              "fixtures_count": len(games), "cs_probability": round(sum(cs_probs), 3)}
+              "fixtures_count": len(games), "cs_probability": round(sum(cs_probs), 3),
+              "expected_opponent_goals": round(sum(opponent_goals), 2)}
     _MODEL["cache"][key] = output
     return output
 
@@ -386,34 +445,89 @@ def valid_squad(squad: list[dict]) -> bool:
 def best_lineup(squad: list[dict], gw: int, fixtures: dict,
                 minutes_overrides: dict[int, float] | None = None,
                 captain_id: int | None = None) -> dict:
-    """Optimal legal formation and bench, based on estimated xP."""
+    """Select the legal XI with maximum predicted points for this Gameweek.
+
+    Fixture difficulty and minutes reliability are reflected in individual xP.
+    A more attractive fixture does not automatically win; when XI scores tie
+    at displayed precision, use projected minutes as the deterministic
+    reliability tiebreaker. Include an optional close-call audit in the result
+    so an explanation can be surfaced without modifying the pitch UI.
+    """
     if not valid_squad(squad):
         raise ValueError("A squad requires 2 GKP, 5 DEF, 5 MID, 3 FWD and at most 3 from each club.")
+    by_id = {int(p["id"]): p for p in squad}
+    xp = {pid: player_fixture_xp(p, gw, fixtures, minutes_overrides)
+          for pid, p in by_id.items()}
+    overrides = minutes_overrides or {}
+    minutes = {pid: clamp(num(overrides[pid]), 0, 90) if pid in overrides
+               else projected_minutes(p)
+               for pid, p in by_id.items()}
     groups = {pos: sorted((p for p in squad if int(p["element_type"]) == pos),
-                           key=lambda p: player_fixture_xp(p, gw, fixtures, minutes_overrides),
-                           reverse=True) for pos in QUOTAS}
-    chosen = [groups[1][0]]
-    score = player_fixture_xp(chosen[0], gw, fixtures, minutes_overrides)
-    best = None
+                          key=lambda p: (xp[int(p["id"])], minutes[int(p["id"])]),
+                          reverse=True)
+              for pos in QUOTAS}
+    goalkeeper = groups[1][0]
+    best, best_score, best_minutes = None, float("-inf"), float("-inf")
     for defenders, midfielders, forwards in FORMATIONS:
-        xi = chosen + groups[2][:defenders] + groups[3][:midfielders] + groups[4][:forwards]
-        xi_score = sum(player_fixture_xp(p, gw, fixtures, minutes_overrides) for p in xi)
-        if best is None or xi_score > score:
-            best, score = xi, xi_score
-    xi = best or (chosen + groups[2][:3] + groups[3][:5] + groups[4][:2])
+        candidate = [goalkeeper] + groups[2][:defenders] + groups[3][:midfielders] + groups[4][:forwards]
+        candidate_xp = sum(xp[int(p["id"])] for p in candidate)
+        candidate_minutes = sum(minutes[int(p["id"])] for p in candidate)
+        # Only tie-break when projected points are exactly equal in practice.
+        # A meaningful xP difference must not be overturned by fixture labels.
+        if (candidate_xp > best_score + .000001 or
+            (abs(candidate_xp - best_score) <= .000001 and candidate_minutes > best_minutes)):
+            best, best_score, best_minutes = candidate, candidate_xp, candidate_minutes
+    xi = best
     ids = {int(p["id"]) for p in xi}
-    bench = sorted([p for p in squad if int(p["id"]) not in ids],
-                   key=lambda p: (int(p["element_type"]) == 1,
-                                  -player_fixture_xp(p, gw, fixtures, minutes_overrides)))
+    bench = sorted((p for p in squad if int(p["id"]) not in ids),
+                   key=lambda p: (int(p["element_type"]) == 1, -xp[int(p["id"])]))
     captain = next((p for p in xi if int(p["id"]) == captain_id), None)
     if captain is None:
-        captain = max(xi, key=lambda p: player_fixture_xp(p, gw, fixtures, minutes_overrides))
-    vice = max((p for p in xi if p["id"] != captain["id"]),
-               key=lambda p: player_fixture_xp(p, gw, fixtures, minutes_overrides))
-    captain_xp = player_fixture_xp(captain, gw, fixtures, minutes_overrides)
+        captain = max(xi, key=lambda p: xp[int(p["id"])])
+    vice = max((p for p in xi if int(p["id"]) != int(captain["id"])),
+               key=lambda p: xp[int(p["id"])])
+    captain_xp = xp[int(captain["id"])]
+
+    # Each close call is a single legal XI-for-bench substitution within
+    # 0.5 xP. The margin is *not* a calibrated probability/confidence bound.
+    # No automatic substitution is forced for a marginal difference.
+    close_calls = []
+    for alternate in bench:
+        aid = int(alternate["id"])
+        alternatives = []
+        for starter in xi:
+            sid = int(starter["id"])
+            swapped = Counter(int(p["element_type"]) for p in xi)
+            swapped[int(starter["element_type"])] -= 1
+            swapped[int(alternate["element_type"])] += 1
+            if not (swapped[1] == 1 and 3 <= swapped[2] <= 5 and
+                    2 <= swapped[3] <= 5 and 1 <= swapped[4] <= 3):
+                continue
+            gap = round(xp[sid] - xp[aid], 2)
+            if -0.001 <= gap <= .50:
+                sfx = fixtures.get((int(gw), int(starter.get("team", 0))), [])
+                afx = fixtures.get((int(gw), int(alternate.get("team", 0))), [])
+                alternatives.append({
+                    "starter_id": sid, "starter": str(starter.get("web_name", sid)),
+                    "alternative_id": aid, "alternative": str(alternate.get("web_name", aid)),
+                    "starter_xp": round(xp[sid], 2), "alternative_xp": round(xp[aid], 2),
+                    "xp_margin": gap, "position": POSITION_NAMES.get(int(alternate["element_type"])),
+                    "starter_difficulty": [int(f.get("difficulty", 3)) for f in sfx],
+                    "alternative_difficulty": [int(f.get("difficulty", 3)) for f in afx],
+                    "note": "Close xP projections; fixture labels alone cannot determine the better start.",
+                })
+        # Show one most relevant swap per benched player, not six variants
+        # for one midfielder while a defender close call goes unnoticed.
+        if alternatives:
+            alternatives.sort(key=lambda c: (c["xp_margin"],
+                          int(by_id[c["starter_id"]]["element_type"] !=
+                              alternate["element_type"]), c["starter_id"]))
+            close_calls.append(alternatives[0])
+    close_calls.sort(key=lambda item: (item["xp_margin"], item["starter_id"], item["alternative_id"]))
     return {"xi": xi, "bench": bench, "captain": captain, "vice": vice,
-            "xi_xp": round(score, 2), "captain_xp": captain_xp,
-            "total_xp": round(score + captain_xp, 2)}
+            "xi_xp": round(best_score, 2), "captain_xp": captain_xp,
+            "total_xp": round(best_score + captain_xp, 2),
+            "close_calls": close_calls[:6]}
 
 
 def team_rating(squad: list[dict], gameweeks: list[int], fixtures: dict,
