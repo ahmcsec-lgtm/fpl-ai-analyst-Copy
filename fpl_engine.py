@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.19.1: transfer patience and long-term plan hygiene.
+"""AJK Bola Wawei AI v7.19.3: injury-aware Best XI selection + v7.19.1 transfers.
 
 No paid model, no official xP claim. All monetary amounts are FPL tenths.
 """
@@ -610,8 +610,18 @@ def best_lineup(squad: list[dict], gw: int, fixtures: dict,
     groups = {pos: sorted((p for p in squad if int(p['element_type']) == pos),
                           key=lambda p: (xp[int(p['id'])], minutes[int(p['id'])]),
                           reverse=True) for pos in QUOTAS}
-    best, best_score, best_minutes = None, float('-inf'), float('-inf')
-    best_bench, best_evaluation = None, None
+    # Scenario-aware scoring includes automatic substitutions. A confirmed
+    # non-player can otherwise be selected *on purpose* so that the projected
+    # bench replacement earns points via auto-sub: sometimes this even ranks
+    # above simply starting the healthy player. This is fragile and confusing
+    # when a legal XI with fewer non-playing players exists. Select among the
+    # formations requiring the fewest confirmed no-show starters first.
+    # A 0-xP player with a meaningful chance to feature is NOT excluded.
+    confirmed_no_shows = {
+        pid for pid in by_id
+        if xp[pid] <= .05 and appearances[pid] <= .02
+    }
+    formations = []
     for defenders, midfielders, forwards in FORMATIONS:
         candidate = ([groups[1][0]] + groups[2][:defenders] +
                      groups[3][:midfielders] + groups[4][:forwards])
@@ -620,6 +630,15 @@ def best_lineup(squad: list[dict], gw: int, fixtures: dict,
         bench = sorted((p for p in squad if int(p['id']) not in selected),
                        key=lambda p: (int(p['element_type']) == 1, -xp[int(p['id'])]))
         bench_ids = [int(p['id']) for p in bench]
+        absent_count = len(selected & confirmed_no_shows)
+        formations.append((candidate, bench, xi_ids, bench_ids, absent_count))
+
+    fewest_no_shows = min(row[4] for row in formations)
+    best, best_score, best_minutes = None, float('-inf'), float('-inf')
+    best_bench, best_evaluation = None, None
+    for candidate, bench, xi_ids, bench_ids, absent_count in formations:
+        if absent_count > fewest_no_shows:
+            continue
         evaluation = _scenario_lineup_evaluation(xi_ids, bench_ids, xp,
                                                    appearances, positions, captain_id)
         candidate_score = evaluation['total']
