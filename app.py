@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.8 — premium cinematic pitch + reliable captaincy badges, preserving the full FPL planner.
+"""AJK Bola Wawei AI v7.13 — ranked multi-GW transfer plan comparison, preserving the premium dashboard.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -2070,34 +2070,39 @@ with tab_team:
 
 with tab_transfers:
     st.subheader("🧠 Smart Transfer Advisor")
-    st.caption("Looks ahead across your selected Gameweeks. Compares rolling, one transfer and two-transfer combinations, including hits and captaincy.")
-    st.caption(f"Inputs: FPL statistics, completed-match minutes and FPL availability · "
-               f"FPL checked {fpl_checked_at} · BBC headlines shown for context only.")
+    st.caption("Compare the three strongest **complete transfer plans** across your selected Gameweeks. "
+               "Each plan may roll or make up to three immediate transfers, with up to two in later Gameweeks.")
+    st.caption(f"Based on FPL statistics, recent EPL minutes and availability · FPL checked {fpl_checked_at}. "
+               "News headlines are context only.")
     settings_key = (st.session_state.loaded_id, tuple(sorted(int(p["id"]) for p in squad)),
                     bank, ft, tuple(gws), strategy, tuple(sorted(minutes_overrides.items())),
                     tuple(sorted((int(p["id"]), p.get("_ajk_recent_minutes")) for p in squad)))
     if st.session_state.get("advisor_key") != settings_key:
         st.session_state.advisor_result = None
 
-    current_advice = st.session_state.get("advisor_result")
-    if current_advice and st.session_state.get("advisor_key") == settings_key:
-        if current_advice["action"] == "ROLL":
-            verdict_text = "Roll your free transfer"
-            verdict_reason = "The optimiser prefers waiting across your selected Gameweeks, after accounting for projected XI points, captaincy and hits."
-        else:
-            verdict_text = "A transfer could improve your squad"
-            verdict_reason = f"The current proposed plan estimates {current_advice['expected_gain']:+.1f} net points versus no transfers across the horizon. Check the recommendations below."
+    advice = st.session_state.get("advisor_result")
+    if advice and st.session_state.get("advisor_key") == settings_key:
+        verdict_text = "Recommended: Plan 1"
+        verdict_reason = ("Highest decision score across the selected Gameweeks. "
+                          "Compare the full plans below before applying any transfers.")
     else:
-        verdict_text = "Your squad is ready for analysis"
-        verdict_reason = "Run the Smart Transfer Advisor to compare transfers against rolling. The verdict will use your actual imported squad and selected settings."
-    st.markdown(f'<div class="ajk-verdict"><div class="eyebrow">✦ AI MANAGER’S VERDICT</div><strong>{html.escape(verdict_text)}</strong><div class="explain">{html.escape(verdict_reason)}</div></div>', unsafe_allow_html=True)
+        verdict_text = "Compare your best three transfer plans"
+        verdict_reason = "Find the best complete transfer sequences, not just this week's replacements."
+    st.markdown(
+        f'<div class="ajk-verdict"><div class="eyebrow">✦ AI MANAGER’S VERDICT</div>'
+        f'<strong>{html.escape(verdict_text)}</strong>'
+        f'<div class="explain">{html.escape(verdict_reason)}</div></div>',
+        unsafe_allow_html=True,
+    )
 
-    if st.button("✨ Find my best transfer strategy", type="primary", use_container_width=True):
+    if st.button("✨ Generate my 3 best transfer plans", type="primary", use_container_width=True):
         try:
-            with st.spinner("Comparing legal transfers and the option to roll..."):
-                result = smart_transfer_plan(squad, players, gws, fixture_map, bank,
-                                             free_transfers=ft, strategy=strategy,
-                                             minutes_overrides=minutes_overrides)
+            with st.spinner("Searching and ranking complete Gameweek transfer plans..."):
+                result = smart_transfer_plan(
+                    squad, players, gws, fixture_map, bank,
+                    free_transfers=ft, strategy=strategy,
+                    minutes_overrides=minutes_overrides,
+                )
             st.session_state.advisor_result = result
             st.session_state.advisor_key = settings_key
         except (KeyError, ValueError, TypeError) as exc:
@@ -2105,51 +2110,155 @@ with tab_transfers:
 
     advice = st.session_state.get("advisor_result")
     if advice and st.session_state.get("advisor_key") == settings_key:
-        if advice["action"] == "ROLL":
-            st.success("**Best action for this GW: ROLL your free transfer.** The model found more value in waiting across the chosen horizon.")
+        plans = advice.get("ranked_plans", [])
+        if not plans:
+            st.warning("No complete transfer plans were found. Please retry with a different horizon.")
         else:
-            moves = advice["first_moves"]
-            st.success("**Recommended now:** " + " + ".join(f"{m['out_name']} → {m['in_name']}" for m in moves))
-            st.markdown(transfer_faces_html(moves, player_by_id), unsafe_allow_html=True)
-        p1, p2, p3 = st.columns(3)
-        p1.metric("Net projected gain", f"{advice['expected_gain']:+.1f} pts")
-        p2.metric("Hits this GW", f"-{advice['first_hit']} pts")
-        p3.metric("Horizon net xP", f"{advice['planned_net_xp']:.1f}")
-        st.caption("Projected difference versus making no transfers; includes future simulated moves and any predicted hit costs. Not a guaranteed gain.")
-        if advice["first_moves"]:
-            if st.button("Apply recommended transfers to my draft", use_container_width=True):
+            def apply_first_week_of_plan(chosen: dict) -> None:
+                """Only commit immediate moves to the simulated draft, never the real FPL team."""
                 proposed = [dict(p) for p in squad]
                 draft_bank = bank
                 try:
-                    for move in advice["first_moves"]:
-                        out = next(p for p in proposed if int(p["id"]) == move["out"])
-                        new_player = player_by_id[move["in"]]
-                        draft_bank += int(out.get("selling_price", out["now_cost"])) - int(new_player["now_cost"])
+                    for move in chosen["first_moves"]:
+                        outgoing = next(p for p in proposed if int(p["id"]) == move["out"])
+                        incoming = player_by_id[move["in"]]
+                        draft_bank += int(outgoing.get("selling_price", outgoing["now_cost"])) - int(incoming["now_cost"])
                         proposed = [p for p in proposed if int(p["id"]) != move["out"]]
-                        proposed.append({**new_player, "selling_price": int(new_player["now_cost"])})
+                        proposed.append({**incoming, "selling_price": int(incoming["now_cost"])})
                     if not valid_squad(proposed) or draft_bank < 0:
-                        raise ValueError("An invalid proposal was produced; no draft was changed.")
+                        raise ValueError("Invalid squad or budget. Your draft has not been changed.")
                     st.session_state.draft = proposed
                     st.session_state.bank = draft_bank
-                    st.session_state.draft_moves += advice["first_moves"]
+                    st.session_state.setdefault("draft_moves", []).extend(chosen["first_moves"])
                     st.session_state.manual_xi = []
                     st.session_state.manual_captain = None
                     st.session_state.manual_xi_by_gw = {}
                     st.session_state.manual_captain_by_gw = {}
                     st.session_state.manual_vice_by_gw = {}
                     st.session_state.advisor_result = None
+                    st.session_state.advisor_key = None
                     clear_pitch_actions()
                     st.rerun()
                 except (ValueError, StopIteration, KeyError) as exc:
-                    st.error(str(exc))
-        with st.expander("View the full Gameweek-by-Gameweek plan"):
-            for row in advice["plan"]:
-                desc = "Roll / no transfers" if not row["moves"] else ", ".join(
-                    f"{m['out_name']} → {m['in_name']}" for m in row["moves"])
-                st.write(f"**GW {row['gw']}** — {desc} · {row['projected_xp']:.1f} xP · "
-                         f"-{row['hits']} hit · {row['free_transfers_after']} FT next GW · Bank {money(row['bank'])}")
-            st.caption("Future transfers use today's prices and availability; re-run after every deadline or price change. The bounded search may miss a better plan.")
+                    st.error(f"Could not apply transfers: {exc}")
 
+            # Local styling only: the existing AJK dark/emerald theme stays intact.
+            st.markdown("""
+            <style>
+            .ajk-plans-scroll{overflow-x:auto;max-width:100%;border:1px solid rgba(44,211,162,.24);
+                border-radius:16px;background:linear-gradient(155deg,rgba(5,30,40,.97),rgba(3,21,32,.94));
+                box-shadow:0 10px 30px rgba(0,0,0,.13);margin:.55rem 0 1rem}
+            .ajk-plans-grid{display:grid;grid-template-columns:80px repeat(3,minmax(200px,1fr));min-width:710px}
+            .ajk-plans-head{padding:15px 13px 12px;border-bottom:1px solid rgba(64,213,170,.24);
+                border-right:1px solid rgba(160,230,212,.10);background:rgba(8,48,55,.56)}
+            .ajk-plans-head.best{background:linear-gradient(160deg,rgba(5,105,78,.38),rgba(5,45,49,.55))}
+            .ajk-plan-title{font-size:1.12rem;font-weight:800;letter-spacing:.01em;color:#e8fff7}
+            .ajk-plan-score{font-size:1.5rem;font-weight:800;color:#35e9ac;font-variant-numeric:tabular-nums}
+            .ajk-plan-sub{font-size:.74rem;color:#a7c7c8;margin-top:5px}
+            .ajk-plan-best{display:inline-block;border:1px solid #31dca0;color:#43efb3;
+                font-size:.66rem;border-radius:5px;padding:2px 7px;margin-top:6px}
+            .ajk-plan-cell{padding:12px 11px;border-right:1px solid rgba(160,230,212,.10);
+                border-bottom:1px solid rgba(160,230,212,.13);min-height:100px}
+            .ajk-plan-cell.best{background:rgba(14,86,70,.12)}
+            .ajk-plan-gw{color:#36e4a9;font-size:1rem;font-weight:800;letter-spacing:.04em;
+                border-right:1px solid rgba(160,230,212,.10);border-bottom:1px solid rgba(160,230,212,.13);
+                display:flex;align-items:center;justify-content:center;background:rgba(4,35,42,.8)}
+            .ajk-plan-meta{font-size:.69rem;color:#b0cbcc;margin-bottom:9px;text-align:right}
+            .ajk-plan-move{display:flex;gap:7px;align-items:baseline;justify-content:center;
+                margin:5px 0;flex-wrap:wrap;font-size:.86rem}
+            .ajk-plan-out{color:#ff8b93}.ajk-plan-in{color:#45e7ac}.ajk-plan-arrow{color:#a9c5d2}
+            .ajk-plan-roll{text-align:center;color:#a9c5c8;font-size:.84rem;margin-top:15px}
+            .ajk-plan-hit{color:#f7bf77;font-size:.72rem;text-align:center;margin-top:7px}
+            </style>""", unsafe_allow_html=True)
+
+            def make_comparison_html(items: list[dict]) -> str:
+                cells = [f'<div class="ajk-plans-scroll"><div class="ajk-plans-grid" style="grid-template-columns:80px repeat({len(items)},minmax(200px,1fr))">',
+                         '<div class="ajk-plans-head"></div>']
+                for plan in items:
+                    best = " best" if plan["recommended"] else ""
+                    best_tag = '<span class="ajk-plan-best">★ AI BEST PLAN</span>' if plan["recommended"] else ""
+                    cells.append(
+                        f'<div class="ajk-plans-head{best}">'
+                        f'<div class="ajk-plan-title">PLAN {plan["plan_number"]:02d}</div>'
+                        f'<div class="ajk-plan-score">{plan["planned_net_xp"]:.1f} xP</div>'
+                        f'<div class="ajk-plan-sub">{plan["expected_gain"]:+.1f} vs no transfers · '
+                        f'{plan["total_hits"]} hit points</div>'
+                        f'{best_tag}'
+                        '</div>'
+                    )
+                for wi, gw in enumerate(gws):
+                    cells.append(f'<div class="ajk-plan-gw">GW {gw}</div>')
+                    for plan in items:
+                        row = plan["plan"][wi]
+                        best = " best" if plan["recommended"] else ""
+                        meta = (f'{len(row["moves"])}/{row["free_transfers_before"]} FT · '
+                                f'Bank {html.escape(money(row["bank"]))}')
+                        cells.append(f'<div class="ajk-plan-cell{best}">'
+                                     f'<div class="ajk-plan-meta">{meta}</div>')
+                        if row["moves"]:
+                            for move in row["moves"]:
+                                cells.append('<div class="ajk-plan-move">'
+                                             f'<span class="ajk-plan-out">{html.escape(move["out_name"])}</span>'
+                                             '<span class="ajk-plan-arrow">➜</span>'
+                                             f'<span class="ajk-plan-in">{html.escape(move["in_name"])}</span>'
+                                             '</div>')
+                        else:
+                            cells.append('<div class="ajk-plan-roll">↻ Roll / no transfer</div>')
+                        if row["hits"]:
+                            cells.append(f'<div class="ajk-plan-hit">−{row["hits"]} hit points</div>')
+                        cells.append('</div>')
+                cells.append('</div></div>')
+                return ''.join(cells)
+
+            tabs = st.tabs(["⚖ Compare"] + [f"Plan {p['plan_number']}" for p in plans])
+            with tabs[0]:
+                st.markdown(make_comparison_html(plans), unsafe_allow_html=True)
+                st.caption("Scores are projected XI + captain points minus transfer hits across the "
+                           "selected horizon. Plans are ranked using additional heuristic bench and FT values. "
+                           "Future prices and transfers are not guaranteed.")
+                cols = st.columns(len(plans), gap="small")
+                for col, plan in zip(cols, plans):
+                    with col:
+                        if plan["first_moves"]:
+                            if st.button(f"Apply Plan {plan['plan_number']} · GW {gws[0]}",
+                                         key=f"ajk_apply_compare_{plan['plan_number']}",
+                                         type="primary" if plan["recommended"] else "secondary",
+                                         use_container_width=True):
+                                apply_first_week_of_plan(plan)
+                        else:
+                            st.info(f"Plan {plan['plan_number']}: roll this GW")
+
+            for tab, plan in zip(tabs[1:], plans):
+                with tab:
+                    st.markdown(f"#### Plan {plan['plan_number']}" +
+                                (" · ⭐ AI recommended" if plan["recommended"] else ""))
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Horizon net xP", f"{plan['planned_net_xp']:.1f}")
+                    c2.metric("Gain vs no transfers", f"{plan['expected_gain']:+.1f}")
+                    c3.metric("Total transfer hits", f"−{plan['total_hits']}")
+                    for week in plan["plan"]:
+                        with st.container(border=True):
+                            st.markdown(f"**GW {week['gw']}** · "
+                                        f"{week['free_transfers_before']} FT available · "
+                                        f"Bank {money(week['bank'])} · "
+                                        f"{week['net_xp']:.1f} net xP")
+                            if week["moves"]:
+                                st.markdown(transfer_faces_html(week["moves"], player_by_id),
+                                            unsafe_allow_html=True)
+                            else:
+                                st.caption("↻ Roll / no transfers")
+                            if week["hits"]:
+                                st.caption(f"−{week['hits']} transfer-hit points")
+                    if plan["first_moves"]:
+                        if st.button(f"Apply GW {gws[0]} transfers from Plan {plan['plan_number']} to draft",
+                                     key=f"ajk_apply_detail_{plan['plan_number']}",
+                                     type="primary" if plan["recommended"] else "secondary",
+                                     use_container_width=True):
+                            apply_first_week_of_plan(plan)
+                    else:
+                        st.info("This plan recommends rolling your free transfer this GW.")
+                    st.caption("Only the first Gameweek's transfers can be applied to your simulated "
+                               "draft. Later Gameweeks are projections; no real FPL transfers are submitted.")
 
 
 with tab_chips:
