@@ -1,0 +1,29 @@
+name: Player intelligence monitor
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 0,6,12,18 * * *'
+permissions:
+  contents: write
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Monitor FPL player status and permitted news feed candidates
+        run: python monitor_players.py --data-dir data
+      - name: Commit monitoring snapshot if changed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/player_monitor.json data/fpl_changes.json data/news_candidates.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: refresh player intelligence monitoring'
+            git push
+          fi
