@@ -624,11 +624,13 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                         fixtures: dict, bank_tenths: int, free_transfers: int = 1,
                         strategy: str = "Balanced", minutes_overrides: dict[int, float] | None = None,
                         beam_width: int = 12, candidate_count: int = 9) -> dict:
-    """Search roll, one-transfer and two-transfer decisions across future GWs.
+    """Compare the best ROLL-first and TRANSFER-first multi-GW strategies.
 
-    Objective: starting XI plus doubled captain each GW, minus actual transfer hits.
-    Buy at current market price; carried player's provided selling_price is used.
-    Price changes, injury news after today, and chips are not forecast.
+    This is a bounded heuristic search, not a globally optimal or calibrated model.
+    Its point forecast is the best legal XI plus an extra captain score, less hits.
+    Decision *ranking* also values saved FTs and modest bench cover; those
+    tie-breakers are deliberately NOT presented as projected FPL points.
+    Today's prices/availability are held constant and chips are excluded.
     """
     if not valid_squad(squad):
         raise ValueError("A complete legal 15-player squad is required.")
@@ -636,169 +638,233 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         raise ValueError("Select at least one upcoming Gameweek.")
     if bank_tenths < 0 or not 0 <= free_transfers <= 5:
         raise ValueError("Bank or free-transfer count is invalid.")
+    if beam_width < 1 or candidate_count < 1:
+        raise ValueError("Search width and candidate count must be positive.")
 
     strategy = strategy if strategy in ("Safe", "Balanced", "Aggressive") else "Balanced"
     gameweeks = list(dict.fromkeys(int(g) for g in gameweeks))[:6]
     market = {int(p["id"]): p for p in player_pool}
     for p in squad:
-        market.setdefault(int(p["id"]), p)
-    current_ids = tuple(sorted(int(p["id"]) for p in squad))
-    sell_start = {int(p["id"]): int(p.get("selling_price", p.get("now_cost", 0))) for p in squad}
+        market[int(p["id"])] = p  # preserve manager's selling-price metadata
+    ids0 = tuple(sorted(int(p["id"]) for p in squad))
+    sales0 = {int(p["id"]): int(p.get("selling_price", p.get("now_cost", 0))) for p in squad}
     positions = {pid: int(p["element_type"]) for pid, p in market.items()}
-    team_ids = {pid: int(p["team"]) for pid, p in market.items()}
+    clubs = {pid: int(p["team"]) for pid, p in market.items()}
     prices = {pid: int(p.get("now_cost", 0)) for pid, p in market.items()}
 
-    # Precompute individual GW projections once. A small safety penalty based on
-    # minutes and availability moderates brittle transfers; it is not calibrated risk.
-    xp = {}
-    for pid, p in market.items():
+    # These are conservative *decision* tie-breakers, not empirically
+    # calibrated points, so the public xP output remains unadjusted.
+    ft_value = {"Safe": 0.75, "Balanced": 0.50, "Aggressive": 0.20}[strategy]
+    bench_weight = {"Safe": 0.10, "Balanced": 0.06, "Aggressive": 0.025}[strategy]
+    # In near-ties, do not burn a transfer just because of model noise.
+    min_transfer_edge = {"Safe": 0.90, "Balanced": 0.55, "Aggressive": 0.20}[strategy]
+    if free_transfers == 5:
+        min_transfer_edge *= 0.5  # an unused FT cannot be banked beyond five
+
+    xp: dict[int, tuple[float, ...]] = {}
+    for pid, player in market.items():
         values = []
         for gw in gameweeks:
-            points = max(0.0, player_fixture_xp(p, gw, fixtures, minutes_overrides))
+            points = max(0.0, player_fixture_xp(player, gw, fixtures, minutes_overrides))
             if strategy != "Aggressive":
-                mins = projected_minutes(p) if not minutes_overrides or pid not in minutes_overrides else float(minutes_overrides[pid])
-                shortfall = max(0.0, (65.0 - mins) / 65.0)
-                penalty = (.17 if strategy == "Safe" else .07) * shortfall
-                points *= 1 - penalty
+                minutes = (float(minutes_overrides[pid]) if minutes_overrides and pid in minutes_overrides
+                           else projected_minutes(player))
+                shortfall = max(0.0, (65.0 - minutes) / 65.0)
+                points *= 1.0 - (0.17 if strategy == "Safe" else 0.07) * shortfall
             values.append(points)
         xp[pid] = tuple(values)
-    horizon = {pid: sum(values) for pid, values in xp.items()}
 
-    # Keep a mix of reliable high-projection targets and affordable players.
-    shortlist = {}
+    horizon = {pid: sum(values) for pid, values in xp.items()}
+    # Mix strong horizon targets, next-GW prospects and affordable alternatives.
+    shortlist: dict[int, list[int]] = {}
     for pos in QUOTAS:
         eligible = [pid for pid in market if positions[pid] == pos and
-                    market[pid].get("status", "a") not in ("u", "n", "s", "i")]
-        best = sorted(eligible, key=lambda pid: horizon[pid], reverse=True)[:candidate_count]
-        value = sorted(eligible, key=lambda pid: horizon[pid] / max(prices[pid], 35), reverse=True)[:4]
-        shortlist[pos] = list(dict.fromkeys(best + value))
+                    market[pid].get("status", "a") not in ("u", "n", "s", "i") and
+                    prices[pid] > 0]
+        long_term = sorted(eligible, key=lambda pid: horizon[pid], reverse=True)[:candidate_count]
+        immediate = sorted(eligible, key=lambda pid: xp[pid][0], reverse=True)[:4]
+        value = sorted(eligible, key=lambda pid: horizon[pid] / max(35, prices[pid]),
+                       reverse=True)[:5]
+        shortlist[pos] = list(dict.fromkeys(long_term + immediate + value))
 
-    lineup_cache = {}
-    def lineup_points(ids: tuple[int, ...], wi: int) -> float:
+    lineup_cache: dict[tuple[tuple[int, ...], int], tuple[float, float]] = {}
+    def lineup_metrics(ids: tuple[int, ...], wi: int) -> tuple[float, float]:
         key = (ids, wi)
         if key in lineup_cache:
             return lineup_cache[key]
         groups = {pos: sorted((pid for pid in ids if positions[pid] == pos),
                               key=lambda pid: xp[pid][wi], reverse=True) for pos in QUOTAS}
-        best_score = -1.0
+        best_points, best_bench = -1.0, 0.0
         for d, m, f in FORMATIONS:
-            chosen = groups[1][:1] + groups[2][:d] + groups[3][:m] + groups[4][:f]
-            total = sum(xp[pid][wi] for pid in chosen) + max(xp[pid][wi] for pid in chosen)
-            best_score = max(best_score, total)
-        lineup_cache[key] = best_score
-        return best_score
+            xi = groups[1][:1] + groups[2][:d] + groups[3][:m] + groups[4][:f]
+            xi_ids = set(xi)
+            total = sum(xp[pid][wi] for pid in xi) + max(xp[pid][wi] for pid in xi)
+            if total > best_points:
+                bench_outfield = sorted((xp[pid][wi] for pid in ids
+                                         if pid not in xi_ids and positions[pid] != 1), reverse=True)
+                best_bench = sum(bench_outfield[:2])
+                best_points = total
+        result = (best_points, best_bench)
+        lineup_cache[key] = result
+        return result
 
-    base_weekly = [lineup_points(current_ids, wi) for wi in range(len(gameweeks))]
+    base_weekly = [lineup_metrics(ids0, wi)[0] for wi in range(len(gameweeks))]
     baseline = sum(base_weekly)
 
-    def roll_ft(ft: int, n: int) -> int:
-        return min(5, max(0, ft - n) + 1)
+    def next_ft_balance(ft: int, count: int) -> int:
+        # FPL: unused FT rolls; at most 5 stored; extra transfers cost 4 each.
+        return min(5, max(0, ft - count) + 1)
 
     def swaps_for(ids: tuple[int, ...], bank: int, sales: dict[int, int], wi: int,
                   max_options: int = 12) -> list[tuple[float, int, int, int]]:
         owned = set(ids)
-        baseline_week = lineup_points(ids, wi)
-        strength = {pid: sum(xp[pid][j] for j in range(wi, len(gameweeks))) for pid in market}
-        proposed = []
-        club_counts = Counter(team_ids[pid] for pid in ids)
+        counts = Counter(clubs[pid] for pid in ids)
+        baseline_future = sum(lineup_metrics(ids, j)[0] + bench_weight * lineup_metrics(ids, j)[1]
+                              for j in range(wi, len(gameweeks)))
+        options = []
         for out in ids:
-            affordable = bank + sales.get(out, prices[out])
-            for inside in shortlist[positions[out]]:
-                if inside in owned or prices[inside] > affordable:
+            budget = bank + sales.get(out, prices[out])
+            for incoming in shortlist[positions[out]]:
+                if incoming in owned or prices[incoming] > budget:
                     continue
-                if club_counts[team_ids[inside]] >= 3 and team_ids[inside] != team_ids[out]:
+                if counts[clubs[incoming]] >= 3 and clubs[incoming] != clubs[out]:
                     continue
-                new_ids = tuple(sorted((owned - {out}) | {inside}))
-                # Evaluate both the current GW and residual schedule; no pure
-                # individual xP ranking, so improved captaincy can count.
-                future_gain = sum(lineup_points(new_ids, j) - lineup_points(ids, j)
-                                  for j in range(wi, len(gameweeks)))
-                # Keep a diverse set; avoid speculative near-zero moves.
-                if future_gain < -1.0:
+                new_ids = tuple(sorted((owned - {out}) | {incoming}))
+                gain = sum(lineup_metrics(new_ids, j)[0] + bench_weight * lineup_metrics(new_ids, j)[1]
+                           for j in range(wi, len(gameweeks))) - baseline_future
+                # Allow a small loss for a budget-enabling move; rank cash
+                # flexibility only for candidate diversity, not as xP.
+                if gain < -2.5:
                     continue
-                new_bank = affordable - prices[inside]
-                proposed.append((future_gain, out, inside, new_bank))
-        proposed.sort(key=lambda x: x[0], reverse=True)
-        # Prioritise high projected gain, but include lower-cost alternatives.
-        return proposed[:max_options]
+                next_bank = budget - prices[incoming]
+                priority = gain + 0.015 * max(0, next_bank - bank)
+                options.append((priority, out, incoming, next_bank))
+        options.sort(key=lambda row: row[0], reverse=True)
+        return options[:max_options]
 
-    # A state stores the exact carried selling-price map; no forward price forecast.
-    states = [{"ids": current_ids, "sales": sell_start, "bank": int(bank_tenths),
-               "ft": int(free_transfers), "score": 0.0, "plan": []}]
+    def moves_for(state: dict, wi: int):
+        ids, bank, ft, sales = state["ids"], state["bank"], state["ft"], state["sales"]
+        yield ids, bank, sales, [], 0
+        first_moves = swaps_for(ids, bank, sales, wi)
+        for _, out, incoming, bank1 in first_moves:
+            ids1 = tuple(sorted((set(ids) - {out}) | {incoming}))
+            sales1 = dict(sales)
+            sales1.pop(out, None)
+            sales1[incoming] = prices[incoming]
+            move1 = {"out": out, "in": incoming,
+                     "out_name": market[out].get("web_name", "?"),
+                     "in_name": market[incoming].get("web_name", "?"),
+                     "out_price": sales.get(out, prices[out]),
+                     "in_price": prices[incoming]}
+            yield ids1, bank1, sales1, [move1], 1
+
+        # Two transfers are always evaluated, even when one would incur a hit.
+        # The hit itself decides whether the pair is worthwhile.
+        for _, out, incoming, bank1 in first_moves[:4]:
+            ids1 = tuple(sorted((set(ids) - {out}) | {incoming}))
+            sales1 = dict(sales)
+            sales1.pop(out, None)
+            sales1[incoming] = prices[incoming]
+            second_moves = swaps_for(ids1, bank1, sales1, wi, max_options=6)
+            for _, out2, incoming2, bank2 in second_moves:
+                if out2 == incoming or incoming2 == out:
+                    continue  # no circular/undo transfers within a GW
+                ids2 = tuple(sorted((set(ids1) - {out2}) | {incoming2}))
+                sales2 = dict(sales1)
+                sales2.pop(out2, None)
+                sales2[incoming2] = prices[incoming2]
+                moves = [
+                    {"out": out, "in": incoming,
+                     "out_name": market[out].get("web_name", "?"),
+                     "in_name": market[incoming].get("web_name", "?"),
+                     "out_price": sales.get(out, prices[out]), "in_price": prices[incoming]},
+                    {"out": out2, "in": incoming2,
+                     "out_name": market[out2].get("web_name", "?"),
+                     "in_name": market[incoming2].get("web_name", "?"),
+                     "out_price": sales1.get(out2, prices[out2]), "in_price": prices[incoming2]},
+                ]
+                yield ids2, bank2, sales2, moves, 2
+
+    states = [{"ids": ids0, "sales": sales0, "bank": int(bank_tenths),
+               "ft": int(free_transfers), "score": 0.0, "cover": 0.0,
+               "first_action": None, "plan": []}]
     for wi, gw in enumerate(gameweeks):
-        expanded = []
+        expanded: list[dict] = []
         for state in states:
-            ids, bank, ft = state["ids"], state["bank"], state["ft"]
-            actions = [(ids, bank, state["sales"], [], 0)]
-            one_moves = swaps_for(ids, bank, state["sales"], wi)
-            for gain, out, inside, next_bank in one_moves:
-                owned = set(ids)
-                ids1 = tuple(sorted((owned - {out}) | {inside}))
-                sales1 = dict(state["sales"])
-                sales1.pop(out, None)
-                sales1[inside] = prices[inside]
-                move1 = {"out": out, "in": inside, "out_name": market[out].get("web_name", "?"),
-                         "in_name": market[inside].get("web_name", "?"),
-                         "out_price": state["sales"].get(out, prices[out]), "in_price": prices[inside]}
-                actions.append((ids1, next_bank, sales1, [move1], 1))
-            # Expand only the strongest first swaps to keep live Streamlit responsive.
-            if ft >= 2 or strategy == "Aggressive":
-                for gain, out, inside, next_bank in one_moves[:5]:
-                    ids1 = tuple(sorted((set(ids) - {out}) | {inside}))
-                    sales1 = dict(state["sales"])
-                    sales1.pop(out, None)
-                    sales1[inside] = prices[inside]
-                    second_moves = swaps_for(ids1, next_bank, sales1, wi, max_options=6)
-                    for _, out2, in2, bank2 in second_moves:
-                        if out2 == inside or in2 == out:
-                            continue
-                        ids2 = tuple(sorted((set(ids1) - {out2}) | {in2}))
-                        sales2 = dict(sales1)
-                        sales2.pop(out2, None)
-                        sales2[in2] = prices[in2]
-                        moves = [
-                            {"out": out, "in": inside, "out_name": market[out].get("web_name", "?"),
-                             "in_name": market[inside].get("web_name", "?"),
-                             "out_price": state["sales"].get(out, prices[out]), "in_price": prices[inside]},
-                            {"out": out2, "in": in2, "out_name": market[out2].get("web_name", "?"),
-                             "in_name": market[in2].get("web_name", "?"),
-                             "out_price": sales1.get(out2, prices[out2]), "in_price": prices[in2]},
-                        ]
-                        actions.append((ids2, bank2, sales2, moves, 2))
-            for next_ids, next_bank, next_sales, moves, count in actions:
-                hit = 4 * max(0, count - ft)
-                week_points = lineup_points(next_ids, wi)
-                cumulative = state["score"] + week_points - hit
-                next_ft = roll_ft(ft, count)
+            for next_ids, next_bank, next_sales, moves, count in moves_for(state, wi):
+                hit = 4 * max(0, count - state["ft"])
+                points, bench_cover = lineup_metrics(next_ids, wi)
+                next_ft = next_ft_balance(state["ft"], count)
+                cumulative = state["score"] + points - hit
+                cumulative_cover = state["cover"] + bench_weight * bench_cover
+                future = sum(lineup_metrics(next_ids, j)[0] + bench_weight * lineup_metrics(next_ids, j)[1]
+                             for j in range(wi + 1, len(gameweeks)))
+                ranking = cumulative + cumulative_cover + future + ft_value * next_ft
+                first_action = state["first_action"] or ("ROLL" if count == 0 else "TRANSFER")
                 plan_item = {"gw": gw, "moves": moves, "hits": hit, "bank": next_bank,
-                             "free_transfers_before": ft, "free_transfers_after": next_ft,
-                             "projected_xp": round(week_points, 2),
-                             "net_xp": round(week_points - hit, 2)}
-                # Beam rank includes projections of the resulting squad for future
-                # weeks; free-transfer reserve receives a small optionality value.
-                future = sum(lineup_points(next_ids, j) for j in range(wi + 1, len(gameweeks)))
-                ranking = cumulative + future + .4 * next_ft
+                             "free_transfers_before": state["ft"], "free_transfers_after": next_ft,
+                             "projected_xp": round(points, 2), "net_xp": round(points - hit, 2)}
                 expanded.append({"ids": next_ids, "sales": next_sales,
                                  "bank": next_bank, "ft": next_ft, "score": cumulative,
-                                 "rank": ranking, "plan": state["plan"] + [plan_item]})
-        unique = {}
-        for state in sorted(expanded, key=lambda x: (x["rank"], x["score"]), reverse=True):
-            key = (state["ids"], state["bank"], state["ft"])
-            if key not in unique:
-                unique[key] = state
-            if len(unique) >= max(3, beam_width):
-                break
-        states = list(unique.values())
-    best = max(states, key=lambda s: s["score"])
+                                 "cover": cumulative_cover, "rank": ranking,
+                                 "first_action": first_action,
+                                 "plan": state["plan"] + [plan_item]})
+
+        # Separate beams ensure the ROLL path cannot be pruned simply because
+        # early transfer states have temporarily higher projected points.
+        kept = []
+        for kind in ("ROLL", "TRANSFER"):
+            unique = {}
+            candidates = sorted((s for s in expanded if s["first_action"] == kind),
+                                key=lambda s: (s["rank"], s["score"]), reverse=True)
+            for state in candidates:
+                key = (state["ids"], state["bank"], state["ft"],
+                       tuple(sorted(state["sales"].items())))
+                if key not in unique:
+                    unique[key] = state
+                if len(unique) >= beam_width:
+                    break
+            kept.extend(unique.values())
+        states = kept
+        if not states:
+            raise ValueError("The transfer search could not find a legal plan.")
+
+    def decision_utility(state: dict) -> float:
+        return state["score"] + state["cover"] + ft_value * state["ft"]
+
+    roll_plans = [s for s in states if s["first_action"] == "ROLL"]
+    transfer_plans = [s for s in states if s["first_action"] == "TRANSFER"]
+    best_roll = max(roll_plans, key=decision_utility) if roll_plans else None
+    best_transfer = max(transfer_plans, key=decision_utility) if transfer_plans else None
+    if best_transfer is None:
+        best = best_roll
+    elif best_roll is None:
+        best = best_transfer
+    else:
+        # The threshold is a heuristic protection against forecast noise.
+        # The two branches each optimise their *subsequent* Gameweeks.
+        best = (best_transfer if decision_utility(best_transfer) - decision_utility(best_roll)
+                > min_transfer_edge else best_roll)
+    assert best is not None
+
     plan = best["plan"]
     first = plan[0]
-    next_action = "ROLL" if not first["moves"] else "TRANSFER"
     total_hit = sum(item["hits"] for item in plan)
-    return {"action": next_action, "plan": plan,
-            "first_moves": first["moves"], "first_hit": first["hits"],
-            "expected_gain": round(best["score"] - baseline, 2),
-            "baseline_xp": round(baseline, 2), "planned_net_xp": round(best["score"], 2),
-            "total_hits": total_hit, "final_bank": best["bank"],
-            "final_free_transfers": best["ft"],
-            "baseline_weekly": [round(v, 2) for v in base_weekly],
-            "method": "Bounded beam search; rolling and 1–2 transfers per GW; static prices; XI+captain minus hits"}
+    return {
+        "action": "ROLL" if not first["moves"] else "TRANSFER",
+        "plan": plan, "first_moves": first["moves"], "first_hit": first["hits"],
+        "expected_gain": round(best["score"] - baseline, 2),
+        "baseline_xp": round(baseline, 2),
+        "planned_net_xp": round(best["score"], 2),
+        "total_hits": total_hit, "final_bank": best["bank"],
+        "final_free_transfers": best["ft"],
+        "baseline_weekly": [round(v, 2) for v in base_weekly],
+        "roll_first_net_xp": round(best_roll["score"], 2) if best_roll else None,
+        "transfer_first_net_xp": round(best_transfer["score"], 2) if best_transfer else None,
+        "roll_first_decision_utility": round(decision_utility(best_roll), 2) if best_roll else None,
+        "transfer_first_decision_utility": round(decision_utility(best_transfer), 2) if best_transfer else None,
+        "decision_margin": min_transfer_edge,
+        "method": ("Bounded two-branch beam search: compare ROLL-first vs TRANSFER-first; "
+                   "1–2 moves per GW, legal squads, current selling prices, 4-point hits; "
+                   "XI+captain xP, with uncalibrated bench/FT tie-breakers; no chips/price forecasts"),
+    }
