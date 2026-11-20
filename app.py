@@ -1,4 +1,4 @@
-"""AJK Bola Wawei AI v7.20.1 — source-aware player availability + multi-GW previews.
+"""AJK Bola Wawei AI v7.21.1 — Gameweek-aware availability indicators.
 
 Install: pip install streamlit requests pandas
 Run: streamlit run app.py
@@ -1245,7 +1245,7 @@ def pitch_player_card(player: dict, captain_id: int, vice_id: int, gw: int,
     detail = f"{fixture} · {xp:.1f} xP"
     fixture_text = html.escape(fixture)
     # The available flag is from the FPL API, not a guarantee of starting.
-    symbol, description = player_status_symbol(player)
+    symbol, description = player_status_symbol(player, gw)
     flag = (f'<span class="squad-warning" title="{html.escape(description, quote=True)}">'
             f'{symbol}</span>') if symbol else ''
     bench_tag = (f'<span class="bench-number">{html.escape(str(bench_number))}</span>'
@@ -1323,7 +1323,7 @@ def clickable_pitch(xi: list[dict], squad: list[dict], captain_id: int,
         xp = player_fixture_xp(player, gw, fixture_map, overrides)
         detail = f"{fixture}  \n{xp:.1f} xP"
         role = "captain" if pid == captain_id else "vice" if pid == vice_id else "regular"
-        symbol, description = player_status_symbol(player)
+        symbol, description = player_status_symbol(player, gw)
         warning = f" {symbol}" if symbol else ""
         prefix = f"{bench_no} · " if bench_no else ""
         # A visible badge in the label is robust against Streamlit CSS/DOM changes.
@@ -1377,15 +1377,35 @@ STATUS_META = {
 }
 
 
-def player_status_symbol(player: dict) -> tuple[str, str]:
+def player_status_symbol(player: dict, gw: int | None = None) -> tuple[str, str]:
+    """Do not label a *future* GW from today's next-match FPL injury flag.
+
+    The official `status` is a current snapshot, not a medical forecast for
+    GW+2 or GW+5. The engine already models recovery separately by GW.
+    Do not claim a future player is confirmed fit merely because the flag ages.
+    """
     code = str(player.get("status") or "").strip().lower()
+    if gw is not None and code == "d":
+        reference_gw = globals().get("FPL_CURRENT_GW")
+        if reference_gw is not None and int(gw) > int(reference_gw):
+            evidence = availability_explanation(player, int(gw))
+            report = evidence.get("report") or {}
+            if report.get("signal") in {"ruled_out", "doubtful", "minutes_limited"}:
+                return ("❔", "Fitness concern reported for this Gameweek")
+            if float(evidence.get("factor", 0)) >= .80:
+                return ("", "Future fitness unconfirmed; old FPL doubtful flag applies to the next match")
+            return ("❔", "Future fitness uncertain (model estimate)")
     if code in STATUS_META:
         return STATUS_META[code]
     return ("⚠️", "Unknown status")
 
 
-def player_status_label(player: dict) -> str:
-    symbol, description = player_status_symbol(player)
+def player_status_label(player: dict, gw: int | None = None) -> str:
+    symbol, description = player_status_symbol(player, gw)
+    if gw is not None and str(player.get("status", "")).lower() == "d":
+        reference_gw = globals().get("FPL_CURRENT_GW")
+        if reference_gw is not None and int(gw) > int(reference_gw):
+            return f"{symbol} {description}".strip()
     return f"{symbol} {description}" if symbol else "🟢 Available"
 
 
@@ -1629,6 +1649,7 @@ if not available_gws or first_gw == 0:
     st.stop()
 
 configure_availability_context(events, first_gw)
+FPL_CURRENT_GW = int(first_gw)  # For future-GW pitch/news labels only.
 
 # All FT widget state changes MUST happen before the number_input is created.
 # A submitted import is completed on the preceding run, then refreshed here.
@@ -1986,8 +2007,20 @@ with tab_team:
                          key=lambda p: projected_minutes(p, preview_gw))
         if at_risk:
             for p in at_risk[:7]:
-                text_news = str(p.get('news') or "Official FPL availability flag")
-                st.warning(f"**{p.get('web_name','Player')}** · {player_status_label(p)} — {text_news}")
+                # Do not print GW11 FPL news as though it were a GW15 forecast.
+                future_doubt = (preview_gw > FPL_CURRENT_GW
+                                and str(p.get('status', 'a')).lower() == 'd')
+                symbol, explanation = player_status_symbol(p, preview_gw)
+                if future_doubt and not symbol:
+                    st.caption(f"{p.get('web_name','Player')} · {explanation}. "
+                               "Projected minutes are evaluated for the selected GW.")
+                elif future_doubt:
+                    st.warning(f"**{p.get('web_name','Player')}** · {explanation}. "
+                               "This is not a confirmed future starting-lineup prediction.")
+                else:
+                    text_news = str(p.get('news') or "Official FPL availability flag")
+                    st.warning(f"**{p.get('web_name','Player')}** · "
+                               f"{player_status_label(p, preview_gw)} — {text_news}")
         else:
             st.caption("FPL currently lists this squad as available; that does not guarantee starts.")
 
@@ -2316,7 +2349,7 @@ with tab_team:
                             with info_col:
                                 st.markdown(f"**{rank}. {html.escape(str(player.get('web_name', '?')))}**")
                                 st.caption(f"{clubs.get(int(player['team']), '?')} · {money(player['now_cost'])} · "
-                                           f"{player_status_label(player)}")
+                                           f"{player_status_label(player, preview_gw)}")
                             with pred_col:
                                 st.markdown(f"**{horizon_xp(player, gws, fixture_map, minutes_overrides):.1f} xP**")
                                 st.caption(f"GW {preview_gw}: {player_fixture_xp(player, preview_gw, fixture_map, minutes_overrides):.1f}")
