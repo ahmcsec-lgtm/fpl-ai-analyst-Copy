@@ -1,11 +1,13 @@
-"""AJK Bola Wawei AI v7.19.4: persistent manual XI injury reconciliation + transfer engine.
+"""AJK Bola Wawei AI v7.20: Gameweek-specific, source-aware availability + transfer engine.
 
 No paid model, no official xP claim. All monetary amounts are FPL tenths.
 """
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from urllib.parse import urlparse
+import re
 from statistics import mean
 from itertools import combinations
 from typing import Any
@@ -45,7 +47,7 @@ def fixture_lookup(fixtures: list[dict]) -> dict[tuple[int, int], list[dict]]:
 # Match-derived team strength and per-GW projections are cached for fast optimiser runs.
 # Streamlit configures this once per rerun using current FPL public data.
 _MODEL = {"attack": {}, "defence": {}, "league_goals": 1.42, "games": {}, "cache": {}, "calibration": {}, "calibration_n": 0, "residual_width": {},
-          "attack_venue": {}, "defence_venue": {}}
+          "attack_venue": {}, "defence_venue": {}, "next_gw": None, "gw_deadlines": {}}
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -133,16 +135,209 @@ def configure_projection_context(teams: list[dict], fixtures_raw: list[dict]) ->
                    "defence_venue": venue_d, "cache": {}})
 
 
-def availability(player: dict) -> float:
-    status = player.get("status", "a")
-    chance = player.get("chance_of_playing_next_round")
-    factor = {"a": 1.0, "d": .68, "i": .12, "s": 0.0, "u": .08, "n": 0.0}.get(status, .6)
-    if chance is not None:
-        factor = min(factor, clamp(num(chance) / 100, 0, 1))
-    return factor
+def _utc_time(value):
+    """Strict, timezone-aware ISO date; missing/invalid dates cannot verify news."""
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc) if value.tzinfo else None
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        dt = datetime.fromisoformat(value.strip().replace('Z', '+00:00'))
+        return dt.astimezone(timezone.utc) if dt.tzinfo else (dt.replace(tzinfo=timezone.utc) if len(value)==10 else None)
+    except ValueError:
+        return None
 
 
-def projected_minutes(player: dict) -> float:
+def configure_availability_context(events: list[dict], next_gw: int | None = None) -> None:
+    """Connect injury status to real GW dates; avoids carrying next-GW odds indefinitely."""
+    active = [int(ev['id']) for ev in events if not ev.get('finished') and ev.get('id') is not None]
+    _MODEL['next_gw'] = int(next_gw) if next_gw is not None else (min(active) if active else None)
+    _MODEL['gw_deadlines'] = {int(ev['id']): _utc_time(ev.get('deadline_time'))
+                              for ev in events if ev.get('id') is not None}
+    _MODEL['cache'] = {}
+
+
+def attach_verified_availability_reports(players: list[dict], teams: list[dict],
+                                         records: list[dict], now: datetime | None = None) -> dict:
+    """Attach *curated, source-linked* reports, without scraping or guessing news.
+
+    Records require a player+team match, explicit GW, valid dates, HTTPS article
+    and a recognised evidence label. Nothing is inferred from article headlines.
+    No record means the engine uses FPL data and playing-time evidence only.
+    """
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise ValueError('now must contain a timezone')
+    current = current.astimezone(timezone.utc)
+    for player in players:
+        player.pop('_ajk_reports', None)
+    codes = {int(t['id']): str(t.get('short_name', '')).upper() for t in teams}
+    by_id = {int(p['id']):p for p in players}
+    by_name = {}
+    for p in players:
+        full = (' '.join((str(p.get('first_name') or '').strip(), str(p.get('second_name') or '').strip()))).strip().casefold()
+        if full:
+            by_name.setdefault((full, codes.get(int(p.get('team', 0)), '')), []).append(p)
+    accepted, rejected, why = 0, 0, []
+    if not isinstance(records, list):
+        records = []
+    valid_signals = {'ruled_out', 'confirmed_fit', 'training', 'doubtful',
+                     'expected_start', 'minutes_limited'}
+    kinds = {'club', 'manager', 'league', 'journalist', 'predicted_lineup'}
+    for row in records[:350]:
+        reason = None
+        if not isinstance(row, dict):
+            rejected += 1; continue
+        try:
+            pid = row.get('player_id')
+            if pid is not None:
+                p = by_id.get(int(pid))
+                if p and str(row.get('team_code', '')).upper() not in ('',codes.get(int(p['team']), '')):
+                    p = None
+            else:
+                team_code = str(row.get('team_code','')).upper()
+                matches = by_name.get((str(row.get('player_name','')).strip().casefold(), team_code), [])
+                # Some official FPL first names differ from a player's usual
+                # name. A separately supplied *unique* web_name + club is an
+                # explicit fallback, never a fuzzy surname match.
+                if not matches and str(row.get('web_name','')).strip():
+                    web_name = str(row['web_name']).strip().casefold()
+                    matches = [candidate for candidate in players
+                               if codes.get(int(candidate.get('team',0)), '') == team_code
+                               and str(candidate.get('web_name','')).strip().casefold() == web_name]
+                p = matches[0] if len(matches)==1 else None
+            gw = int(row.get('gameweek', 0))
+            published = _utc_time(row.get('published_at'))
+            expires = _utc_time(row.get('expires_at'))
+            source = str(row.get('url','')).strip()
+            host = urlparse(source).hostname or ''
+            source_kind = str(row.get('source_kind','')).strip().lower()
+            signal = str(row.get('signal','')).strip().lower()
+            if not p: reason = 'player or team does not match current season'
+            elif not 1 <= gw <= 38: reason = 'invalid Gameweek'
+            elif not published or not expires: reason = 'missing publication or expiry date'
+            elif not published <= current <= expires or (current-published)>timedelta(days=10):
+                reason = 'stale, future-dated or expired evidence'
+            elif (expires-published)>timedelta(days=15): reason = 'validity window too long'
+            elif not source.startswith('https://') or not host or '.' not in host:
+                reason = 'a source HTTPS article is required'
+            elif source_kind not in kinds or signal not in valid_signals:
+                reason = 'unknown evidence category'
+            elif source_kind == 'predicted_lineup' and signal not in {'expected_start','doubtful'}:
+                reason = 'predicted lineups cannot confirm fitness or injury'
+            if reason:
+                rejected += 1
+                if len(why)<6: why.append(reason)
+                continue
+            # Source_kind labels describe who is being attributed, NOT independent verification.
+            p.setdefault('_ajk_reports', []).append({
+                'gw': gw, 'signal': signal, 'source_kind': source_kind,
+                'url': source, 'published': published.isoformat(),
+                'note': str(row.get('note',''))[:260],
+            })
+            accepted += 1
+        except (TypeError, ValueError, OverflowError):
+            rejected += 1
+    return {'accepted': accepted, 'rejected': rejected, 'warnings': why,
+            'source': 'curated dated reports, not automated web scraping'}
+
+
+def _expected_return_date(player: dict):
+    """Only use a date explicitly included in FPL's own injury news."""
+    match = re.search(r'expected (?:to be )?back\s+(\d{1,2})\s+([A-Za-z]{3,9})',
+                      str(player.get('news', '')), flags=re.IGNORECASE)
+    if not match:
+        return None
+    reference = _utc_time(player.get('news_added')) or datetime.now(timezone.utc)
+    for year in (reference.year, reference.year + 1):
+        try:
+            date = datetime.strptime(f'{match.group(1)} {match.group(2)[:3]} {year}', '%d %b %Y')
+            result = date.replace(tzinfo=timezone.utc)
+            if result >= reference - timedelta(days=40):
+                return result
+        except ValueError:
+            continue
+    return None
+
+
+def _report_for_gw(player: dict, gw: int | None):
+    if gw is None:
+        gw = _MODEL.get('next_gw')
+    if gw is None:
+        return None
+    reports = [r for r in player.get('_ajk_reports', []) if r['gw'] == int(gw)]
+    if not reports:
+        return None
+    rank = {'club':4, 'manager':4, 'league':3, 'journalist':2, 'predicted_lineup':1}
+    # Prefer first-hand reporting; prefer newer evidence within equal priority.
+    return max(reports, key=lambda r:(rank.get(r['source_kind'],0),r['published'],
+                                      r['signal']=='ruled_out'))
+
+
+def availability(player: dict, gw: int | None = None) -> float:
+    """Heuristic participation factor, *not* a calibrated start probability.
+
+    FPL next-round flags affect only the immediate GW. Verified, time-bound
+    human-curated evidence can modify one GW, never the whole horizon.
+    """
+    gw = int(gw) if gw is not None else _MODEL.get('next_gw')
+    next_gw = _MODEL.get('next_gw')
+    distance = max(0, gw-next_gw) if (gw is not None and next_gw is not None) else 0
+    status = str(player.get('status', 'a')).lower()
+    chance = player.get('chance_of_playing_next_round')
+    base = {'a': 1.0, 'd': .68, 'i': .12, 's': 0.0,
+            'u': .08, 'n': 0.0}.get(status, .6)
+    # FPL 75% doubtful is a useful baseline; do not arbitrarily reduce to 68%.
+    if distance == 0 and chance is not None:
+        c = clamp(num(chance)/100,0,1)
+        base = c if status == 'd' else min(base,c)
+    elif distance > 0 and status == 'd':
+        # One-week caution should not be cloned into all later GWs.
+        base = min(.90, .75 + .05 * min(distance,3))
+    if status == 'i' and gw is not None:
+        returning = _expected_return_date(player)
+        deadline = _MODEL.get('gw_deadlines',{}).get(gw)
+        if returning and deadline:
+            if deadline < returning:
+                base = 0.0
+            else:
+                days = (deadline-returning).days
+                base = max(base, .45 if days<7 else .65 if days<21 else .82)
+    # Suspension and eligibility restrictions must not be overruled by news.
+    if status in {'s','n'}:
+        return round(base,4)
+    report = _report_for_gw(player,gw)
+    if report:
+        signal, kind = report['signal'],report['source_kind']
+        first_hand = kind in {'club','manager','league'}
+        if signal == 'ruled_out':
+            base = 0.0 if first_hand else min(base,.20)
+        elif signal == 'confirmed_fit':
+            if first_hand:
+                base = max(base,.91)
+        elif (signal == 'training' and status in {'d','i','u'}
+              and not (distance == 0 and chance is not None and num(chance) == 0)):
+            # In training != fit or confirmed to start. Tiny positive update.
+            base = min(.78,max(base, .24 if status=='i' else base+.03))
+        elif signal == 'doubtful':
+            base = min(base,.65 if first_hand else .75)
+        elif signal == 'expected_start' and status not in {'i','u'}:
+            base = min(.96,max(base,base+(.04 if first_hand else .02)))
+        elif signal == 'minutes_limited':
+            base = min(base,.85)
+    return round(clamp(base,0,1),4)
+
+
+def availability_explanation(player: dict, gw: int) -> dict:
+    """Displayable attribution without inventing or summarising article content."""
+    report = _report_for_gw(player,gw)
+    return {'gw':int(gw), 'factor':availability(player,gw),
+            'fpl_status':str(player.get('status','a')),
+            'fpl_news':str(player.get('news') or ''),
+            'report':dict(report) if report else None}
+
+
+def projected_minutes(player: dict, gw: int | None = None) -> float:
     """Conservative expected minutes using season and recent completed FPL matches.
 
     The result is *unconditional* minutes per fixture, not a starting XI
@@ -187,7 +382,7 @@ def projected_minutes(player: dict) -> float:
 
     # FPL availability flags are applied exactly once. External news headlines
     # remain informational; unverified non-EPL minutes are never inferred.
-    return round(clamp(effective * availability(player), 0, 90), 1)
+    return round(clamp(effective * availability(player, gw), 0, 90), 1)
 
 
 
@@ -314,7 +509,7 @@ def player_prediction(player: dict, gw: int, fixtures: dict,
     """Return explainable projected FPL points and an approximate 80% range."""
     pid = int(player["id"])
     override = (minutes_overrides or {}).get(pid)
-    minutes = clamp(num(override, projected_minutes(player)), 0, 90)
+    minutes = clamp(num(override, projected_minutes(player, gw)), 0, 90)
     key = (pid, int(gw), round(minutes, 2), id(fixtures))
     cached = _MODEL["cache"].get(key)
     if cached is not None:
@@ -396,7 +591,9 @@ def transfer_history_candidates(squad: list[dict], player_pool: list[dict],
                       if int(p.get("id", 0)) not in owned
                       and int(p.get("element_type", 0)) == pos
                       and int(p.get("now_cost", 0)) > 0
-                      and p.get("status", "a") not in ("i", "n", "s", "u")]
+                      and (p.get("status", "a") not in ("i", "n", "s", "u")
+                           or (p.get("status") == "i" and any(
+                               availability(p, gw) >= .55 for gw in weeks)))]
         if not candidates:
             by_position[pos] = []
             continue
@@ -459,7 +656,7 @@ def estimated_appearance_probability(player: dict, gw: int, fixtures: dict,
     if not games and (projected_xp is None or projected_xp <= 0):
         return 0.0  # Blank GW: cannot play for FPL purposes.
     manual = minutes_overrides is not None and pid in minutes_overrides
-    mins = clamp(num(minutes_overrides[pid]) if manual else projected_minutes(player), 0, 90)
+    mins = clamp(num(minutes_overrides[pid]) if manual else projected_minutes(player, gw), 0, 90)
     if mins <= .05:
         return 0.0
     # Minutes proxy: low-minute substitutes may appear frequently, so do not
@@ -480,7 +677,7 @@ def estimated_appearance_probability(player: dict, gw: int, fixtures: dict,
     if not manual:
         # The injury flag already reduces projected xP; applying a probability
         # here only changes the *fallback*, never deducts points a second time.
-        chance = min(chance, availability(player))
+        chance = min(chance, availability(player, gw))
     chance = clamp(chance, 0.0, .985)
     # A player in a DGW can score FPL minutes in either match. Treat match
     # appearances as approximately independent only for this fallback proxy.
@@ -628,7 +825,7 @@ def best_lineup(squad: list[dict], gw: int, fixtures: dict,
     positions = {pid: int(p['element_type']) for pid, p in by_id.items()}
     overrides = minutes_overrides or {}
     minutes = {pid: clamp(num(overrides[pid]), 0, 90) if pid in overrides
-               else projected_minutes(p) for pid, p in by_id.items()}
+               else projected_minutes(p, gw) for pid, p in by_id.items()}
     groups = {pos: sorted((p for p in squad if int(p['element_type']) == pos),
                           key=lambda p: (
                               not _confirmed_unavailable_for_xi(
@@ -1129,7 +1326,9 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     eligible_by_pos = {
         pos: tuple(pid for pid, p in market.items()
                    if positions[pid] == pos and prices[pid] > 0
-                   and p.get("status", "a") not in ("u", "n", "s", "i"))
+                   and (p.get("status", "a") not in ("u", "n", "s", "i")
+                        or (p.get("status") == "i" and any(
+                            availability(p, gw) >= .55 for gw in projection_weeks))))
         for pos in QUOTAS
     }
     # These are discovery tie-break signals only. Public FPL 'form' includes

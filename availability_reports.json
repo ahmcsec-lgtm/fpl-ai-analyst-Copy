@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "description": "Human-verified, dated updates only. Replace or extend for each deadline. No automatically scraped claims.",
+  "reports": [
+    {
+      "player_name": "Bobby Thomas",
+      "team_code": "COV",
+      "gameweek": 11,
+      "signal": "training",
+      "source_kind": "club",
+      "published_at": "2026-11-19",
+      "expires_at": "2026-11-22T18:00:00Z",
+      "url": "https://www.ccfc.co.uk/news/2026/november/19/frank-lampard-provides-squad-update-ahead-of-crystal-palace-encounter/",
+      "note": "Coventry coach Frank Lampard confirmed Thomas has trained; his fitness for Palace still needs assessing. Not a confirmed starter.",
+      "web_name": "Thomas"
+    }
+  ]
+}
