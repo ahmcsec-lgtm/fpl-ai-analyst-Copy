@@ -1,4 +1,43 @@
 {
-  "updated_at": "2026-11-21T01:26:41.904070+00:00",
-  "changes": []
+  "updated_at": "2026-11-21T13:12:01.332071+00:00",
+  "changes": [
+    {
+      "player_id": 388,
+      "player": "Guéhi",
+      "team_id": 15,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Hip injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 393,
+      "player": "Khusanov",
+      "team_id": 15,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 50,
+          "after": 100
+        },
+        "news": {
+          "before": "Unspecified injury - 50% chance of playing",
+          "after": ""
+        }
+      }
+    }
+  ]
 }
