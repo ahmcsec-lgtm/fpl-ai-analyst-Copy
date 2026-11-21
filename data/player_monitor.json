@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-20T19:15:16.788936+00:00",
+  "updated_at": "2026-11-21T01:26:41.904070+00:00",
   "players": {
     "1": {
       "id": 1,
@@ -18,7 +18,7 @@
       "form": "6.0",
       "expected_goals": "0.00",
       "expected_assists": "0.01",
-      "now_cost": 62
+      "now_cost": 63
     },
     "2": {
       "id": 2,
@@ -360,7 +360,7 @@
       "form": "0.3",
       "expected_goals": "0.00",
       "expected_assists": "0.09",
-      "now_cost": 53
+      "now_cost": 52
     },
     "22": {
       "id": 22,
@@ -774,7 +774,7 @@
       "form": "1.0",
       "expected_goals": "0.61",
       "expected_assists": "0.19",
-      "now_cost": 50
+      "now_cost": 49
     },
     "47": {
       "id": 47,
@@ -4050,7 +4050,7 @@
       "form": "0.0",
       "expected_goals": "0.40",
       "expected_assists": "0.01",
-      "now_cost": 49
+      "now_cost": 48
     },
     "196": {
       "id": 196,
@@ -5598,7 +5598,7 @@
       "form": "3.7",
       "expected_goals": "2.01",
       "expected_assists": "1.36",
-      "now_cost": 55
+      "now_cost": 54
     },
     "269": {
       "id": 269,
@@ -6408,7 +6408,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 48
+      "now_cost": 47
     },
     "576": {
       "id": 576,
@@ -8100,7 +8100,7 @@
       "form": "7.0",
       "expected_goals": "1.83",
       "expected_assists": "1.23",
-      "now_cost": 72
+      "now_cost": 73
     },
     "367": {
       "id": 367,
@@ -8550,7 +8550,7 @@
       "form": "0.0",
       "expected_goals": "0.95",
       "expected_assists": "0.86",
-      "now_cost": 60
+      "now_cost": 59
     },
     "389": {
       "id": 389,
@@ -9396,7 +9396,7 @@
       "form": "1.7",
       "expected_goals": "4.63",
       "expected_assists": "1.29",
-      "now_cost": 79
+      "now_cost": 78
     },
     "428": {
       "id": 428,
@@ -9594,7 +9594,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 44
+      "now_cost": 43
     },
     "439": {
       "id": 439,
@@ -10962,7 +10962,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 40
+      "now_cost": 39
     },
     "498": {
       "id": 498,
