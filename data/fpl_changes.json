@@ -1,36 +1,171 @@
 {
-  "updated_at": "2026-11-22T07:25:24.765710+00:00",
+  "updated_at": "2026-11-22T19:02:03.668537+00:00",
   "changes": [
     {
-      "player_id": 492,
-      "player": "Awoniyi",
-      "team_id": 7,
+      "player_id": 119,
+      "player": "Costinha",
+      "team_id": 5,
       "changes": {
+        "status": {
+          "before": "a",
+          "after": "s"
+        },
+        "chance_of_playing_next_round": {
+          "before": null,
+          "after": 0
+        },
         "news": {
-          "before": "Leg injury - 75% chance of playing",
-          "after": "Ankle injury - 75% chance of playing"
+          "before": "",
+          "after": "Suspended until 2 Dec"
+        },
+        "news_added": {
+          "before": null,
+          "after": "2026-11-22T16:00:06.170652Z"
         }
       }
     },
     {
-      "player_id": 305,
-      "player": "Davis",
-      "team_id": 12,
+      "player_id": 240,
+      "player": "Iroegbunam",
+      "team_id": 11,
       "changes": {
+        "status": {
+          "before": "a",
+          "after": "d"
+        },
+        "chance_of_playing_next_round": {
+          "before": 100,
+          "after": 75
+        },
         "news": {
-          "before": "Unspecified injury - 75% chance of playing",
-          "after": "Calf injury - 75% chance of playing"
-        }
-      }
-    },
-    {
-      "player_id": 403,
-      "player": "Sávio",
-      "team_id": 19,
-      "changes": {
-        "news": {
-          "before": "Unspecified injury - 75% chance of playing",
+          "before": "",
           "after": "Hamstring injury - 75% chance of playing"
+        },
+        "news_added": {
+          "before": "2026-08-15T20:00:06.878792Z",
+          "after": "2026-11-22T15:00:05.901794Z"
+        }
+      }
+    },
+    {
+      "player_id": 357,
+      "player": "Frimpong",
+      "team_id": 14,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Hamstring injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 367,
+      "player": "Gakpo",
+      "team_id": 14,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "d"
+        },
+        "chance_of_playing_next_round": {
+          "before": 100,
+          "after": 75
+        },
+        "news": {
+          "before": "",
+          "after": "Calf injury - 75% chance of playing"
+        },
+        "news_added": {
+          "before": "2026-09-27T21:30:07.786183Z",
+          "after": "2026-11-22T16:30:05.520808Z"
+        }
+      }
+    },
+    {
+      "player_id": 415,
+      "player": "Dorgu",
+      "team_id": 16,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Hamstring injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 418,
+      "player": "Maguire",
+      "team_id": 16,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Back injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 420,
+      "player": "Yoro",
+      "team_id": 16,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "s"
+        },
+        "chance_of_playing_next_round": {
+          "before": null,
+          "after": 0
+        },
+        "news": {
+          "before": "",
+          "after": "Suspended until 2 Dec"
+        },
+        "news_added": {
+          "before": null,
+          "after": "2026-11-22T17:00:05.657366Z"
+        }
+      }
+    },
+    {
+      "player_id": 421,
+      "player": "Heaven",
+      "team_id": 16,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Unspecified injury - 75% chance of playing",
+          "after": ""
         }
       }
     }
