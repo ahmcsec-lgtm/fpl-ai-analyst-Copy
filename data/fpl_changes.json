@@ -1,75 +1,36 @@
 {
-  "updated_at": "2026-11-22T01:24:31.003795+00:00",
+  "updated_at": "2026-11-22T07:25:24.765710+00:00",
   "changes": [
     {
-      "player_id": 1,
-      "player": "Raya",
-      "team_id": 1,
+      "player_id": 492,
+      "player": "Awoniyi",
+      "team_id": 7,
+      "changes": {
+        "news": {
+          "before": "Leg injury - 75% chance of playing",
+          "after": "Ankle injury - 75% chance of playing"
+        }
+      }
+    },
+    {
+      "player_id": 305,
+      "player": "Davis",
+      "team_id": 12,
       "changes": {
         "news": {
           "before": "Unspecified injury - 75% chance of playing",
-          "after": "Shoulder injury - 75% chance of playing"
+          "after": "Calf injury - 75% chance of playing"
         }
       }
     },
     {
-      "player_id": 20,
-      "player": "Dowman",
-      "team_id": 1,
-      "changes": {
-        "status": {
-          "before": "s",
-          "after": "a"
-        },
-        "chance_of_playing_next_round": {
-          "before": 0,
-          "after": 100
-        },
-        "news": {
-          "before": "Suspended until 29 Nov",
-          "after": ""
-        }
-      }
-    },
-    {
-      "player_id": 449,
-      "player": "Hall",
-      "team_id": 17,
-      "changes": {
-        "status": {
-          "before": "a",
-          "after": "d"
-        },
-        "chance_of_playing_next_round": {
-          "before": null,
-          "after": 75
-        },
-        "news": {
-          "before": "",
-          "after": "Unspecified injury - 75% chance of playing"
-        },
-        "news_added": {
-          "before": null,
-          "after": "2026-11-21T19:30:06.216627Z"
-        }
-      }
-    },
-    {
-      "player_id": 455,
-      "player": "Tonali",
+      "player_id": 403,
+      "player": "Sávio",
       "team_id": 19,
       "changes": {
-        "status": {
-          "before": "d",
-          "after": "a"
-        },
-        "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 100
-        },
         "news": {
-          "before": "Illness - 75% chance of playing",
-          "after": ""
+          "before": "Unspecified injury - 75% chance of playing",
+          "after": "Hamstring injury - 75% chance of playing"
         }
       }
     }
