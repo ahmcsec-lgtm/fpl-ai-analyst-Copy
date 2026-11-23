@@ -1,64 +1,79 @@
 {
-  "updated_at": "2026-11-23T13:34:54.545530+00:00",
+  "updated_at": "2026-11-23T19:14:52.769992+00:00",
   "changes": [
     {
-      "player_id": 32,
-      "player": "Cash",
-      "team_id": 2,
+      "player_id": 1,
+      "player": "Raya",
+      "team_id": 1,
       "changes": {
-        "status": {
-          "before": "i",
-          "after": "d"
-        },
         "chance_of_playing_next_round": {
-          "before": 0,
-          "after": 75
+          "before": 75,
+          "after": 50
         },
         "news": {
-          "before": "Concussion - Expected back 28 Nov",
-          "after": "Concussion - 75% chance of playing"
+          "before": "Shoulder injury - 75% chance of playing",
+          "after": "Shoulder injury - 50% chance of playing"
         }
       }
     },
     {
-      "player_id": 340,
-      "player": "Gelhardt",
-      "team_id": 11,
-      "changes": {
-        "status": {
-          "before": "a",
-          "after": "i"
-        },
-        "chance_of_playing_next_round": {
-          "before": 100,
-          "after": 0
-        },
-        "news": {
-          "before": "",
-          "after": "Thigh injury - Unknown return date"
-        },
-        "news_added": {
-          "before": "2026-08-17T21:30:07.799839Z",
-          "after": "2026-11-23T12:00:05.467109Z"
-        }
-      }
-    },
-    {
-      "player_id": 389,
-      "player": "Matheus N.",
-      "team_id": 15,
+      "player_id": 100,
+      "player": "Carvalho",
+      "team_id": 4,
       "changes": {
         "status": {
           "before": "d",
           "after": "a"
         },
         "chance_of_playing_next_round": {
-          "before": 50,
+          "before": 75,
           "after": 100
         },
         "news": {
-          "before": "Unspecified injury - 50% chance of playing",
+          "before": "Knock - 75% chance of playing",
           "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 605,
+      "player": "Yalcouyé",
+      "team_id": 5,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": null,
+          "after": 0
+        },
+        "news": {
+          "before": "",
+          "after": "Unspecified injury - Unknown return date"
+        },
+        "news_added": {
+          "before": null,
+          "after": "2026-11-23T14:30:06.034940Z"
+        }
+      }
+    },
+    {
+      "player_id": 240,
+      "player": "Iroegbunam",
+      "team_id": 11,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 0
+        },
+        "news": {
+          "before": "Hamstring injury - 75% chance of playing",
+          "after": "Hamstring injury - Unknown return date"
         }
       }
     }
