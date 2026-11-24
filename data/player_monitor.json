@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-24T01:27:50.565165+00:00",
+  "updated_at": "2026-11-24T07:35:25.776150+00:00",
   "players": {
     "1": {
       "id": 1,
@@ -1798,8 +1798,8 @@
       "minutes": 846,
       "starts": 11,
       "form": "5.5",
-      "expected_goals": "2.15",
-      "expected_assists": "1.08",
+      "expected_goals": "2.21",
+      "expected_assists": "1.07",
       "now_cost": 55
     },
     "87": {
@@ -1834,7 +1834,7 @@
       "minutes": 834,
       "starts": 10,
       "form": "4.0",
-      "expected_goals": "0.98",
+      "expected_goals": "1.00",
       "expected_assists": "0.78",
       "now_cost": 45
     },
@@ -1942,7 +1942,7 @@
       "minutes": 505,
       "starts": 7,
       "form": "5.0",
-      "expected_goals": "1.24",
+      "expected_goals": "1.23",
       "expected_assists": "0.79",
       "now_cost": 62
     },
@@ -1960,8 +1960,8 @@
       "minutes": 442,
       "starts": 4,
       "form": "1.2",
-      "expected_goals": "0.31",
-      "expected_assists": "1.59",
+      "expected_goals": "0.32",
+      "expected_assists": "1.72",
       "now_cost": 52
     },
     "97": {
@@ -2032,7 +2032,7 @@
       "minutes": 12,
       "starts": 0,
       "form": "1.5",
-      "expected_goals": "1.45",
+      "expected_goals": "1.18",
       "expected_assists": "0.07",
       "now_cost": 50
     },
@@ -2087,7 +2087,7 @@
       "starts": 6,
       "form": "3.8",
       "expected_goals": "1.72",
-      "expected_assists": "0.92",
+      "expected_assists": "0.97",
       "now_cost": 59
     },
     "106": {
@@ -2140,7 +2140,7 @@
       "minutes": 147,
       "starts": 1,
       "form": "1.2",
-      "expected_goals": "0.35",
+      "expected_goals": "0.33",
       "expected_assists": "0.29",
       "now_cost": 53
     },

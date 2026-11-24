@@ -1,39 +1,4 @@
 {
-  "updated_at": "2026-11-24T01:27:50.565165+00:00",
-  "changes": [
-    {
-      "player_id": 63,
-      "player": "Milosavljević",
-      "team_id": 3,
-      "changes": {
-        "news": {
-          "before": "Thigh injury - Expected back 31 Oct",
-          "after": "Thigh injury - Unknown return date"
-        }
-      }
-    },
-    {
-      "player_id": 229,
-      "player": "Tarkowski",
-      "team_id": 9,
-      "changes": {
-        "status": {
-          "before": "a",
-          "after": "s"
-        },
-        "chance_of_playing_next_round": {
-          "before": null,
-          "after": 0
-        },
-        "news": {
-          "before": "",
-          "after": "Suspended until 13 Dec"
-        },
-        "news_added": {
-          "before": null,
-          "after": "2026-11-23T21:00:06.268052Z"
-        }
-      }
-    }
-  ]
+  "updated_at": "2026-11-24T07:35:25.776150+00:00",
+  "changes": []
 }
