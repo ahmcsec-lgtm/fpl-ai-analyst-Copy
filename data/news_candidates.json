@@ -1,14 +1,5 @@
 {
-  "updated_at": "2026-11-22T01:24:31.003795+00:00",
+  "updated_at": "2026-11-24T19:13:36.361941+00:00",
   "status": "review_only",
-  "candidates": [
-    {
-      "player_id": 481,
-      "title": "Elliot Anderson halts Manchester City’s losing run but boos greet Fulham draw",
-      "url": "https://www.theguardian.com/football/2026/nov/21/manchester-city-fulham-premier-league-match-report",
-      "published_at": "2026-11-21T14:34:03+00:00",
-      "verification": "unverified_candidate",
-      "note": "Headline alone must NOT affect xP or availability"
-    }
-  ]
+  "candidates": []
 }
