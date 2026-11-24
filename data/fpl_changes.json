@@ -1,48 +1,25 @@
 {
-  "updated_at": "2026-11-23T19:14:52.769992+00:00",
+  "updated_at": "2026-11-24T01:27:50.565165+00:00",
   "changes": [
     {
-      "player_id": 1,
-      "player": "Raya",
-      "team_id": 1,
+      "player_id": 63,
+      "player": "Milosavljević",
+      "team_id": 3,
       "changes": {
-        "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 50
-        },
         "news": {
-          "before": "Shoulder injury - 75% chance of playing",
-          "after": "Shoulder injury - 50% chance of playing"
+          "before": "Thigh injury - Expected back 31 Oct",
+          "after": "Thigh injury - Unknown return date"
         }
       }
     },
     {
-      "player_id": 100,
-      "player": "Carvalho",
-      "team_id": 4,
-      "changes": {
-        "status": {
-          "before": "d",
-          "after": "a"
-        },
-        "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 100
-        },
-        "news": {
-          "before": "Knock - 75% chance of playing",
-          "after": ""
-        }
-      }
-    },
-    {
-      "player_id": 605,
-      "player": "Yalcouyé",
-      "team_id": 5,
+      "player_id": 229,
+      "player": "Tarkowski",
+      "team_id": 9,
       "changes": {
         "status": {
           "before": "a",
-          "after": "i"
+          "after": "s"
         },
         "chance_of_playing_next_round": {
           "before": null,
@@ -50,30 +27,11 @@
         },
         "news": {
           "before": "",
-          "after": "Unspecified injury - Unknown return date"
+          "after": "Suspended until 13 Dec"
         },
         "news_added": {
           "before": null,
-          "after": "2026-11-23T14:30:06.034940Z"
-        }
-      }
-    },
-    {
-      "player_id": 240,
-      "player": "Iroegbunam",
-      "team_id": 11,
-      "changes": {
-        "status": {
-          "before": "d",
-          "after": "i"
-        },
-        "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 0
-        },
-        "news": {
-          "before": "Hamstring injury - 75% chance of playing",
-          "after": "Hamstring injury - Unknown return date"
+          "after": "2026-11-23T21:00:06.268052Z"
         }
       }
     }
