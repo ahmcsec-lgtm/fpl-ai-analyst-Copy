@@ -39,3 +39,14 @@ def render_learning_dashboard():
     df=pd.DataFrame([{k:v for k,v in r.items() if k!='features'} for r in rows]); df['error']=df['predicted_xp']-df['actual_points']
     st.dataframe(df[['gw','name','predicted_xp','actual_points','error','actual_minutes']].sort_values(['gw','error'],ascending=[False,False]),hide_index=True,use_container_width=True)
     st.download_button('Download evaluation CSV',df.to_csv(index=False).encode('utf-8'),'ajk_v8_evaluation.csv','text/csv',key='v8_csv')
+
+
+# AJK_V81_WRAPPER
+_render_v80_dashboard = render_learning_dashboard
+def render_learning_dashboard():
+    _render_v80_dashboard()
+    try:
+        from ml_dashboard_v81 import render_ml_dashboard
+        render_ml_dashboard()
+    except Exception as exc:
+        st.warning(f"V8.1 panel unavailable; V8.0 remains active: {type(exc).__name__}")
