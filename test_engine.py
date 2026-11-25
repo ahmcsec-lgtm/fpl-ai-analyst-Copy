@@ -9,7 +9,7 @@ spec = importlib.util.spec_from_file_location('engine_v715', str(path))
 e = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(e)
 e.player_fixture_xp = lambda p, gw, fixtures, minutes_overrides=None: p['xp'][gw]
-e.projected_minutes = lambda p: p.get('test_minutes', 90)
+e.projected_minutes = lambda p, gw=None: p.get('test_minutes', 90)
 GWS = [11, 12, 13]
 POS = [1] * 2 + [2] * 5 + [3] * 5 + [4] * 3
 
