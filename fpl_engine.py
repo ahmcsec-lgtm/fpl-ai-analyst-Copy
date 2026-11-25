@@ -1307,6 +1307,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         raise ValueError("Search width and candidate count must be positive.")
 
     from decision_v83 import adaptive_margin, ft_value, seed_moves
+    from decision_v85 import flexibility_value, timing_adjustment, urgency_for, evidence
     auto = strategy == "Auto AI"
     strategy = strategy if strategy in ("Safe", "Balanced", "Aggressive") else "Balanced"
     max_transfers = max(0, min(3, int(max_transfers)))
@@ -1330,7 +1331,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
 
     def ft_option_value(ft: int) -> float:
         if auto:
-            return ft_value(ft, opportunity_scale, gameweeks[-1] < 38)
+            return flexibility_value(ft, opportunity_points, gameweeks[-1] < 38)
         return future_ft_values[max(0, min(5, int(ft)))]
 
     market = {int(p["id"]): p for p in player_pool}
@@ -1412,6 +1413,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                  and sum(clubs[i] == clubs[new] for i in ids0 if i != old) < 3]
         potential.append(max([0.] + gains))
     opportunity_scale = min(1.6, max(.6, .8 + sum(sorted(potential, reverse=True)[:3]) / max(12., 6.*n_weeks)))
+    opportunity_points = sum(sorted(potential, reverse=True)[:3]) / max(1, n_weeks-1)
     seed_paths = []
     if auto and milp_seeds and max_transfers:
         try:
@@ -1913,8 +1915,18 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         # Atomic fallback: never rank some plans with risk and others without.
         risk_results = {}
 
+    timing_costs, urgency_values = {}, {}
+    initial_xi = risk_lineups.get((ids0, 0), ((), (), None, None))[0]
+    for state in states:
+        row = state['plan'][0]
+        urgency = urgency_for(row['moves'], appearances, initial_xi)
+        urgency_values[id(state)] = urgency
+        timing_costs[id(state)] = timing_adjustment(len(row['moves']), free_transfers,
+            row['projected_xp'] - baseline_weekly[0], opportunity_points, urgency,
+            strategy, gameweeks[0] < 38) if risk_status == 'active' else 0.
+
     def decision_score(s: dict) -> float:
-        return legacy_decision_score(s) - risk_results.get(id(s), {}).get('uncertainty_margin', 0.)
+        return legacy_decision_score(s) - risk_results.get(id(s), {}).get('uncertainty_margin', 0.) - timing_costs[id(s)]
 
     preference = {"ROLL": 3, "ONE": 2, "TWO": 1, "THREE": 0}
     kinds = ("ROLL", "ONE", "TWO", "THREE")
@@ -2048,8 +2060,10 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         "transfer_first_net_xp": round(best_transfer["net"], 2) if best_transfer else None,
         "roll_first_decision_utility": round(utility(best_roll), 2) if best_roll else None,
         "transfer_first_decision_utility": round(utility(best_transfer), 2) if best_transfer else None,
-        "decision_margin": round(margin_for(best_transfer) + risk_results.get(id(best_transfer), {}).get("uncertainty_margin", 0.), 3) if best_transfer else 0.,
-        "decision_version": "8.4",
+        "decision_margin": round(margin_for(best_transfer) + risk_results.get(id(best_transfer), {}).get("uncertainty_margin", 0.) + timing_costs[id(best_transfer)], 3) if best_transfer else 0.,
+        "decision_version": "8.5",
+        "dynamic_decision": evidence(best, best_transfer if best_kind == "ROLL" else best_roll,
+                                     decision_score, risk_status == "active", timing_costs, urgency_values),
         "monte_carlo": {"status": risk_status, "reference": "best V8.3 roll-first plan",
                         "recommended": risk_results.get(id(best)),
                         "best_transfer": risk_results.get(id(best_transfer)),

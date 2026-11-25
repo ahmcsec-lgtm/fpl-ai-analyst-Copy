@@ -2479,6 +2479,10 @@ elif page == "Smart Transfers":
                     apply_first_week_of_plan(recommended)
             with st.expander("Why this decision?"):
                 st.write("The recommendation accounts for projected points, hits, availability downside and future transfer flexibility. Forecasts are uncertain.")
+                dynamic = advice.get("dynamic_decision", {})
+                if dynamic.get("explanation"):
+                    st.write(dynamic["explanation"])
+                    st.caption("Decision evidence: " + dynamic["confidence"] + " · experimental, not a calibrated probability.")
                 mc = advice.get("monte_carlo", {})
                 if mc.get("status") == "active":
                     st.caption("10,000 paired simulations informed the decision margin. Risk estimates are experimental, not calibrated probabilities.")
