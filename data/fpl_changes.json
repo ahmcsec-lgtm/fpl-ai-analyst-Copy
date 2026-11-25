@@ -1,22 +1,41 @@
 {
-  "updated_at": "2026-11-25T01:31:59.328367+00:00",
+  "updated_at": "2026-11-25T13:37:44.158858+00:00",
   "changes": [
     {
-      "player_id": 420,
-      "player": "Yoro",
-      "team_id": 16,
+      "player_id": 367,
+      "player": "Gakpo",
+      "team_id": 14,
       "changes": {
         "status": {
-          "before": "s",
-          "after": "a"
+          "before": "d",
+          "after": "i"
         },
         "chance_of_playing_next_round": {
-          "before": 0,
-          "after": 100
+          "before": 75,
+          "after": 0
         },
         "news": {
-          "before": "Suspended until 2 Dec",
-          "after": ""
+          "before": "Calf injury - 75% chance of playing",
+          "after": "Calf injury - Expected back 2 Dec"
+        }
+      }
+    },
+    {
+      "player_id": 371,
+      "player": "Gravenberch",
+      "team_id": 14,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 0
+        },
+        "news": {
+          "before": "Foot injury - 75% chance of playing",
+          "after": "Foot injury - Unknown return date"
         }
       }
     }
