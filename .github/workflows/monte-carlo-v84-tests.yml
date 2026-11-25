@@ -1,0 +1,29 @@
+name: Monte Carlo V8.4 Tests
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'app.py'
+      - 'fpl_engine.py'
+      - 'monte_carlo_v84.py'
+      - 'decision_v83.py'
+      - 'test_*.py'
+      - 'requirements*.txt'
+      - '.github/workflows/monte-carlo-v84-tests.yml'
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AJK_REQUIRE_HIGHS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt -r requirements-v81.txt -r requirements-v82.txt
+      - run: python -m py_compile app.py fpl_engine.py monte_carlo_v84.py
+      - run: python -m unittest -v test_monte_carlo_v84 test_ui_v835 test_ui_v834 test_ui_v833 test_ui_v832 test_ui_v831 test_decision_v83 test_milp_v82 test_fast_greedy_v821 test_engine test_learning_v8 test_ml_v81
+      - run: python benchmark_v84.py
