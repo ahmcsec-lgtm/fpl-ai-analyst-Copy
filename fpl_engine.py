@@ -1283,7 +1283,9 @@ def backtest_report(completed: list[dict]) -> tuple[dict, list[dict], list[dict]
 def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: list[int],
                         fixtures: dict, bank_tenths: int, free_transfers: int = 1,
                         strategy: str = "Balanced", minutes_overrides: dict[int, float] | None = None,
-                        beam_width: int = 12, candidate_count: int = 9) -> dict:
+                        beam_width: int = 12, candidate_count: int = 9,
+                        allow_hits: bool = True, max_transfers: int = 3,
+                        milp_seeds: bool = True) -> dict:
     """Return three distinct multi-GW transfer plans and the ROLL counterfactual.
 
     Expected points = legal XI + captain contingency + legal auto-subs - hits.
@@ -1304,7 +1306,10 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     if beam_width < 1 or candidate_count < 1:
         raise ValueError("Search width and candidate count must be positive.")
 
+    from decision_v83 import adaptive_margin, ft_value, seed_moves
+    auto = strategy == "Auto AI"
     strategy = strategy if strategy in ("Safe", "Balanced", "Aggressive") else "Balanced"
+    max_transfers = max(0, min(3, int(max_transfers)))
     # Ranking factors are deliberately small, and never added to reported xP.
     downside_weight = {"Safe": .30, "Balanced": .14, "Aggressive": .04}[strategy]
     cover_weight = {"Safe": .06, "Balanced": .035, "Aggressive": .012}[strategy]
@@ -1324,6 +1329,8 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     early_commit_cost = {"Safe": .35, "Balanced": .25, "Aggressive": .12}[strategy]
 
     def ft_option_value(ft: int) -> float:
+        if auto:
+            return ft_value(ft, opportunity_scale, gameweeks[-1] < 38)
         return future_ft_values[max(0, min(5, int(ft)))]
 
     market = {int(p["id"]): p for p in player_pool}
@@ -1396,6 +1403,23 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                             availability(p, gw) >= .55 for gw in projection_weeks))))
         for pos in QUOTAS
     }
+    # Estimate terminal opportunity from affordable future upgrades, not a fixed bonus per transfer.
+    potential = []
+    for old in ids0 if auto else ():
+        gains = [sum(xp[new][j]-xp[old][j] for j in range(1, n_weeks))
+                 for new in eligible_by_pos[positions[old]] if new not in ids0
+                 and prices[new] <= bank_tenths + selling0[old]
+                 and sum(clubs[i] == clubs[new] for i in ids0 if i != old) < 3]
+        potential.append(max([0.] + gains))
+    opportunity_scale = min(1.6, max(.6, .8 + sum(sorted(potential, reverse=True)[:3]) / max(12., 6.*n_weeks)))
+    seed_paths = []
+    if auto and milp_seeds and max_transfers:
+        try:
+            seed_paths = seed_moves(market, ids0, selling0, prices, xp, gameweeks,
+                [i for group in eligible_by_pos.values() for i in group], bank_tenths,
+                max_transfers, allow_hits, free_transfers)
+        except Exception:
+            seed_paths = []  # bounded heuristic remains available
     # These are discovery tie-break signals only. Public FPL 'form' includes
     # realised returns and is NOT a calibrated xG or xA forecast; it must not
     # be added to predicted points or overrule the exact squad evaluation.
@@ -1607,6 +1631,18 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     def moves_for(state: dict, wi: int):
         ids, bank, sales = state["ids"], state["bank"], state["sales"]
         yield ids, bank, sales, [], 0
+        limit = min(max_transfers, 3 if wi == 0 else 2, state["ft"] if not allow_hits else 3)
+        if not limit:
+            return
+        if wi == 0:
+            for path in seed_paths:
+                new_ids = set(ids); new_sales = dict(sales); cash = bank; moves = []
+                for old, incoming in path:
+                    sold = new_sales.pop(old); new_sales[incoming] = prices[incoming]
+                    new_ids.remove(old); new_ids.add(incoming); cash += sold - prices[incoming]
+                    moves.append(move_data(old, incoming, sold))
+                if len(moves) <= limit:
+                    yield tuple(sorted(new_ids)), cash, new_sales, moves, len(moves)
         first_moves = swaps_for(ids, bank, sales, wi)
         for _, old, incoming, bank1 in first_moves:
             ids1 = tuple(sorted((set(ids) - {old}) | {incoming}))
@@ -1616,6 +1652,8 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
             move1 = move_data(old, incoming, sold)
             yield ids1, bank1, sales1, [move1], 1
 
+        if limit < 2:
+            return
         seen_pairs: set[tuple[tuple[int, int], ...]] = set()
         pair_states = []
         # The single-move list is stratified (gain, funding, cash, immediate).
@@ -1650,7 +1688,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                 pair_states.append((ids2, bank2, sales2, moves2))
                 yield ids2, bank2, sales2, moves2, 2
 
-        if wi == 0:  # only first GW offers three transfers; cap computational work
+        if wi == 0 and limit >= 3:  # only first GW offers three transfers; cap computational work
             seen_triples: set[tuple[tuple[int, int], ...]] = set()
             # Focus triple-step search on strong pairs and budget-enabling pairs.
             ranked_pairs = sorted(pair_states,
@@ -1775,6 +1813,8 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     # rather than the very expensive 2^15 raw scenario tree *during search*.
     # Future actions remain fixed in each plan; this is NOT Solio's adaptive
     # stochastic programming or a calibrated probability model.
+    risk_lineups = {}
+
     def contingency_lineup(ids: tuple[int, ...], wi: int) -> tuple[float, float]:
         key = (ids, wi)
         cached = contingency_cache.get(key)
@@ -1810,6 +1850,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                                     chance, positions, captain_id=evaluation['captain_id'],
                                     vice_id=evaluation['vice_id'])
                 best_normal, best_down = evaluation['total'], stressed['total']
+                risk_lineups[key] = (tuple(xi), tuple(bench), evaluation['captain_id'], evaluation['vice_id'])
         contingency_cache[key] = (best_normal, best_down)
         return best_normal, best_down
 
@@ -1841,13 +1882,44 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
                 - s["early_commit_penalty"]
                 + ft_option_value(s["ft"]) + holding_quality(s["ids"]))
 
+    def margin_for(s: dict) -> float:
+        if s["first_action"] == "ROLL":
+            return 0.
+        if not auto:
+            return min_transfer_edge
+        first = s["plan"][0]
+        # Compare immediate team benefit, not individual-player gain.
+        return adaptive_margin(n_weeks, free_transfers, len(first["moves"]),
+                               first["projected_xp"] - baseline_weekly[0])
+
+    def legacy_decision_score(s: dict) -> float:
+        return utility(s) - margin_for(s)
+
+    # V8.4: paired scenarios only after the legal beam search. Preserve the
+    # original expected points, hits, terminal FT value and all constraints.
+    risk_results = {}
+    risk_status = "fallback"
+    try:
+        from monte_carlo_v84 import evaluate_states
+        def risk_minutes(pid, wi):
+            return (num(minutes_overrides[pid]) if minutes_overrides and pid in minutes_overrides
+                    else projected_minutes(market[pid], gameweeks[wi]))
+        risk_results = evaluate_states(states, ids0, lambda ids, wi: risk_lineups[(ids, wi)],
+            xp, appearances, positions, clubs, risk_minutes, legacy_decision_score, strategy)
+        risk_status = "active"
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("V8.4 risk fallback: %s", type(exc).__name__)
+        # Atomic fallback: never rank some plans with risk and others without.
+        risk_results = {}
+
     def decision_score(s: dict) -> float:
-        return utility(s) - (min_transfer_edge if s["first_action"] != "ROLL" else 0.0)
+        return legacy_decision_score(s) - risk_results.get(id(s), {}).get('uncertainty_margin', 0.)
 
     preference = {"ROLL": 3, "ONE": 2, "TWO": 1, "THREE": 0}
     kinds = ("ROLL", "ONE", "TWO", "THREE")
     best_by_kind = {kind: max((s for s in states if s["first_action"] == kind),
-                              key=utility, default=None) for kind in kinds}
+                              key=decision_score, default=None) for kind in kinds}
     available = {k: s for k, s in best_by_kind.items() if s is not None}
     if not available:
         raise ValueError("No valid transfer strategies were found.")
@@ -1855,7 +1927,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
     best = available[best_kind]
     best_roll = best_by_kind["ROLL"]
     best_transfer = max((available[k] for k in ("ONE", "TWO", "THREE") if k in available),
-                        key=utility, default=None)
+                        key=decision_score, default=None)
 
     options = []
     for kind in kinds:
@@ -1877,6 +1949,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
             "planned_net_xp": round(s["net"], 2),
             "decision_utility": round(utility(s), 3),
             "decision_score": round(decision_score(s), 3),
+            "monte_carlo": risk_results.get(id(s)),
             "downside_scenario_net_xp": round(s["down"], 2),
             "future_ft_option_value": round(ft_option_value(s["ft"]), 2),
             "post_horizon_holding_score": round(holding_quality(s["ids"]), 2),
@@ -1950,6 +2023,7 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
             "expected_gain": round(s["net"] - baseline, 2),
             "planned_net_xp": round(s["net"], 2),
             "decision_score": round(decision_score(s), 3),
+            "monte_carlo": risk_results.get(id(s)),
             "downside_scenario_net_xp": round(s["down"], 2),
             "future_ft_option_value": round(ft_option_value(s["ft"]), 2),
             "post_horizon_holding_score": round(holding_quality(s["ids"]), 2),
@@ -1974,7 +2048,18 @@ def smart_transfer_plan(squad: list[dict], player_pool: list[dict], gameweeks: l
         "transfer_first_net_xp": round(best_transfer["net"], 2) if best_transfer else None,
         "roll_first_decision_utility": round(utility(best_roll), 2) if best_roll else None,
         "transfer_first_decision_utility": round(utility(best_transfer), 2) if best_transfer else None,
-        "decision_margin": min_transfer_edge,
+        "decision_margin": round(margin_for(best_transfer) + risk_results.get(id(best_transfer), {}).get("uncertainty_margin", 0.), 3) if best_transfer else 0.,
+        "decision_version": "8.4",
+        "monte_carlo": {"status": risk_status, "reference": "best V8.3 roll-first plan",
+                        "recommended": risk_results.get(id(best)),
+                        "best_transfer": risk_results.get(id(best_transfer)),
+                        "evaluated_plans": len(risk_results),
+                        "calibrated": False},
+        "strategy_used": "Auto AI" if auto else strategy,
+        "milp_seed_count": len(seed_paths),
+        "ft_opportunity_scale": round(opportunity_scale, 3) if auto else 1.,
+        "transfer_first_decision_score": round(decision_score(best_transfer), 3) if best_transfer else None,
+        "roll_first_decision_score": round(decision_score(best_roll), 3) if best_roll else None,
         "long_term_audit": {
             "visible_gameweeks": list(gameweeks),
             "holding_view_gameweeks": list(tail_weeks),

@@ -2388,7 +2388,7 @@ elif page == "Smart Transfers":
     transfer_title, transfer_action = st.columns([4, 1], gap="small", vertical_alignment="center")
     transfer_title.subheader("Transfers")
     settings_key = (st.session_state.loaded_id, tuple(sorted(int(p["id"]) for p in squad)),
-                    bank, ft, tuple(gws), strategy, allow_hits, max_transfers, "v83", tuple(sorted(minutes_overrides.items())),
+                    bank, ft, tuple(gws), strategy, allow_hits, max_transfers, "v84", tuple(sorted(minutes_overrides.items())),
                     tuple(sorted((int(p["id"]), p.get("selling_price"),
                                   p.get("_ajk_recent_minutes"), p.get("_ajk_recent_matches"),
                                   p.get("_ajk_recent_played")) for p in squad)),
@@ -2479,6 +2479,11 @@ elif page == "Smart Transfers":
                     apply_first_week_of_plan(recommended)
             with st.expander("Why this decision?"):
                 st.write("The recommendation accounts for projected points, hits, availability downside and future transfer flexibility. Forecasts are uncertain.")
+                mc = advice.get("monte_carlo", {})
+                if mc.get("status") == "active":
+                    st.caption("10,000 paired simulations informed the decision margin. Risk estimates are experimental, not calibrated probabilities.")
+                elif mc.get("status") == "fallback":
+                    st.caption("Simulation unavailable; the original decision engine was used.")
             with st.expander("Alternative plans & weekly schedule"):
                 for plan in plans:
                     with st.container(border=True):
