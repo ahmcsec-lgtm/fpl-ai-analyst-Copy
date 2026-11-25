@@ -1,44 +1,22 @@
 {
-  "updated_at": "2026-11-24T19:13:36.361941+00:00",
+  "updated_at": "2026-11-25T01:31:59.328367+00:00",
   "changes": [
     {
-      "player_id": 360,
-      "player": "Bradley",
-      "team_id": 14,
-      "changes": {
-        "news": {
-          "before": "Knee injury - Unknown return date",
-          "after": "Knee injury - Expected back 12 Dec"
-        }
-      }
-    },
-    {
-      "player_id": 363,
-      "player": "Leoni",
-      "team_id": 14,
-      "changes": {
-        "news": {
-          "before": "Knee injury - Unknown return date",
-          "after": "Knee injury - Expected back 12 Dec"
-        }
-      }
-    },
-    {
-      "player_id": 423,
-      "player": "Shaw",
+      "player_id": 420,
+      "player": "Yoro",
       "team_id": 16,
       "changes": {
         "status": {
-          "before": "i",
-          "after": "d"
+          "before": "s",
+          "after": "a"
         },
         "chance_of_playing_next_round": {
           "before": 0,
-          "after": 75
+          "after": 100
         },
         "news": {
-          "before": "Unspecified injury - Unknown return date",
-          "after": "Unspecified injury - 75% chance of playing"
+          "before": "Suspended until 2 Dec",
+          "after": ""
         }
       }
     }
