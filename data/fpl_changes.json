@@ -1,41 +1,45 @@
 {
-  "updated_at": "2026-11-25T13:37:44.158858+00:00",
+  "updated_at": "2026-11-25T19:08:25.960681+00:00",
   "changes": [
     {
-      "player_id": 367,
-      "player": "Gakpo",
-      "team_id": 14,
+      "player_id": 114,
+      "player": "Boscagli",
+      "team_id": 5,
       "changes": {
         "status": {
-          "before": "d",
-          "after": "i"
+          "before": "a",
+          "after": "d"
         },
         "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 0
+          "before": null,
+          "after": 75
         },
         "news": {
-          "before": "Calf injury - 75% chance of playing",
-          "after": "Calf injury - Expected back 2 Dec"
+          "before": "",
+          "after": "Illness - 75% chance of playing"
+        },
+        "news_added": {
+          "before": null,
+          "after": "2026-11-25T16:00:05.519144Z"
         }
       }
     },
     {
-      "player_id": 371,
-      "player": "Gravenberch",
-      "team_id": 14,
+      "player_id": 482,
+      "player": "Hudson-Odoi",
+      "team_id": 18,
       "changes": {
         "status": {
-          "before": "d",
-          "after": "i"
+          "before": "i",
+          "after": "a"
         },
         "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 0
+          "before": 0,
+          "after": 100
         },
         "news": {
-          "before": "Foot injury - 75% chance of playing",
-          "after": "Foot injury - Unknown return date"
+          "before": "Unspecified injury - Unknown return date",
+          "after": ""
         }
       }
     }
