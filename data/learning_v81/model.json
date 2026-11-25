@@ -1,0 +1,127 @@
+{
+  "schema": "v81-lag2-single-gw-1",
+  "version": "20261125T202723425626Z",
+  "trained_utc": "2026-11-25T20:27:23.984315+00:00",
+  "features": [
+    "position",
+    "history_count",
+    "total_points_3",
+    "minutes_3",
+    "goals_scored_3",
+    "assists_3",
+    "clean_sheets_3",
+    "bonus_3",
+    "total_points_5",
+    "minutes_5",
+    "goals_scored_5",
+    "assists_5",
+    "clean_sheets_5",
+    "bonus_5"
+  ],
+  "sources": [
+    {
+      "season": "2020-21",
+      "rows": 18672,
+      "sha256": "fb2a2bc54b6cfbe835a39183b096b382f7961e3828e7845e9288671cccca3ad8",
+      "url": "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2020-21/gws/merged_gw.csv"
+    },
+    {
+      "season": "2021-22",
+      "rows": 18149,
+      "sha256": "29770bbe305feee681f7122c0bd08451783366e0a3a9604194f528a0880f23de",
+      "url": "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2021-22/gws/merged_gw.csv"
+    },
+    {
+      "season": "2023-24",
+      "rows": 24350,
+      "sha256": "e9c09c8856f1c86b4f920f46ddd5033af83409439dfda53be925df2a3e7c8a9e",
+      "url": "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2023-24/gws/merged_gw.csv"
+    },
+    {
+      "season": "2024-25",
+      "rows": 23436,
+      "sha256": "5bbbcba6353b4c72ad273adcc8e3aa451946a826564679788f45b1cb3325b84e",
+      "url": "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2024-25/gws/merged_gw.csv"
+    }
+  ],
+  "rows": 84607,
+  "folds": [
+    {
+      "train": [
+        "2020-21",
+        "2021-22"
+      ],
+      "test": "2023-24",
+      "points": {
+        "ml": {
+          "n": 24350,
+          "mae": 1.0406174508324133,
+          "rmse": 2.0137476248569395,
+          "bias": 0.011053533346726074
+        },
+        "baseline": {
+          "n": 24350,
+          "mae": 1.0484585900068446,
+          "rmse": 2.1245464897017308,
+          "bias": 0.02499110198494182
+        }
+      },
+      "minutes": {
+        "ml": {
+          "n": 24350,
+          "mae": 17.30686075602171,
+          "rmse": 25.70431355833331,
+          "bias": 0.11303365633234454
+        },
+        "baseline": {
+          "n": 24350,
+          "mae": 14.51879603011636,
+          "rmse": 27.295409393452857,
+          "bias": 0.561403832991102
+        }
+      }
+    },
+    {
+      "train": [
+        "2020-21",
+        "2021-22",
+        "2023-24"
+      ],
+      "test": "2024-25",
+      "points": {
+        "ml": {
+          "n": 23436,
+          "mae": 1.0622090274671838,
+          "rmse": 1.992331543840646,
+          "bias": -0.006232192532097009
+        },
+        "baseline": {
+          "n": 23436,
+          "mae": 1.0851610058599306,
+          "rmse": 2.11301151427088,
+          "bias": 0.02413238891733516
+        }
+      },
+      "minutes": {
+        "ml": {
+          "n": 23436,
+          "mae": 17.625335101608034,
+          "rmse": 25.836219858578147,
+          "bias": -0.19766732928982061
+        },
+        "baseline": {
+          "n": 23436,
+          "mae": 14.881332138590205,
+          "rmse": 27.141794335902514,
+          "bias": 0.46609916367980886
+        }
+      }
+    }
+  ],
+  "points_gate": true,
+  "minutes_gate": true,
+  "files": {
+    "points": "e57f56e25dc060c454edaa838edef85832f70acc19dcc59a208cfca247c4fb7e",
+    "minutes": "795a916ee207410137bad0ca6124ff340731a052f7ebba6f40c7e5eca2baaef6"
+  }
+}
