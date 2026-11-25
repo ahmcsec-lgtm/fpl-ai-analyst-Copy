@@ -2631,26 +2631,47 @@ with tab_chips:
     chip_gws = gws if chip == "Wildcard" else [selected_gw]
     liquidation = bank + sum(int(p.get("selling_price", p["now_cost"])) for p in squad)
     st.caption(f"Estimated available budget: {money(liquidation)} from your current selling prices + bank.")
+    # V8.2 MILP integration
+    # V8.2.1 bounded fallback
+    from fast_greedy_v821 import optimise_chip_v821
+    solver_choice = st.radio("Squad optimiser", ["MILP", "Fast Greedy"], index=0, horizontal=True, key="v821_solver")
+    v82_context = (solver_choice, liquidation, tuple(sorted((int(k), float(v)) for k,v in (minutes_overrides or {}).items())), tuple(sorted(int(p["id"]) for p in squad)))
     if st.button(f"Generate {chip} squad"):
+        st.session_state.chip_result = None
         try:
             with st.spinner("Building a legal squad..."):
-                result = optimise_chip_squad(players, chip_gws, fixture_map, liquidation,
-                                             minutes_overrides=minutes_overrides, shortlist=24)
-            st.session_state.chip_result = {"kind": chip, "gws": chip_gws, "result": result}
+                result = optimise_chip_v821(players, chip_gws, fixture_map, liquidation,
+                                             minutes_overrides=minutes_overrides, shortlist=24, method=solver_choice)
+            st.session_state.chip_result = {"kind": chip, "gws": chip_gws, "result": result, "v82_context": v82_context}
         except (ValueError, TypeError, KeyError) as exc:
             st.error(str(exc))
     proposed_chip = st.session_state.get("chip_result")
-    if proposed_chip and proposed_chip["kind"] == chip and proposed_chip["gws"] == chip_gws:
+    if proposed_chip and proposed_chip["kind"] == chip and proposed_chip["gws"] == chip_gws and proposed_chip.get("v82_context") == v82_context:
         result = proposed_chip["result"]
         st.write(f"**Squad rating:** {result['rating']['rating']}/100 · "
                  f"**Projected xP:** {result['rating']['total_xp']:.1f} · **Bank:** {money(result['bank'])}")
-        chip_xi = best_lineup(result["squad"], selected_gw, fixture_map, minutes_overrides)
+        chip_xi = result.get("milp_weekly", {}).get(selected_gw)
+        if chip_xi is None:
+            chip_xi = best_lineup(result["squad"], selected_gw, fixture_map, minutes_overrides)
         pitch(chip_xi["xi"], int(chip_xi["captain"]["id"]), int(chip_xi["vice"]["id"]),
               selected_gw, fixture_map, clubs, minutes_overrides,
               squad=result["squad"], display="Combined")
         st.dataframe(squad_frame(result["squad"], chip_gws, fixture_map, clubs, minutes_overrides),
                      hide_index=True, use_container_width=True)
-        st.caption("Approximate greedy optimiser. Free Hit is a single-GW simulation, not a chip activation.")
+        st.caption(f"Optimiser: {result.get('solver_method', 'Unknown')} • {result.get('solver_status', '')}")
+        if result.get("fallback_reason"):
+            st.warning(f"MILP fallback: {result['fallback_reason']}. Using Fast Greedy.")
+        if "execution_seconds" in result:
+            st.caption(f"Execution: {result['execution_seconds']:.2f}s • Projection: {result['projection_seconds']:.2f}s • Optimisation: {result['optimisation_seconds']:.2f}s • Rating: {result['rating_seconds']:.2f}s")
+        if "greedy_iterations" in result:
+            st.caption(f"Fast Greedy: {result['greedy_iterations']} iterations • {result['greedy_evaluations']} evaluations • search {result['search_seconds']:.2f}s")
+        if result.get("milp_weekly"):
+            gap = result.get("solver_gap")
+            if result.get("solver_method") == "MILP / HiGHS":
+                st.caption(f"MILP relative gap: {gap:.2%}" if gap is not None else "MILP gap unavailable")
+            st.caption("Optimiser objective: XI + captain + 10% bench xP. Rating above remains the legacy scenario-aware estimate; the two objectives differ.")
+            st.dataframe(pd.DataFrame([{"GW": gw, "XI + captain xP": plan["base_xp"], "Captain": plan["captain"].get("web_name", plan["captain"]["id"]), "Vice": plan["vice"].get("web_name", plan["vice"]["id"]), "Bench order (outfield, then GK)": ", ".join(str(p.get("web_name", p["id"])) for p in plan["bench"])} for gw,plan in result["milp_weekly"].items()]),hide_index=True,use_container_width=True)
+        st.caption("Free Hit is a single-GW simulation, not a chip activation.")
         if st.button("Use this team as my editable draft"):
             st.session_state.draft = [{**p, "selling_price": int(p["now_cost"])} for p in result["squad"]]
             st.session_state.bank = result["bank"]
