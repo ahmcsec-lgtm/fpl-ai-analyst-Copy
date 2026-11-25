@@ -1893,9 +1893,13 @@ team_name = html.escape(str(profile.get("name", "My FPL Team")))
 rating_value = max(0, min(100, int(assessment["rating"])))
 rating_label = "Excellent" if rating_value >= 85 else "Strong" if rating_value >= 70 else "Promising" if rating_value >= 55 else "Needs attention"
 
-tab_team, tab_transfers, tab_chips = st.tabs(
-    ["🏟️ My Team", "🧠 Smart Transfers", "✨ Wildcard / Free Hit"]
+tab_team, tab_transfers, tab_chips, tab_learning = st.tabs(
+    ["🏟️ My Team", "🧠 Smart Transfers", "✨ Wildcard / Free Hit", "📊 AI Performance"]
 )
+# AJK_V8_LEARNING_TAB
+with tab_learning:
+    from learning_dashboard import render_learning_dashboard
+    render_learning_dashboard()
 with tab_team:
     # Desktop: team/AI overview | full interactive squad | fixtures/decision support.
     # Streamlit's columns stack naturally on narrow/mobile screens.
