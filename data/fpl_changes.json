@@ -1,44 +1,40 @@
 {
-  "updated_at": "2026-11-25T19:08:25.960681+00:00",
+  "updated_at": "2026-11-26T01:31:59.892294+00:00",
   "changes": [
     {
-      "player_id": 114,
-      "player": "Boscagli",
-      "team_id": 5,
+      "player_id": 325,
+      "player": "Darlow",
+      "team_id": 16,
       "changes": {
         "status": {
-          "before": "a",
-          "after": "d"
+          "before": "d",
+          "after": "a"
         },
         "chance_of_playing_next_round": {
-          "before": null,
-          "after": 75
+          "before": 75,
+          "after": 100
         },
         "news": {
-          "before": "",
-          "after": "Illness - 75% chance of playing"
-        },
-        "news_added": {
-          "before": null,
-          "after": "2026-11-25T16:00:05.519144Z"
+          "before": "Unspecified injury - 75% chance of playing",
+          "after": ""
         }
       }
     },
     {
-      "player_id": 482,
-      "player": "Hudson-Odoi",
-      "team_id": 18,
+      "player_id": 423,
+      "player": "Shaw",
+      "team_id": 16,
       "changes": {
         "status": {
-          "before": "i",
+          "before": "d",
           "after": "a"
         },
         "chance_of_playing_next_round": {
-          "before": 0,
+          "before": 75,
           "after": 100
         },
         "news": {
-          "before": "Unspecified injury - Unknown return date",
+          "before": "Unspecified injury - 75% chance of playing",
           "after": ""
         }
       }
