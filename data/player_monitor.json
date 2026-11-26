@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-26T01:31:59.892294+00:00",
+  "updated_at": "2026-11-26T07:37:58.678250+00:00",
   "players": {
     "1": {
       "id": 1,
@@ -8306,11 +8306,11 @@
       "first_name": "Victor",
       "second_name": "Munoz",
       "web_name": "Munoz",
-      "status": "a",
-      "chance_of_playing_next_round": 100,
+      "status": "d",
+      "chance_of_playing_next_round": 75,
       "chance_of_playing_this_round": 100,
-      "news": "",
-      "news_added": "2026-10-20T18:30:09.999223Z",
+      "news": "Knee injury - 75% chance of playing",
+      "news_added": "2026-11-26T03:30:05.640103Z",
       "minutes": 473,
       "starts": 5,
       "form": "2.3",

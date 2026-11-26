@@ -1,41 +1,26 @@
 {
-  "updated_at": "2026-11-26T01:31:59.892294+00:00",
+  "updated_at": "2026-11-26T07:37:58.678250+00:00",
   "changes": [
     {
-      "player_id": 325,
-      "player": "Darlow",
-      "team_id": 16,
+      "player_id": 377,
+      "player": "Munoz",
+      "team_id": 14,
       "changes": {
         "status": {
-          "before": "d",
-          "after": "a"
+          "before": "a",
+          "after": "d"
         },
         "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 100
+          "before": 100,
+          "after": 75
         },
         "news": {
-          "before": "Unspecified injury - 75% chance of playing",
-          "after": ""
-        }
-      }
-    },
-    {
-      "player_id": 423,
-      "player": "Shaw",
-      "team_id": 16,
-      "changes": {
-        "status": {
-          "before": "d",
-          "after": "a"
+          "before": "",
+          "after": "Knee injury - 75% chance of playing"
         },
-        "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 100
-        },
-        "news": {
-          "before": "Unspecified injury - 75% chance of playing",
-          "after": ""
+        "news_added": {
+          "before": "2026-10-20T18:30:09.999223Z",
+          "after": "2026-11-26T03:30:05.640103Z"
         }
       }
     }
