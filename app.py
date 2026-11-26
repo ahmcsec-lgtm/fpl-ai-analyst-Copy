@@ -2502,6 +2502,13 @@ elif page == "Smart Transfers":
 
 elif page == "Wildcard / Free Hit":
     st.subheader("Chip Optimiser")
+    from chip_ui_v86 import render as render_chip_strategy
+    render_chip_strategy(st, team_id=int(st.session_state.loaded_id), current_gw=first_gw,
+                         selected_gw=selected_gw, weeks=gws, season=season_id,
+                         squad=squad, players=players, fixtures=fixture_map, bank=bank, ft=ft,
+                         strategy=strategy, allow_hits=allow_hits, max_transfers=max_transfers,
+                         minutes_overrides=minutes_overrides, get_history=get_json,
+                         signature=advisor_data_signature(players, fixture_rows))
     chip_options = ["Wildcard", "Free Hit"]
     saved_chip = st.session_state.get("v831_saved_chip", "Wildcard")
     chip_select_col, chip_budget_col, chip_action_col = st.columns([2, 1, 1], gap="small", vertical_alignment="center")
