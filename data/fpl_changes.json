@@ -1,26 +1,60 @@
 {
-  "updated_at": "2026-11-26T07:37:58.678250+00:00",
+  "updated_at": "2026-11-26T19:14:43.452211+00:00",
   "changes": [
     {
-      "player_id": 377,
-      "player": "Munoz",
-      "team_id": 14,
+      "player_id": 159,
+      "player": "Caicedo",
+      "team_id": 6,
       "changes": {
         "status": {
-          "before": "a",
-          "after": "d"
+          "before": "d",
+          "after": "a"
         },
         "chance_of_playing_next_round": {
-          "before": 100,
-          "after": 75
+          "before": 75,
+          "after": 100
         },
         "news": {
-          "before": "",
-          "after": "Knee injury - 75% chance of playing"
+          "before": "Back injury - 75% chance of playing",
+          "after": ""
+        }
+      }
+    },
+    {
+      "player_id": 492,
+      "player": "Awoniyi",
+      "team_id": 7,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "i"
         },
-        "news_added": {
-          "before": "2026-10-20T18:30:09.999223Z",
-          "after": "2026-11-26T03:30:05.640103Z"
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 0
+        },
+        "news": {
+          "before": "Ankle injury - 75% chance of playing",
+          "after": "Ankle injury - Unknown return date"
+        }
+      }
+    },
+    {
+      "player_id": 207,
+      "player": "Mingueza",
+      "team_id": 8,
+      "changes": {
+        "status": {
+          "before": "d",
+          "after": "a"
+        },
+        "chance_of_playing_next_round": {
+          "before": 75,
+          "after": 100
+        },
+        "news": {
+          "before": "Thigh injury - 75% chance of playing",
+          "after": ""
         }
       }
     }
