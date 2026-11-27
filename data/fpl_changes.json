@@ -1,60 +1,49 @@
 {
-  "updated_at": "2026-11-26T19:14:43.452211+00:00",
+  "updated_at": "2026-11-27T01:34:28.338379+00:00",
   "changes": [
     {
-      "player_id": 159,
-      "player": "Caicedo",
-      "team_id": 6,
+      "player_id": 78,
+      "player": "Kroupi.Jr",
+      "team_id": 3,
       "changes": {
         "status": {
-          "before": "d",
-          "after": "a"
+          "before": "a",
+          "after": "d"
         },
         "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 100
+          "before": 100,
+          "after": 75
         },
         "news": {
-          "before": "Back injury - 75% chance of playing",
-          "after": ""
+          "before": "",
+          "after": "Illness - 75% chance of playing"
+        },
+        "news_added": {
+          "before": "2026-07-29T17:30:09.796802Z",
+          "after": "2026-11-26T21:00:05.979236Z"
         }
       }
     },
     {
-      "player_id": 492,
-      "player": "Awoniyi",
-      "team_id": 7,
+      "player_id": 612,
+      "player": "Methalie",
+      "team_id": 20,
       "changes": {
         "status": {
-          "before": "d",
-          "after": "i"
+          "before": "a",
+          "after": "d"
         },
         "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 0
+          "before": 100,
+          "after": 75
         },
         "news": {
-          "before": "Ankle injury - 75% chance of playing",
-          "after": "Ankle injury - Unknown return date"
-        }
-      }
-    },
-    {
-      "player_id": 207,
-      "player": "Mingueza",
-      "team_id": 8,
-      "changes": {
-        "status": {
-          "before": "d",
-          "after": "a"
+          "before": "",
+          "after": "Illness - 75% chance of playing"
         },
-        "chance_of_playing_next_round": {
-          "before": 75,
-          "after": 100
-        },
-        "news": {
-          "before": "Thigh injury - 75% chance of playing",
-          "after": ""
+        "news_added": {
+          "before": "2026-08-28T13:00:08.950445Z",
+          "after": "2026-11-26T21:00:06.487816Z"
         }
       }
     }

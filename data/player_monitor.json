@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-26T19:14:43.452211+00:00",
+  "updated_at": "2026-11-27T01:34:28.338379+00:00",
   "players": {
     "1": {
       "id": 1,
@@ -864,7 +864,7 @@
       "form": "0.3",
       "expected_goals": "0.07",
       "expected_assists": "0.18",
-      "now_cost": 44
+      "now_cost": 43
     },
     "52": {
       "id": 52,
@@ -1574,11 +1574,11 @@
       "first_name": "Junior",
       "second_name": "Kroupi",
       "web_name": "Kroupi.Jr",
-      "status": "a",
-      "chance_of_playing_next_round": 100,
+      "status": "d",
+      "chance_of_playing_next_round": 75,
       "chance_of_playing_this_round": 100,
-      "news": "",
-      "news_added": "2026-07-29T17:30:09.796802Z",
+      "news": "Illness - 75% chance of playing",
+      "news_added": "2026-11-26T21:00:05.979236Z",
       "minutes": 68,
       "starts": 0,
       "form": "2.0",
@@ -2106,7 +2106,7 @@
       "form": "2.3",
       "expected_goals": "4.12",
       "expected_assists": "1.26",
-      "now_cost": 78
+      "now_cost": 77
     },
     "107": {
       "id": 107,
@@ -2322,7 +2322,7 @@
       "form": "5.3",
       "expected_goals": "2.44",
       "expected_assists": "1.91",
-      "now_cost": 55
+      "now_cost": 56
     },
     "116": {
       "id": 116,
@@ -7416,7 +7416,7 @@
       "form": "5.0",
       "expected_goals": "0.65",
       "expected_assists": "0.25",
-      "now_cost": 51
+      "now_cost": 52
     },
     "335": {
       "id": 335,
@@ -7452,7 +7452,7 @@
       "form": "6.7",
       "expected_goals": "1.12",
       "expected_assists": "0.50",
-      "now_cost": 57
+      "now_cost": 58
     },
     "337": {
       "id": 337,
@@ -8118,7 +8118,7 @@
       "form": "9.7",
       "expected_goals": "2.19",
       "expected_assists": "2.31",
-      "now_cost": 74
+      "now_cost": 75
     },
     "367": {
       "id": 367,
@@ -8928,7 +8928,7 @@
       "form": "2.0",
       "expected_goals": "8.09",
       "expected_assists": "0.92",
-      "now_cost": 158
+      "now_cost": 157
     },
     "481": {
       "id": 481,
@@ -10962,7 +10962,7 @@
       "form": "5.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 44
+      "now_cost": 45
     },
     "497": {
       "id": 497,
@@ -11682,7 +11682,7 @@
       "form": "4.0",
       "expected_goals": "0.57",
       "expected_assists": "0.36",
-      "now_cost": 42
+      "now_cost": 41
     },
     "535": {
       "id": 535,
@@ -12006,7 +12006,7 @@
       "form": "2.0",
       "expected_goals": "4.21",
       "expected_assists": "0.13",
-      "now_cost": 57
+      "now_cost": 56
     },
     "553": {
       "id": 553,
@@ -12032,11 +12032,11 @@
       "first_name": "Dayann",
       "second_name": "Méthalie",
       "web_name": "Methalie",
-      "status": "a",
-      "chance_of_playing_next_round": 100,
+      "status": "d",
+      "chance_of_playing_next_round": 75,
       "chance_of_playing_this_round": 100,
-      "news": "",
-      "news_added": "2026-08-28T13:00:08.950445Z",
+      "news": "Illness - 75% chance of playing",
+      "news_added": "2026-11-26T21:00:06.487816Z",
       "minutes": 107,
       "starts": 1,
       "form": "0.0",
