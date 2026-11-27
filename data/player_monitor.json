@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-27T13:30:15.602965+00:00",
+  "updated_at": "2026-11-27T19:12:20.499109+00:00",
   "players": {
     "1": {
       "id": 1,
@@ -9,13 +9,13 @@
       "second_name": "Raya Martín",
       "web_name": "Raya",
       "status": "d",
-      "chance_of_playing_next_round": 50,
-      "chance_of_playing_this_round": null,
-      "news": "Shoulder injury - 50% chance of playing",
+      "chance_of_playing_next_round": 75,
+      "chance_of_playing_this_round": 75,
+      "news": "Shoulder injury - 75% chance of playing",
       "news_added": "2026-11-21T19:00:05.753960Z",
       "minutes": 969,
       "starts": 11,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.00",
       "expected_assists": "0.01",
       "now_cost": 62
@@ -33,7 +33,7 @@
       "news_added": null,
       "minutes": 20,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 49
@@ -69,7 +69,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "1.47",
       "expected_assists": "0.26",
       "now_cost": 81
@@ -87,7 +87,7 @@
       "news_added": "2026-07-23T12:01:23.272929Z",
       "minutes": 425,
       "starts": 4,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.02",
       "expected_assists": "0.60",
       "now_cost": 65
@@ -123,7 +123,7 @@
       "news_added": null,
       "minutes": 448,
       "starts": 6,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.22",
       "expected_assists": "0.64",
       "now_cost": 53
@@ -141,7 +141,7 @@
       "news_added": "2026-10-24T18:30:08.735545Z",
       "minutes": 857,
       "starts": 10,
-      "form": "4.3",
+      "form": "3.2",
       "expected_goals": "1.26",
       "expected_assists": "1.04",
       "now_cost": 59
@@ -159,7 +159,7 @@
       "news_added": "2026-10-12T15:00:07.550884Z",
       "minutes": 67,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 52
@@ -231,7 +231,7 @@
       "news_added": "2026-10-28T00:00:08.477333Z",
       "minutes": 912,
       "starts": 11,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "0.59",
       "expected_assists": "2.48",
       "now_cost": 75
@@ -249,7 +249,7 @@
       "news_added": null,
       "minutes": 299,
       "starts": 3,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.72",
       "expected_assists": "0.32",
       "now_cost": 62
@@ -267,7 +267,7 @@
       "news_added": null,
       "minutes": 913,
       "starts": 11,
-      "form": "6.3",
+      "form": "4.8",
       "expected_goals": "2.40",
       "expected_assists": "2.91",
       "now_cost": 67
@@ -285,7 +285,7 @@
       "news_added": "2026-10-28T00:00:08.492716Z",
       "minutes": 518,
       "starts": 5,
-      "form": "6.0",
+      "form": "4.5",
       "expected_goals": "1.29",
       "expected_assists": "1.61",
       "now_cost": 62
@@ -303,7 +303,7 @@
       "news_added": null,
       "minutes": 203,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.82",
       "expected_assists": "0.36",
       "now_cost": 56
@@ -339,7 +339,7 @@
       "news_added": "2026-11-16T19:00:05.154377Z",
       "minutes": 100,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.21",
       "expected_assists": "0.05",
       "now_cost": 52
@@ -352,7 +352,7 @@
       "web_name": "Dowman",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 0,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-27T22:30:09.534466Z",
       "minutes": 19,
@@ -429,7 +429,7 @@
       "news_added": null,
       "minutes": 181,
       "starts": 1,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.13",
       "expected_assists": "0.49",
       "now_cost": 70
@@ -447,7 +447,7 @@
       "news_added": "2026-09-24T22:00:09.120308Z",
       "minutes": 821,
       "starts": 10,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "2.84",
       "expected_assists": "0.77",
       "now_cost": 74
@@ -483,7 +483,7 @@
       "news_added": "2026-11-05T20:30:09.025008Z",
       "minutes": 821,
       "starts": 9,
-      "form": "6.3",
+      "form": "4.8",
       "expected_goals": "0.64",
       "expected_assists": "0.05",
       "now_cost": 49
@@ -501,7 +501,7 @@
       "news_added": "2026-09-04T14:00:08.328779Z",
       "minutes": 455,
       "starts": 5,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.79",
       "expected_assists": "0.38",
       "now_cost": 67
@@ -519,7 +519,7 @@
       "news_added": "2026-10-02T15:00:11.091226Z",
       "minutes": 533,
       "starts": 7,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.44",
       "expected_assists": "0.91",
       "now_cost": 61
@@ -566,14 +566,14 @@
       "first_name": "Matty",
       "second_name": "Cash",
       "web_name": "Cash",
-      "status": "d",
-      "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": 0,
-      "news": "Concussion - 75% chance of playing",
+      "status": "a",
+      "chance_of_playing_next_round": 100,
+      "chance_of_playing_this_round": 100,
+      "news": "",
       "news_added": "2026-11-15T10:30:05.648897Z",
       "minutes": 656,
       "starts": 7,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.21",
       "expected_assists": "0.22",
       "now_cost": 43
@@ -609,7 +609,7 @@
       "news_added": "2026-09-12T18:00:08.712707Z",
       "minutes": 560,
       "starts": 7,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.38",
       "expected_assists": "0.08",
       "now_cost": 44
@@ -645,7 +645,7 @@
       "news_added": "2026-09-12T18:00:08.729468Z",
       "minutes": 695,
       "starts": 8,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.46",
       "expected_assists": "0.56",
       "now_cost": 44
@@ -658,12 +658,12 @@
       "web_name": "Lindelöf",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-21T14:30:05.829063Z",
       "minutes": 900,
       "starts": 10,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.44",
       "expected_assists": "0.18",
       "now_cost": 45
@@ -717,7 +717,7 @@
       "news_added": null,
       "minutes": 642,
       "starts": 8,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "1.79",
       "expected_assists": "0.65",
       "now_cost": 58
@@ -753,7 +753,7 @@
       "news_added": null,
       "minutes": 820,
       "starts": 9,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "3.32",
       "expected_assists": "0.99",
       "now_cost": 55
@@ -771,7 +771,7 @@
       "news_added": "2026-10-16T17:30:09.276181Z",
       "minutes": 401,
       "starts": 4,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.66",
       "expected_assists": "0.20",
       "now_cost": 49
@@ -789,7 +789,7 @@
       "news_added": "2026-07-23T12:01:23.337269Z",
       "minutes": 971,
       "starts": 11,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.21",
       "expected_assists": "0.40",
       "now_cost": 50
@@ -861,7 +861,7 @@
       "news_added": "2026-10-10T18:00:10.386738Z",
       "minutes": 316,
       "starts": 4,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.07",
       "expected_assists": "0.18",
       "now_cost": 43
@@ -879,7 +879,7 @@
       "news_added": "2026-09-19T11:30:09.355376Z",
       "minutes": 419,
       "starts": 5,
-      "form": "7.0",
+      "form": "5.2",
       "expected_goals": "0.56",
       "expected_assists": "0.09",
       "now_cost": 49
@@ -897,7 +897,7 @@
       "news_added": "2026-11-12T13:00:05.872260Z",
       "minutes": 520,
       "starts": 7,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "1.81",
       "expected_assists": "0.90",
       "now_cost": 62
@@ -915,7 +915,7 @@
       "news_added": "2026-09-16T19:30:08.742410Z",
       "minutes": 402,
       "starts": 5,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.00",
       "expected_assists": "0.29",
       "now_cost": 55
@@ -969,7 +969,7 @@
       "news_added": null,
       "minutes": 34,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.09",
       "expected_assists": "0.05",
       "now_cost": 57
@@ -987,7 +987,7 @@
       "news_added": null,
       "minutes": 794,
       "starts": 10,
-      "form": "7.3",
+      "form": "5.5",
       "expected_goals": "3.56",
       "expected_assists": "1.13",
       "now_cost": 73
@@ -1005,7 +1005,7 @@
       "news_added": "2026-08-15T16:00:07.974271Z",
       "minutes": 29,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 53
@@ -1041,7 +1041,7 @@
       "news_added": null,
       "minutes": 900,
       "starts": 10,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.00",
       "expected_assists": "0.01",
       "now_cost": 51
@@ -1095,7 +1095,7 @@
       "news_added": "2026-10-17T19:30:10.120990Z",
       "minutes": 363,
       "starts": 4,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.00",
       "expected_assists": "0.14",
       "now_cost": 45
@@ -1113,7 +1113,7 @@
       "news_added": "2026-09-09T09:30:08.229436Z",
       "minutes": 240,
       "starts": 3,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.63",
       "expected_assists": "0.22",
       "now_cost": 59
@@ -1131,7 +1131,7 @@
       "news_added": null,
       "minutes": 180,
       "starts": 2,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.08",
       "expected_assists": "0.07",
       "now_cost": 45
@@ -1149,7 +1149,7 @@
       "news_added": null,
       "minutes": 174,
       "starts": 0,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.37",
       "expected_assists": "0.44",
       "now_cost": 60
@@ -1203,7 +1203,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 45
@@ -1257,7 +1257,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "8.0",
+      "form": "6.0",
       "expected_goals": "0.40",
       "expected_assists": "0.97",
       "now_cost": 57
@@ -1275,7 +1275,7 @@
       "news_added": null,
       "minutes": 983,
       "starts": 11,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "0.17",
       "expected_assists": "1.04",
       "now_cost": 54
@@ -1293,7 +1293,7 @@
       "news_added": null,
       "minutes": 20,
       "starts": 0,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 49
@@ -1304,10 +1304,10 @@
       "first_name": "Veljko",
       "second_name": "Milosavljevic",
       "web_name": "Milosavljević",
-      "status": "i",
-      "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 0,
-      "news": "Thigh injury - Unknown return date",
+      "status": "a",
+      "chance_of_playing_next_round": 100,
+      "chance_of_playing_this_round": 100,
+      "news": "",
       "news_added": "2026-08-06T10:00:10.456051Z",
       "minutes": 0,
       "starts": 0,
@@ -1329,7 +1329,7 @@
       "news_added": null,
       "minutes": 933,
       "starts": 11,
-      "form": "4.3",
+      "form": "3.2",
       "expected_goals": "0.58",
       "expected_assists": "0.46",
       "now_cost": 45
@@ -1383,7 +1383,7 @@
       "news_added": null,
       "minutes": 963,
       "starts": 11,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "3.14",
       "expected_assists": "0.91",
       "now_cost": 63
@@ -1401,7 +1401,7 @@
       "news_added": null,
       "minutes": 930,
       "starts": 11,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "4.27",
       "expected_assists": "2.36",
       "now_cost": 68
@@ -1437,7 +1437,7 @@
       "news_added": "2026-09-20T15:30:09.074071Z",
       "minutes": 586,
       "starts": 8,
-      "form": "6.0",
+      "form": "4.5",
       "expected_goals": "2.27",
       "expected_assists": "0.54",
       "now_cost": 59
@@ -1455,7 +1455,7 @@
       "news_added": null,
       "minutes": 398,
       "starts": 4,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.08",
       "expected_assists": "0.34",
       "now_cost": 49
@@ -1466,14 +1466,14 @@
       "first_name": "Ben",
       "second_name": "Gannon-Doak",
       "web_name": "Gannon-Doak",
-      "status": "a",
-      "chance_of_playing_next_round": null,
-      "chance_of_playing_this_round": null,
-      "news": "",
-      "news_added": null,
+      "status": "d",
+      "chance_of_playing_next_round": 75,
+      "chance_of_playing_this_round": 75,
+      "news": "Illness - 75% chance of playing",
+      "news_added": "2026-11-27T15:30:06.231137Z",
       "minutes": 86,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.12",
       "expected_assists": "0.30",
       "now_cost": 48
@@ -1491,7 +1491,7 @@
       "news_added": "2026-08-15T16:30:07.029928Z",
       "minutes": 795,
       "starts": 9,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.18",
       "expected_assists": "0.15",
       "now_cost": 50
@@ -1527,7 +1527,7 @@
       "news_added": "2026-07-24T17:30:10.035483Z",
       "minutes": 480,
       "starts": 6,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "1.07",
       "expected_assists": "0.83",
       "now_cost": 50
@@ -1563,7 +1563,7 @@
       "news_added": "2026-08-15T16:00:07.590566Z",
       "minutes": 21,
       "starts": 0,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.49",
       "expected_assists": "0.07",
       "now_cost": 48
@@ -1576,12 +1576,12 @@
       "web_name": "Kroupi.Jr",
       "status": "d",
       "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 75,
       "news": "Illness - 75% chance of playing",
       "news_added": "2026-11-26T21:00:05.979236Z",
       "minutes": 68,
       "starts": 0,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.00",
       "expected_assists": "0.30",
       "now_cost": 73
@@ -1599,7 +1599,7 @@
       "news_added": null,
       "minutes": 927,
       "starts": 11,
-      "form": "8.0",
+      "form": "6.0",
       "expected_goals": "5.57",
       "expected_assists": "1.07",
       "now_cost": 66
@@ -1635,7 +1635,7 @@
       "news_added": "2026-08-15T16:30:07.054142Z",
       "minutes": 58,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.41",
       "expected_assists": "0.05",
       "now_cost": 60
@@ -1653,7 +1653,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "6.3",
+      "form": "4.8",
       "expected_goals": "1.41",
       "expected_assists": "0.51",
       "now_cost": 51
@@ -1725,7 +1725,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "0.00",
       "expected_assists": "0.04",
       "now_cost": 50
@@ -1761,7 +1761,7 @@
       "news_added": "2026-11-16T19:00:05.204970Z",
       "minutes": 241,
       "starts": 3,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.51",
       "expected_assists": "0.05",
       "now_cost": 54
@@ -1779,7 +1779,7 @@
       "news_added": "2026-08-15T15:30:06.416627Z",
       "minutes": 408,
       "starts": 5,
-      "form": "5.7",
+      "form": "4.2",
       "expected_goals": "0.16",
       "expected_assists": "0.22",
       "now_cost": 49
@@ -1797,7 +1797,7 @@
       "news_added": null,
       "minutes": 846,
       "starts": 11,
-      "form": "6.7",
+      "form": "5.0",
       "expected_goals": "2.21",
       "expected_assists": "1.07",
       "now_cost": 55
@@ -1815,7 +1815,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "0.46",
       "expected_assists": "0.29",
       "now_cost": 45
@@ -1833,7 +1833,7 @@
       "news_added": null,
       "minutes": 834,
       "starts": 10,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "1.00",
       "expected_assists": "0.78",
       "now_cost": 45
@@ -1869,7 +1869,7 @@
       "news_added": "2026-11-17T11:00:05.107723Z",
       "minutes": 350,
       "starts": 3,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.08",
       "expected_assists": "0.08",
       "now_cost": 45
@@ -1923,7 +1923,7 @@
       "news_added": "2026-10-10T16:30:08.848962Z",
       "minutes": 801,
       "starts": 9,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "2.54",
       "expected_assists": "0.35",
       "now_cost": 61
@@ -1941,7 +1941,7 @@
       "news_added": null,
       "minutes": 505,
       "starts": 7,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "1.23",
       "expected_assists": "0.79",
       "now_cost": 62
@@ -1959,7 +1959,7 @@
       "news_added": "2026-10-03T19:30:08.141728Z",
       "minutes": 442,
       "starts": 4,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.32",
       "expected_assists": "1.72",
       "now_cost": 52
@@ -1977,7 +1977,7 @@
       "news_added": "2026-08-30T12:30:08.176795Z",
       "minutes": 332,
       "starts": 4,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.18",
       "expected_assists": "0.72",
       "now_cost": 54
@@ -1995,7 +1995,7 @@
       "news_added": "2026-10-17T16:30:09.272910Z",
       "minutes": 891,
       "starts": 10,
-      "form": "5.7",
+      "form": "4.2",
       "expected_goals": "0.55",
       "expected_assists": "0.80",
       "now_cost": 50
@@ -2026,12 +2026,12 @@
       "web_name": "Carvalho",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-30T14:30:09.456391Z",
       "minutes": 12,
       "starts": 0,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "1.18",
       "expected_assists": "0.07",
       "now_cost": 50
@@ -2049,7 +2049,7 @@
       "news_added": "2026-10-17T15:00:07.992801Z",
       "minutes": 452,
       "starts": 5,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.19",
       "expected_assists": "0.86",
       "now_cost": 47
@@ -2085,7 +2085,7 @@
       "news_added": null,
       "minutes": 553,
       "starts": 6,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "1.72",
       "expected_assists": "0.97",
       "now_cost": 59
@@ -2103,7 +2103,7 @@
       "news_added": "2026-11-08T14:30:09.097484Z",
       "minutes": 824,
       "starts": 10,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "4.12",
       "expected_assists": "1.26",
       "now_cost": 77
@@ -2139,7 +2139,7 @@
       "news_added": null,
       "minutes": 147,
       "starts": 1,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.33",
       "expected_assists": "0.29",
       "now_cost": 53
@@ -2157,7 +2157,7 @@
       "news_added": null,
       "minutes": 621,
       "starts": 7,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.48",
       "expected_assists": "0.81",
       "now_cost": 53
@@ -2175,7 +2175,7 @@
       "news_added": null,
       "minutes": 201,
       "starts": 1,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.11",
       "expected_assists": "0.12",
       "now_cost": 44
@@ -2247,7 +2247,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "6.3",
+      "form": "4.8",
       "expected_goals": "0.00",
       "expected_assists": "0.21",
       "now_cost": 47
@@ -2296,12 +2296,12 @@
       "web_name": "Boscagli",
       "status": "d",
       "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 75,
       "news": "Illness - 75% chance of playing",
       "news_added": "2026-11-25T16:00:05.519144Z",
       "minutes": 848,
       "starts": 11,
-      "form": "6.0",
+      "form": "4.5",
       "expected_goals": "0.14",
       "expected_assists": "1.35",
       "now_cost": 45
@@ -2319,7 +2319,7 @@
       "news_added": null,
       "minutes": 912,
       "starts": 11,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "2.44",
       "expected_assists": "1.91",
       "now_cost": 56
@@ -2337,7 +2337,7 @@
       "news_added": "2026-09-22T09:30:09.629652Z",
       "minutes": 839,
       "starts": 9,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.05",
       "expected_assists": "0.21",
       "now_cost": 45
@@ -2386,12 +2386,12 @@
       "web_name": "Costinha",
       "status": "s",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 0,
       "news": "Suspended until 2 Dec",
       "news_added": "2026-11-22T16:00:06.170652Z",
       "minutes": 442,
       "starts": 3,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.63",
       "expected_assists": "0.67",
       "now_cost": 45
@@ -2445,7 +2445,7 @@
       "news_added": "2026-08-14T18:00:06.418033Z",
       "minutes": 31,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.00",
       "expected_assists": "0.02",
       "now_cost": 58
@@ -2463,7 +2463,7 @@
       "news_added": "2026-08-27T19:30:07.780933Z",
       "minutes": 180,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "2.52",
       "expected_assists": "0.07",
       "now_cost": 59
@@ -2481,7 +2481,7 @@
       "news_added": null,
       "minutes": 970,
       "starts": 11,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "3.07",
       "expected_assists": "2.62",
       "now_cost": 63
@@ -2499,7 +2499,7 @@
       "news_added": "2026-08-26T16:00:07.608056Z",
       "minutes": 220,
       "starts": 2,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.62",
       "expected_assists": "1.00",
       "now_cost": 52
@@ -2510,11 +2510,11 @@
       "first_name": "Matt",
       "second_name": "O'Riley",
       "web_name": "O'Riley",
-      "status": "a",
-      "chance_of_playing_next_round": null,
-      "chance_of_playing_this_round": null,
-      "news": "",
-      "news_added": null,
+      "status": "d",
+      "chance_of_playing_next_round": 75,
+      "chance_of_playing_this_round": 75,
+      "news": "Ankle injury - 75% chance of playing",
+      "news_added": "2026-11-27T16:00:05.751888Z",
       "minutes": 10,
       "starts": 0,
       "form": "0.0",
@@ -2535,7 +2535,7 @@
       "news_added": null,
       "minutes": 952,
       "starts": 11,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "2.14",
       "expected_assists": "1.38",
       "now_cost": 51
@@ -2571,7 +2571,7 @@
       "news_added": "2026-08-30T18:00:07.935334Z",
       "minutes": 807,
       "starts": 10,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "2.62",
       "expected_assists": "0.49",
       "now_cost": 55
@@ -2589,7 +2589,7 @@
       "news_added": "2026-09-04T09:30:08.612904Z",
       "minutes": 227,
       "starts": 2,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.21",
       "expected_assists": "0.22",
       "now_cost": 48
@@ -2697,7 +2697,7 @@
       "news_added": null,
       "minutes": 747,
       "starts": 9,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "2.89",
       "expected_assists": "0.23",
       "now_cost": 57
@@ -2751,7 +2751,7 @@
       "news_added": null,
       "minutes": 977,
       "starts": 11,
-      "form": "6.0",
+      "form": "4.5",
       "expected_goals": "1.25",
       "expected_assists": "0.23",
       "now_cost": 53
@@ -2787,7 +2787,7 @@
       "news_added": null,
       "minutes": 41,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.05",
       "expected_assists": "0.07",
       "now_cost": 49
@@ -2800,12 +2800,12 @@
       "web_name": "Yalcouyé",
       "status": "i",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 0,
       "news": "Unspecified injury - Unknown return date",
       "news_added": "2026-11-23T14:30:06.034940Z",
       "minutes": 322,
       "starts": 3,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "1.46",
       "expected_assists": "0.62",
       "now_cost": 44
@@ -2823,7 +2823,7 @@
       "news_added": "2026-11-14T15:00:05.225678Z",
       "minutes": 37,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.15",
       "expected_assists": "0.00",
       "now_cost": 45
@@ -2859,7 +2859,7 @@
       "news_added": "2026-11-14T15:00:05.235535Z",
       "minutes": 540,
       "starts": 7,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.54",
       "expected_assists": "0.34",
       "now_cost": 55
@@ -2913,7 +2913,7 @@
       "news_added": "2026-10-17T13:30:08.724000Z",
       "minutes": 614,
       "starts": 7,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.03",
       "now_cost": 49
@@ -2931,7 +2931,7 @@
       "news_added": null,
       "minutes": 970,
       "starts": 11,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "3.25",
       "expected_assists": "1.54",
       "now_cost": 83
@@ -2949,7 +2949,7 @@
       "news_added": "2026-10-31T13:30:08.172741Z",
       "minutes": 514,
       "starts": 5,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.48",
       "expected_assists": "0.58",
       "now_cost": 49
@@ -2967,7 +2967,7 @@
       "news_added": "2026-08-20T14:00:07.949090Z",
       "minutes": 152,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.21",
       "expected_assists": "0.14",
       "now_cost": 58
@@ -3057,7 +3057,7 @@
       "news_added": "2026-10-29T22:00:09.886054Z",
       "minutes": 322,
       "starts": 3,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.14",
       "expected_assists": "0.36",
       "now_cost": 48
@@ -3075,7 +3075,7 @@
       "news_added": "2026-07-23T12:01:23.464591Z",
       "minutes": 582,
       "starts": 7,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "0.19",
       "expected_assists": "0.13",
       "now_cost": 50
@@ -3129,7 +3129,7 @@
       "news_added": null,
       "minutes": 836,
       "starts": 10,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.20",
       "expected_assists": "0.32",
       "now_cost": 48
@@ -3165,7 +3165,7 @@
       "news_added": "2026-11-08T15:00:09.230933Z",
       "minutes": 653,
       "starts": 7,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "0.10",
       "expected_assists": "0.08",
       "now_cost": 45
@@ -3183,7 +3183,7 @@
       "news_added": "2026-08-24T18:30:07.421239Z",
       "minutes": 178,
       "starts": 2,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.00",
       "expected_assists": "0.15",
       "now_cost": 53
@@ -3201,7 +3201,7 @@
       "news_added": "2026-09-21T13:00:09.022726Z",
       "minutes": 968,
       "starts": 11,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "2.58",
       "expected_assists": "1.25",
       "now_cost": 98
@@ -3219,7 +3219,7 @@
       "news_added": null,
       "minutes": 764,
       "starts": 9,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "1.82",
       "expected_assists": "1.11",
       "now_cost": 66
@@ -3237,7 +3237,7 @@
       "news_added": null,
       "minutes": 241,
       "starts": 2,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.41",
       "expected_assists": "0.75",
       "now_cost": 63
@@ -3273,7 +3273,7 @@
       "news_added": "2026-11-21T16:30:05.451902Z",
       "minutes": 461,
       "starts": 6,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.05",
       "expected_assists": "0.10",
       "now_cost": 53
@@ -3291,7 +3291,7 @@
       "news_added": null,
       "minutes": 547,
       "starts": 7,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.77",
       "expected_assists": "0.18",
       "now_cost": 50
@@ -3327,7 +3327,7 @@
       "news_added": "2026-07-24T20:30:10.609931Z",
       "minutes": 128,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.07",
       "expected_assists": "0.03",
       "now_cost": 52
@@ -3399,7 +3399,7 @@
       "news_added": "2026-09-09T15:00:09.063849Z",
       "minutes": 66,
       "starts": 1,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.06",
       "expected_assists": "0.00",
       "now_cost": 49
@@ -3435,7 +3435,7 @@
       "news_added": null,
       "minutes": 285,
       "starts": 3,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 44
@@ -3471,7 +3471,7 @@
       "news_added": null,
       "minutes": 118,
       "starts": 1,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.58",
       "expected_assists": "0.11",
       "now_cost": 53
@@ -3489,7 +3489,7 @@
       "news_added": "2026-10-17T12:00:10.154091Z",
       "minutes": 464,
       "starts": 4,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.04",
       "expected_assists": "0.44",
       "now_cost": 49
@@ -3561,7 +3561,7 @@
       "news_added": null,
       "minutes": 822,
       "starts": 9,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "0.20",
       "expected_assists": "0.21",
       "now_cost": 45
@@ -3574,12 +3574,12 @@
       "web_name": "Onyeka",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-05T09:00:09.236330Z",
       "minutes": 398,
       "starts": 4,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.14",
       "expected_assists": "0.23",
       "now_cost": 48
@@ -3597,7 +3597,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.00",
       "expected_assists": "0.03",
       "now_cost": 45
@@ -3646,12 +3646,12 @@
       "web_name": "Thomas",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-24T17:00:09.115906Z",
       "minutes": 766,
       "starts": 9,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.60",
       "expected_assists": "0.79",
       "now_cost": 40
@@ -3687,7 +3687,7 @@
       "news_added": "2026-09-19T16:00:09.486751Z",
       "minutes": 900,
       "starts": 10,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.01",
       "expected_assists": "0.59",
       "now_cost": 39
@@ -3705,7 +3705,7 @@
       "news_added": null,
       "minutes": 894,
       "starts": 10,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.53",
       "expected_assists": "0.76",
       "now_cost": 40
@@ -3831,7 +3831,7 @@
       "news_added": "2026-07-23T12:01:23.481435Z",
       "minutes": 820,
       "starts": 10,
-      "form": "7.0",
+      "form": "5.2",
       "expected_goals": "2.28",
       "expected_assists": "2.04",
       "now_cost": 50
@@ -3849,7 +3849,7 @@
       "news_added": null,
       "minutes": 786,
       "starts": 9,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.17",
       "expected_assists": "0.25",
       "now_cost": 47
@@ -3867,7 +3867,7 @@
       "news_added": null,
       "minutes": 488,
       "starts": 5,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "0.70",
       "expected_assists": "0.11",
       "now_cost": 48
@@ -3921,7 +3921,7 @@
       "news_added": null,
       "minutes": 297,
       "starts": 3,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "0.28",
       "expected_assists": "0.33",
       "now_cost": 53
@@ -3957,7 +3957,7 @@
       "news_added": null,
       "minutes": 215,
       "starts": 2,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.39",
       "expected_assists": "0.18",
       "now_cost": 52
@@ -4029,7 +4029,7 @@
       "news_added": null,
       "minutes": 515,
       "starts": 5,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "1.33",
       "expected_assists": "0.08",
       "now_cost": 50
@@ -4096,12 +4096,12 @@
       "web_name": "Awoniyi",
       "status": "i",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 0,
       "news": "Ankle injury - Unknown return date",
       "news_added": "2026-11-21T16:30:05.778377Z",
       "minutes": 487,
       "starts": 6,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "2.90",
       "expected_assists": "0.05",
       "now_cost": 54
@@ -4119,7 +4119,7 @@
       "news_added": "2026-11-19T19:00:05.972580Z",
       "minutes": 647,
       "starts": 8,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.15",
       "expected_assists": "0.20",
       "now_cost": 48
@@ -4137,7 +4137,7 @@
       "news_added": null,
       "minutes": 71,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.00",
       "expected_assists": "0.26",
       "now_cost": 52
@@ -4155,7 +4155,7 @@
       "news_added": null,
       "minutes": 298,
       "starts": 3,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.39",
       "expected_assists": "0.02",
       "now_cost": 50
@@ -4191,7 +4191,7 @@
       "news_added": null,
       "minutes": 212,
       "starts": 3,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.29",
       "expected_assists": "0.16",
       "now_cost": 55
@@ -4209,7 +4209,7 @@
       "news_added": null,
       "minutes": 397,
       "starts": 4,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.36",
       "expected_assists": "0.06",
       "now_cost": 40
@@ -4227,7 +4227,7 @@
       "news_added": null,
       "minutes": 65,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.12",
       "expected_assists": "0.18",
       "now_cost": 53
@@ -4245,7 +4245,7 @@
       "news_added": "2026-09-12T15:30:09.445078Z",
       "minutes": 499,
       "starts": 6,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.32",
       "expected_assists": "0.13",
       "now_cost": 44
@@ -4263,7 +4263,7 @@
       "news_added": "2026-09-12T14:00:09.378740Z",
       "minutes": 540,
       "starts": 6,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 49
@@ -4299,7 +4299,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.26",
       "expected_assists": "0.12",
       "now_cost": 49
@@ -4317,7 +4317,7 @@
       "news_added": null,
       "minutes": 737,
       "starts": 8,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.05",
       "expected_assists": "0.17",
       "now_cost": 47
@@ -4335,7 +4335,7 @@
       "news_added": null,
       "minutes": 959,
       "starts": 11,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.79",
       "expected_assists": "1.05",
       "now_cost": 44
@@ -4384,12 +4384,12 @@
       "web_name": "Mingueza",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-21T17:30:05.672662Z",
       "minutes": 161,
       "starts": 2,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.11",
       "now_cost": 42
@@ -4425,7 +4425,7 @@
       "news_added": "2026-07-23T12:01:23.498963Z",
       "minutes": 973,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.43",
       "expected_assists": "1.46",
       "now_cost": 53
@@ -4438,12 +4438,12 @@
       "web_name": "Yeremy",
       "status": "s",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 0,
       "news": "Suspended until 2 Dec",
       "news_added": "2026-11-21T17:30:05.694046Z",
       "minutes": 762,
       "starts": 10,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "2.11",
       "expected_assists": "1.50",
       "now_cost": 55
@@ -4461,7 +4461,7 @@
       "news_added": null,
       "minutes": 40,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.04",
       "now_cost": 43
@@ -4479,7 +4479,7 @@
       "news_added": null,
       "minutes": 268,
       "starts": 2,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "1.02",
       "expected_assists": "0.04",
       "now_cost": 48
@@ -4497,7 +4497,7 @@
       "news_added": null,
       "minutes": 967,
       "starts": 11,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "1.39",
       "expected_assists": "0.75",
       "now_cost": 50
@@ -4636,12 +4636,12 @@
       "web_name": "Strand Larsen",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-11T13:00:09.556609Z",
       "minutes": 589,
       "starts": 7,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "2.34",
       "expected_assists": "0.53",
       "now_cost": 59
@@ -4659,7 +4659,7 @@
       "news_added": "2026-10-31T18:00:09.547671Z",
       "minutes": 164,
       "starts": 3,
-      "form": "-0.7",
+      "form": "-0.5",
       "expected_goals": "1.96",
       "expected_assists": "0.04",
       "now_cost": 63
@@ -4677,7 +4677,7 @@
       "news_added": "2026-09-12T14:00:09.427136Z",
       "minutes": 298,
       "starts": 3,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "2.15",
       "expected_assists": "0.63",
       "now_cost": 54
@@ -4713,7 +4713,7 @@
       "news_added": null,
       "minutes": 359,
       "starts": 4,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.30",
       "expected_assists": "0.38",
       "now_cost": 52
@@ -4767,7 +4767,7 @@
       "news_added": "2026-10-04T22:00:08.963040Z",
       "minutes": 754,
       "starts": 8,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "1.28",
       "expected_assists": "1.02",
       "now_cost": 50
@@ -4839,7 +4839,7 @@
       "news_added": "2026-10-21T22:00:10.028638Z",
       "minutes": 519,
       "starts": 7,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.49",
       "expected_assists": "0.18",
       "now_cost": 50
@@ -4857,7 +4857,7 @@
       "news_added": null,
       "minutes": 72,
       "starts": 0,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.24",
       "expected_assists": "0.31",
       "now_cost": 54
@@ -4875,7 +4875,7 @@
       "news_added": "2026-08-15T20:00:06.779594Z",
       "minutes": 10,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 48
@@ -4893,7 +4893,7 @@
       "news_added": null,
       "minutes": 427,
       "starts": 5,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "1.15",
       "expected_assists": "0.39",
       "now_cost": 58
@@ -4911,7 +4911,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.00",
       "expected_assists": "0.04",
       "now_cost": 55
@@ -4960,12 +4960,12 @@
       "web_name": "Tarkowski",
       "status": "s",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 0,
       "news": "Suspended until 13 Dec",
       "news_added": "2026-11-23T21:00:06.268052Z",
       "minutes": 939,
       "starts": 11,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.18",
       "expected_assists": "0.11",
       "now_cost": 62
@@ -4983,7 +4983,7 @@
       "news_added": "2026-11-05T16:57:40.272082Z",
       "minutes": 889,
       "starts": 10,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "0.35",
       "expected_assists": "0.23",
       "now_cost": 55
@@ -5001,7 +5001,7 @@
       "news_added": null,
       "minutes": 120,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.01",
       "expected_assists": "0.01",
       "now_cost": 47
@@ -5019,7 +5019,7 @@
       "news_added": null,
       "minutes": 315,
       "starts": 3,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.20",
       "expected_assists": "0.09",
       "now_cost": 48
@@ -5037,7 +5037,7 @@
       "news_added": "2026-10-24T19:00:09.907289Z",
       "minutes": 883,
       "starts": 10,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "0.18",
       "expected_assists": "0.61",
       "now_cost": 46
@@ -5091,7 +5091,7 @@
       "news_added": null,
       "minutes": 963,
       "starts": 11,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "1.80",
       "expected_assists": "1.39",
       "now_cost": 67
@@ -5109,7 +5109,7 @@
       "news_added": "2026-10-24T14:30:09.610430Z",
       "minutes": 349,
       "starts": 3,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.11",
       "expected_assists": "0.81",
       "now_cost": 65
@@ -5127,7 +5127,7 @@
       "news_added": "2026-09-06T18:00:08.301702Z",
       "minutes": 862,
       "starts": 10,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.48",
       "expected_assists": "0.75",
       "now_cost": 60
@@ -5145,7 +5145,7 @@
       "news_added": null,
       "minutes": 682,
       "starts": 8,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.57",
       "expected_assists": "1.19",
       "now_cost": 55
@@ -5163,7 +5163,7 @@
       "news_added": null,
       "minutes": 14,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.13",
       "expected_assists": "0.02",
       "now_cost": 48
@@ -5181,7 +5181,7 @@
       "news_added": "2026-09-17T08:30:08.942299Z",
       "minutes": 949,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.87",
       "expected_assists": "0.78",
       "now_cost": 50
@@ -5199,7 +5199,7 @@
       "news_added": null,
       "minutes": 118,
       "starts": 1,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.21",
       "expected_assists": "0.58",
       "now_cost": 53
@@ -5217,7 +5217,7 @@
       "news_added": "2026-09-16T18:00:09.541933Z",
       "minutes": 659,
       "starts": 8,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.08",
       "expected_assists": "0.35",
       "now_cost": 49
@@ -5235,7 +5235,7 @@
       "news_added": "2026-08-26T22:00:07.797766Z",
       "minutes": 204,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.12",
       "expected_assists": "0.17",
       "now_cost": 53
@@ -5271,7 +5271,7 @@
       "news_added": null,
       "minutes": 919,
       "starts": 11,
-      "form": "9.0",
+      "form": "6.8",
       "expected_goals": "7.41",
       "expected_assists": "0.48",
       "now_cost": 57
@@ -5325,7 +5325,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 45
@@ -5374,7 +5374,7 @@
       "web_name": "Andersen",
       "status": "i",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 0,
       "news": "Unspecified injury - Unknown return date",
       "news_added": "2026-11-27T13:00:06.047138Z",
       "minutes": 190,
@@ -5397,7 +5397,7 @@
       "news_added": "2026-10-09T11:30:11.109085Z",
       "minutes": 809,
       "starts": 9,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.41",
       "expected_assists": "0.60",
       "now_cost": 44
@@ -5433,7 +5433,7 @@
       "news_added": "2026-09-18T12:30:09.546158Z",
       "minutes": 240,
       "starts": 2,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.00",
       "expected_assists": "0.23",
       "now_cost": 44
@@ -5451,7 +5451,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.47",
       "expected_assists": "0.15",
       "now_cost": 45
@@ -5469,7 +5469,7 @@
       "news_added": null,
       "minutes": 750,
       "starts": 9,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.81",
       "expected_assists": "0.97",
       "now_cost": 45
@@ -5487,7 +5487,7 @@
       "news_added": null,
       "minutes": 890,
       "starts": 11,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "1.35",
       "expected_assists": "2.97",
       "now_cost": 54
@@ -5541,7 +5541,7 @@
       "news_added": null,
       "minutes": 805,
       "starts": 11,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "2.13",
       "expected_assists": "1.76",
       "now_cost": 55
@@ -5559,7 +5559,7 @@
       "news_added": null,
       "minutes": 826,
       "starts": 9,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "0.35",
       "expected_assists": "0.58",
       "now_cost": 48
@@ -5577,7 +5577,7 @@
       "news_added": "2026-11-06T10:30:09.529201Z",
       "minutes": 43,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.03",
       "expected_assists": "0.07",
       "now_cost": 49
@@ -5595,7 +5595,7 @@
       "news_added": "2026-11-07T20:00:09.169385Z",
       "minutes": 875,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "2.01",
       "expected_assists": "1.37",
       "now_cost": 54
@@ -5613,7 +5613,7 @@
       "news_added": "2026-10-17T16:30:09.374216Z",
       "minutes": 247,
       "starts": 2,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.29",
       "expected_assists": "0.46",
       "now_cost": 43
@@ -5649,7 +5649,7 @@
       "news_added": null,
       "minutes": 178,
       "starts": 1,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "0.99",
       "expected_assists": "0.00",
       "now_cost": 53
@@ -5685,7 +5685,7 @@
       "news_added": null,
       "minutes": 832,
       "starts": 10,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "4.05",
       "expected_assists": "0.77",
       "now_cost": 58
@@ -5703,7 +5703,7 @@
       "news_added": null,
       "minutes": 283,
       "starts": 3,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "1.02",
       "expected_assists": "0.05",
       "now_cost": 52
@@ -5721,7 +5721,7 @@
       "news_added": null,
       "minutes": 823,
       "starts": 9,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.69",
       "expected_assists": "0.84",
       "now_cost": 50
@@ -5775,7 +5775,7 @@
       "news_added": "2026-10-16T17:30:09.637224Z",
       "minutes": 125,
       "starts": 1,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.19",
       "expected_assists": "0.25",
       "now_cost": 50
@@ -5811,7 +5811,7 @@
       "news_added": "2026-10-29T08:30:08.436091Z",
       "minutes": 720,
       "starts": 8,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.27",
       "expected_assists": "0.09",
       "now_cost": 45
@@ -5842,12 +5842,12 @@
       "web_name": "Iroegbunam",
       "status": "i",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 0,
       "news": "Hamstring injury - Unknown return date",
       "news_added": "2026-11-22T15:00:05.901794Z",
       "minutes": 405,
       "starts": 4,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.52",
       "expected_assists": "0.16",
       "now_cost": 50
@@ -5937,7 +5937,7 @@
       "news_added": null,
       "minutes": 842,
       "starts": 10,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.32",
       "expected_assists": "0.16",
       "now_cost": 40
@@ -5948,10 +5948,10 @@
       "first_name": "Charlie",
       "second_name": "Hughes",
       "web_name": "Hughes",
-      "status": "i",
-      "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 0,
-      "news": "Groin injury - Unknown return date",
+      "status": "d",
+      "chance_of_playing_next_round": 50,
+      "chance_of_playing_this_round": 50,
+      "news": "Groin injury - 50% chance of playing",
       "news_added": "2026-08-02T09:00:11.030017Z",
       "minutes": 0,
       "starts": 0,
@@ -5973,7 +5973,7 @@
       "news_added": "2026-08-22T17:30:07.668197Z",
       "minutes": 941,
       "starts": 11,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "0.78",
       "expected_assists": "0.04",
       "now_cost": 42
@@ -5991,7 +5991,7 @@
       "news_added": "2026-08-29T16:30:08.151841Z",
       "minutes": 811,
       "starts": 11,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.24",
       "expected_assists": "0.09",
       "now_cost": 40
@@ -6027,7 +6027,7 @@
       "news_added": null,
       "minutes": 721,
       "starts": 8,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.02",
       "expected_assists": "0.50",
       "now_cost": 40
@@ -6099,7 +6099,7 @@
       "news_added": "2026-11-10T19:00:09.431074Z",
       "minutes": 775,
       "starts": 9,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "1.68",
       "expected_assists": "1.44",
       "now_cost": 52
@@ -6153,7 +6153,7 @@
       "news_added": "2026-10-31T18:00:09.584315Z",
       "minutes": 446,
       "starts": 6,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.08",
       "expected_assists": "0.14",
       "now_cost": 44
@@ -6171,7 +6171,7 @@
       "news_added": null,
       "minutes": 944,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.33",
       "expected_assists": "0.93",
       "now_cost": 45
@@ -6261,7 +6261,7 @@
       "news_added": null,
       "minutes": 976,
       "starts": 11,
-      "form": "9.0",
+      "form": "6.8",
       "expected_goals": "3.37",
       "expected_assists": "0.28",
       "now_cost": 55
@@ -6346,12 +6346,12 @@
       "web_name": "Gelhardt",
       "status": "i",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 0,
       "news": "Thigh injury - Unknown return date",
       "news_added": "2026-11-23T12:00:05.467109Z",
       "minutes": 128,
       "starts": 1,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "1.24",
       "expected_assists": "0.08",
       "now_cost": 50
@@ -6387,7 +6387,7 @@
       "news_added": "2026-11-05T18:30:08.257672Z",
       "minutes": 106,
       "starts": 1,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.01",
       "now_cost": 49
@@ -6405,7 +6405,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "5.7",
+      "form": "4.2",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 47
@@ -6423,7 +6423,7 @@
       "news_added": null,
       "minutes": 30,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.13",
       "expected_assists": "0.01",
       "now_cost": 47
@@ -6441,7 +6441,7 @@
       "news_added": null,
       "minutes": 565,
       "starts": 8,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.11",
       "expected_assists": "0.14",
       "now_cost": 49
@@ -6459,7 +6459,7 @@
       "news_added": null,
       "minutes": 353,
       "starts": 3,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.02",
       "expected_assists": "0.05",
       "now_cost": 39
@@ -6477,7 +6477,7 @@
       "news_added": "2026-11-16T19:00:05.574151Z",
       "minutes": 609,
       "starts": 8,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.66",
       "expected_assists": "0.01",
       "now_cost": 41
@@ -6495,7 +6495,7 @@
       "news_added": "2026-10-16T13:00:08.314070Z",
       "minutes": 273,
       "starts": 2,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.03",
       "expected_assists": "0.27",
       "now_cost": 49
@@ -6513,7 +6513,7 @@
       "news_added": "2026-10-16T17:30:09.623338Z",
       "minutes": 231,
       "starts": 2,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.90",
       "expected_assists": "0.91",
       "now_cost": 50
@@ -6524,10 +6524,10 @@
       "first_name": "Ilyas",
       "second_name": "Ansah",
       "web_name": "Ansah",
-      "status": "i",
-      "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 0,
-      "news": "Back injury - Unknown return date",
+      "status": "d",
+      "chance_of_playing_next_round": 50,
+      "chance_of_playing_this_round": 50,
+      "news": "Back injury - 50% chance of playing",
       "news_added": "2026-09-09T10:00:08.919489Z",
       "minutes": 0,
       "starts": 0,
@@ -6567,7 +6567,7 @@
       "news_added": "2026-09-21T08:30:09.561308Z",
       "minutes": 174,
       "starts": 1,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.09",
       "expected_assists": "0.01",
       "now_cost": 39
@@ -6585,7 +6585,7 @@
       "news_added": null,
       "minutes": 316,
       "starts": 3,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.22",
       "expected_assists": "0.64",
       "now_cost": 55
@@ -6603,7 +6603,7 @@
       "news_added": null,
       "minutes": 15,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.01",
       "now_cost": 50
@@ -6621,7 +6621,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.10",
       "expected_assists": "0.18",
       "now_cost": 39
@@ -6639,7 +6639,7 @@
       "news_added": "2026-10-19T15:30:08.949503Z",
       "minutes": 580,
       "starts": 7,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.02",
       "expected_assists": "0.47",
       "now_cost": 49
@@ -6657,7 +6657,7 @@
       "news_added": null,
       "minutes": 630,
       "starts": 7,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.00",
       "expected_assists": "0.03",
       "now_cost": 44
@@ -6729,7 +6729,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.30",
       "expected_assists": "0.35",
       "now_cost": 40
@@ -6740,14 +6740,14 @@
       "first_name": "Leif",
       "second_name": "Davis",
       "web_name": "Davis",
-      "status": "d",
-      "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": null,
-      "news": "Calf injury - 75% chance of playing",
+      "status": "a",
+      "chance_of_playing_next_round": 100,
+      "chance_of_playing_this_round": 100,
+      "news": "",
       "news_added": "2026-11-21T17:00:05.582448Z",
       "minutes": 982,
       "starts": 11,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "1.64",
       "expected_assists": "0.72",
       "now_cost": 40
@@ -6765,7 +6765,7 @@
       "news_added": null,
       "minutes": 454,
       "starts": 5,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.02",
       "expected_assists": "0.08",
       "now_cost": 38
@@ -6801,7 +6801,7 @@
       "news_added": null,
       "minutes": 107,
       "starts": 1,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 39
@@ -6837,7 +6837,7 @@
       "news_added": "2026-07-29T18:00:10.305484Z",
       "minutes": 44,
       "starts": 0,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 49
@@ -6891,7 +6891,7 @@
       "news_added": null,
       "minutes": 319,
       "starts": 2,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "1.26",
       "expected_assists": "0.45",
       "now_cost": 52
@@ -6927,7 +6927,7 @@
       "news_added": "2026-09-19T15:30:10.126897Z",
       "minutes": 571,
       "starts": 7,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.41",
       "expected_assists": "1.44",
       "now_cost": 54
@@ -6945,7 +6945,7 @@
       "news_added": "2026-08-31T09:30:08.306145Z",
       "minutes": 668,
       "starts": 10,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "2.71",
       "expected_assists": "0.19",
       "now_cost": 54
@@ -6981,7 +6981,7 @@
       "news_added": "2026-08-25T11:30:07.532993Z",
       "minutes": 295,
       "starts": 4,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.25",
       "expected_assists": "0.06",
       "now_cost": 54
@@ -7017,7 +7017,7 @@
       "news_added": null,
       "minutes": 119,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "1.30",
       "expected_assists": "0.00",
       "now_cost": 50
@@ -7125,7 +7125,7 @@
       "news_added": null,
       "minutes": 565,
       "starts": 7,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "1.20",
       "expected_assists": "0.05",
       "now_cost": 52
@@ -7161,7 +7161,7 @@
       "news_added": "2026-08-25T11:30:07.678802Z",
       "minutes": 433,
       "starts": 5,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.25",
       "expected_assists": "0.21",
       "now_cost": 48
@@ -7179,7 +7179,7 @@
       "news_added": "2026-08-22T18:00:07.551930Z",
       "minutes": 915,
       "starts": 11,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "2.22",
       "expected_assists": "2.29",
       "now_cost": 55
@@ -7197,7 +7197,7 @@
       "news_added": null,
       "minutes": 636,
       "starts": 7,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.29",
       "expected_assists": "0.50",
       "now_cost": 40
@@ -7233,7 +7233,7 @@
       "news_added": null,
       "minutes": 717,
       "starts": 8,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "0.02",
       "expected_assists": "0.36",
       "now_cost": 50
@@ -7251,7 +7251,7 @@
       "news_added": null,
       "minutes": 243,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "1.82",
       "expected_assists": "0.04",
       "now_cost": 55
@@ -7269,7 +7269,7 @@
       "news_added": "2026-09-18T13:30:09.626858Z",
       "minutes": 326,
       "starts": 3,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.31",
       "expected_assists": "0.31",
       "now_cost": 61
@@ -7323,7 +7323,7 @@
       "news_added": "2026-08-30T16:00:08.564382Z",
       "minutes": 128,
       "starts": 2,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.03",
       "expected_assists": "0.06",
       "now_cost": 42
@@ -7341,7 +7341,7 @@
       "news_added": null,
       "minutes": 895,
       "starts": 11,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "1.82",
       "expected_assists": "0.99",
       "now_cost": 48
@@ -7359,7 +7359,7 @@
       "news_added": "2026-11-08T12:30:09.622622Z",
       "minutes": 721,
       "starts": 9,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.17",
       "expected_assists": "0.30",
       "now_cost": 45
@@ -7377,7 +7377,7 @@
       "news_added": null,
       "minutes": 971,
       "starts": 11,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "0.48",
       "expected_assists": "1.27",
       "now_cost": 45
@@ -7413,7 +7413,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "0.65",
       "expected_assists": "0.25",
       "now_cost": 52
@@ -7431,7 +7431,7 @@
       "news_added": "2026-11-05T18:30:07.925529Z",
       "minutes": 680,
       "starts": 7,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "1.50",
       "expected_assists": "0.58",
       "now_cost": 60
@@ -7449,7 +7449,7 @@
       "news_added": "2026-10-31T20:00:10.014132Z",
       "minutes": 552,
       "starts": 7,
-      "form": "6.7",
+      "form": "5.0",
       "expected_goals": "1.12",
       "expected_assists": "0.50",
       "now_cost": 58
@@ -7467,7 +7467,7 @@
       "news_added": null,
       "minutes": 300,
       "starts": 3,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.15",
       "expected_assists": "0.03",
       "now_cost": 52
@@ -7485,7 +7485,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "4.3",
+      "form": "3.2",
       "expected_goals": "0.25",
       "expected_assists": "0.65",
       "now_cost": 53
@@ -7503,7 +7503,7 @@
       "news_added": null,
       "minutes": 225,
       "starts": 2,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.49",
       "expected_assists": "0.37",
       "now_cost": 48
@@ -7557,7 +7557,7 @@
       "news_added": "2026-10-08T14:00:11.803126Z",
       "minutes": 116,
       "starts": 1,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.35",
       "expected_assists": "0.04",
       "now_cost": 49
@@ -7575,7 +7575,7 @@
       "news_added": "2026-08-14T23:00:06.272027Z",
       "minutes": 1,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 50
@@ -7593,7 +7593,7 @@
       "news_added": null,
       "minutes": 718,
       "starts": 9,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "1.81",
       "expected_assists": "0.11",
       "now_cost": 49
@@ -7611,7 +7611,7 @@
       "news_added": "2026-11-05T18:30:07.960444Z",
       "minutes": 953,
       "starts": 11,
-      "form": "4.3",
+      "form": "3.2",
       "expected_goals": "5.65",
       "expected_assists": "0.41",
       "now_cost": 60
@@ -7629,7 +7629,7 @@
       "news_added": null,
       "minutes": 197,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.69",
       "expected_assists": "0.24",
       "now_cost": 52
@@ -7683,7 +7683,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "0.00",
       "expected_assists": "0.02",
       "now_cost": 51
@@ -7701,7 +7701,7 @@
       "news_added": "2026-10-25T17:00:10.080582Z",
       "minutes": 771,
       "starts": 8,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "0.56",
       "expected_assists": "0.77",
       "now_cost": 45
@@ -7791,7 +7791,7 @@
       "news_added": null,
       "minutes": 64,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 45
@@ -7809,7 +7809,7 @@
       "news_added": "2026-10-08T14:00:12.276121Z",
       "minutes": 11,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.02",
       "expected_assists": "0.03",
       "now_cost": 48
@@ -7827,7 +7827,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "4.3",
+      "form": "3.2",
       "expected_goals": "0.00",
       "expected_assists": "0.01",
       "now_cost": 55
@@ -7935,7 +7935,7 @@
       "news_added": "2026-11-09T18:00:09.325472Z",
       "minutes": 990,
       "starts": 11,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.64",
       "expected_assists": "0.34",
       "now_cost": 64
@@ -7948,12 +7948,12 @@
       "web_name": "Frimpong",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-17T15:30:09.979166Z",
       "minutes": 211,
       "starts": 2,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.01",
       "expected_assists": "0.25",
       "now_cost": 51
@@ -7971,7 +7971,7 @@
       "news_added": null,
       "minutes": 912,
       "starts": 10,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.19",
       "expected_assists": "0.39",
       "now_cost": 52
@@ -7989,7 +7989,7 @@
       "news_added": "2026-07-26T08:30:10.078473Z",
       "minutes": 19,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 49
@@ -8043,7 +8043,7 @@
       "news_added": "2026-10-06T00:30:10.323830Z",
       "minutes": 952,
       "starts": 11,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.53",
       "expected_assists": "0.30",
       "now_cost": 51
@@ -8079,7 +8079,7 @@
       "news_added": null,
       "minutes": 75,
       "starts": 1,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.04",
       "expected_assists": "0.08",
       "now_cost": 48
@@ -8115,7 +8115,7 @@
       "news_added": "2026-10-25T17:00:09.888666Z",
       "minutes": 881,
       "starts": 11,
-      "form": "9.7",
+      "form": "7.2",
       "expected_goals": "2.19",
       "expected_assists": "2.31",
       "now_cost": 75
@@ -8128,12 +8128,12 @@
       "web_name": "Gakpo",
       "status": "i",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 0,
       "news": "Calf injury - Expected back 2 Dec",
       "news_added": "2026-11-22T16:30:05.520808Z",
       "minutes": 601,
       "starts": 7,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "1.24",
       "expected_assists": "1.91",
       "now_cost": 71
@@ -8151,7 +8151,7 @@
       "news_added": "2026-10-17T15:00:08.293301Z",
       "minutes": 661,
       "starts": 8,
-      "form": "5.7",
+      "form": "4.2",
       "expected_goals": "1.88",
       "expected_assists": "1.75",
       "now_cost": 67
@@ -8169,7 +8169,7 @@
       "news_added": null,
       "minutes": 279,
       "starts": 2,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "1.00",
       "expected_assists": "1.26",
       "now_cost": 57
@@ -8198,10 +8198,10 @@
       "first_name": "Ryan",
       "second_name": "Gravenberch",
       "web_name": "Gravenberch",
-      "status": "i",
-      "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 75,
-      "news": "Foot injury - Unknown return date",
+      "status": "d",
+      "chance_of_playing_next_round": 25,
+      "chance_of_playing_this_round": 25,
+      "news": "Foot injury - 25% chance of playing",
       "news_added": "2026-11-03T17:00:09.626695Z",
       "minutes": 341,
       "starts": 4,
@@ -8223,7 +8223,7 @@
       "news_added": null,
       "minutes": 827,
       "starts": 9,
-      "form": "4.3",
+      "form": "3.2",
       "expected_goals": "1.08",
       "expected_assists": "1.12",
       "now_cost": 54
@@ -8277,7 +8277,7 @@
       "news_added": null,
       "minutes": 241,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.14",
       "expected_assists": "0.26",
       "now_cost": 48
@@ -8308,12 +8308,12 @@
       "web_name": "Munoz",
       "status": "d",
       "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 75,
       "news": "Knee injury - 75% chance of playing",
       "news_added": "2026-11-26T03:30:05.640103Z",
       "minutes": 473,
       "starts": 5,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "1.32",
       "expected_assists": "0.48",
       "now_cost": 65
@@ -8349,7 +8349,7 @@
       "news_added": "2026-09-27T10:30:09.051435Z",
       "minutes": 831,
       "starts": 10,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "6.20",
       "expected_assists": "0.32",
       "now_cost": 94
@@ -8385,7 +8385,7 @@
       "news_added": null,
       "minutes": 135,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.43",
       "expected_assists": "0.04",
       "now_cost": 50
@@ -8439,7 +8439,7 @@
       "news_added": null,
       "minutes": 747,
       "starts": 9,
-      "form": "5.7",
+      "form": "4.2",
       "expected_goals": "1.05",
       "expected_assists": "0.34",
       "now_cost": 55
@@ -8457,7 +8457,7 @@
       "news_added": null,
       "minutes": 650,
       "starts": 8,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "2.11",
       "expected_assists": "1.51",
       "now_cost": 81
@@ -8475,7 +8475,7 @@
       "news_added": null,
       "minutes": 625,
       "starts": 7,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "1.56",
       "expected_assists": "1.43",
       "now_cost": 69
@@ -8493,7 +8493,7 @@
       "news_added": null,
       "minutes": 843,
       "starts": 10,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "1.74",
       "expected_assists": "1.70",
       "now_cost": 57
@@ -8511,7 +8511,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 54
@@ -8547,7 +8547,7 @@
       "news_added": "2026-10-19T15:30:09.078291Z",
       "minutes": 436,
       "starts": 5,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "1.52",
       "expected_assists": "0.68",
       "now_cost": 62
@@ -8560,12 +8560,12 @@
       "web_name": "Guéhi",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-07T21:30:08.741792Z",
       "minutes": 810,
       "starts": 10,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.95",
       "expected_assists": "0.88",
       "now_cost": 59
@@ -8578,12 +8578,12 @@
       "web_name": "Matheus N.",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 50,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-20T15:30:06.460505Z",
       "minutes": 513,
       "starts": 5,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.15",
       "expected_assists": "0.58",
       "now_cost": 59
@@ -8601,7 +8601,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.92",
       "expected_assists": "0.91",
       "now_cost": 55
@@ -8619,7 +8619,7 @@
       "news_added": "2026-11-07T21:30:08.752464Z",
       "minutes": 712,
       "starts": 8,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.80",
       "expected_assists": "0.99",
       "now_cost": 55
@@ -8650,12 +8650,12 @@
       "web_name": "Khusanov",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 50,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-20T15:30:06.486420Z",
       "minutes": 642,
       "starts": 7,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.08",
       "expected_assists": "0.34",
       "now_cost": 53
@@ -8723,7 +8723,7 @@
       "status": "i",
       "chance_of_playing_next_round": 0,
       "chance_of_playing_this_round": 0,
-      "news": "Knee injury - Unknown return date",
+      "news": "Knee injury - Expected back 2 Dec",
       "news_added": "2026-10-17T17:30:09.977110Z",
       "minutes": 553,
       "starts": 6,
@@ -8745,7 +8745,7 @@
       "news_added": "2026-09-13T17:00:09.433455Z",
       "minutes": 430,
       "starts": 5,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "2.39",
       "expected_assists": "1.69",
       "now_cost": 68
@@ -8763,7 +8763,7 @@
       "news_added": null,
       "minutes": 582,
       "starts": 7,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "1.97",
       "expected_assists": "1.87",
       "now_cost": 78
@@ -8781,7 +8781,7 @@
       "news_added": "2026-08-18T17:00:08.385597Z",
       "minutes": 485,
       "starts": 5,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.90",
       "expected_assists": "1.77",
       "now_cost": 75
@@ -8925,7 +8925,7 @@
       "news_added": "2026-10-19T13:00:10.543876Z",
       "minutes": 979,
       "starts": 11,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "8.09",
       "expected_assists": "0.92",
       "now_cost": 157
@@ -8943,7 +8943,7 @@
       "news_added": "2026-08-23T17:00:07.952697Z",
       "minutes": 876,
       "starts": 10,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "0.47",
       "expected_assists": "1.80",
       "now_cost": 62
@@ -8979,7 +8979,7 @@
       "news_added": null,
       "minutes": 260,
       "starts": 3,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.05",
       "expected_assists": "0.20",
       "now_cost": 55
@@ -9033,7 +9033,7 @@
       "news_added": null,
       "minutes": 33,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.02",
       "expected_assists": "0.04",
       "now_cost": 60
@@ -9069,7 +9069,7 @@
       "news_added": "2026-07-23T12:01:23.321726Z",
       "minutes": 717,
       "starts": 10,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.98",
       "expected_assists": "1.17",
       "now_cost": 56
@@ -9083,11 +9083,11 @@
       "status": "i",
       "chance_of_playing_next_round": 0,
       "chance_of_playing_this_round": 0,
-      "news": "Hamstring injury - Unknown return date",
+      "news": "Hamstring injury - Expected back 1 Feb",
       "news_added": "2026-11-03T22:00:07.995956Z",
       "minutes": 232,
       "starts": 3,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.14",
       "expected_assists": "0.05",
       "now_cost": 49
@@ -9105,7 +9105,7 @@
       "news_added": null,
       "minutes": 330,
       "starts": 4,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.19",
       "expected_assists": "0.30",
       "now_cost": 46
@@ -9118,7 +9118,7 @@
       "web_name": "Darlow",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-20T17:00:04.943349Z",
       "minutes": 0,
@@ -9141,7 +9141,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.00",
       "expected_assists": "0.04",
       "now_cost": 48
@@ -9190,12 +9190,12 @@
       "web_name": "Dorgu",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-14T10:00:05.646862Z",
       "minutes": 259,
       "starts": 3,
-      "form": "4.3",
+      "form": "3.2",
       "expected_goals": "1.13",
       "expected_assists": "0.27",
       "now_cost": 57
@@ -9213,7 +9213,7 @@
       "news_added": "2026-07-23T12:01:23.690880Z",
       "minutes": 90,
       "starts": 1,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.02",
       "expected_assists": "0.00",
       "now_cost": 49
@@ -9231,7 +9231,7 @@
       "news_added": null,
       "minutes": 802,
       "starts": 9,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.28",
       "expected_assists": "0.40",
       "now_cost": 47
@@ -9244,12 +9244,12 @@
       "web_name": "Maguire",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-11T01:00:09.173434Z",
       "minutes": 923,
       "starts": 10,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.35",
       "expected_assists": "0.52",
       "now_cost": 45
@@ -9267,7 +9267,7 @@
       "news_added": "2026-10-31T14:00:08.592593Z",
       "minutes": 672,
       "starts": 8,
-      "form": "-0.7",
+      "form": "-0.5",
       "expected_goals": "0.24",
       "expected_assists": "0.85",
       "now_cost": 48
@@ -9280,12 +9280,12 @@
       "web_name": "Yoro",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-22T17:00:05.657366Z",
       "minutes": 447,
       "starts": 6,
-      "form": "-0.3",
+      "form": "-0.2",
       "expected_goals": "0.18",
       "expected_assists": "0.28",
       "now_cost": 48
@@ -9298,7 +9298,7 @@
       "web_name": "Heaven",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-20T17:30:06.088714Z",
       "minutes": 224,
@@ -9321,7 +9321,7 @@
       "news_added": "2026-10-04T21:30:08.533022Z",
       "minutes": 257,
       "starts": 2,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.24",
       "expected_assists": "0.12",
       "now_cost": 43
@@ -9334,7 +9334,7 @@
       "web_name": "Shaw",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 0,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-12T21:30:08.995810Z",
       "minutes": 425,
@@ -9388,12 +9388,12 @@
       "web_name": "B.Fernandes",
       "status": "d",
       "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 75,
       "news": "Illness - 75% chance of playing",
       "news_added": "2026-11-27T13:00:06.141043Z",
       "minutes": 900,
       "starts": 10,
-      "form": "4.7",
+      "form": "3.5",
       "expected_goals": "4.35",
       "expected_assists": "2.33",
       "now_cost": 116
@@ -9411,7 +9411,7 @@
       "news_added": null,
       "minutes": 913,
       "starts": 11,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "4.63",
       "expected_assists": "1.29",
       "now_cost": 78
@@ -9429,7 +9429,7 @@
       "news_added": null,
       "minutes": 748,
       "starts": 9,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "1.46",
       "expected_assists": "1.33",
       "now_cost": 78
@@ -9465,7 +9465,7 @@
       "news_added": "2026-08-15T16:00:07.879135Z",
       "minutes": 189,
       "starts": 1,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.94",
       "expected_assists": "0.18",
       "now_cost": 54
@@ -9483,7 +9483,7 @@
       "news_added": "2026-10-31T17:30:08.280248Z",
       "minutes": 366,
       "starts": 5,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "1.09",
       "expected_assists": "0.23",
       "now_cost": 57
@@ -9501,7 +9501,7 @@
       "news_added": "2026-10-12T21:30:09.006287Z",
       "minutes": 652,
       "starts": 7,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.43",
       "expected_assists": "0.73",
       "now_cost": 55
@@ -9555,7 +9555,7 @@
       "news_added": null,
       "minutes": 46,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.03",
       "expected_assists": "0.12",
       "now_cost": 49
@@ -9645,7 +9645,7 @@
       "news_added": null,
       "minutes": 134,
       "starts": 0,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "0.61",
       "expected_assists": "0.11",
       "now_cost": 53
@@ -9681,7 +9681,7 @@
       "news_added": "2026-09-14T21:30:07.343728Z",
       "minutes": 557,
       "starts": 8,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.05",
       "expected_assists": "0.64",
       "now_cost": 55
@@ -9753,7 +9753,7 @@
       "news_added": null,
       "minutes": 805,
       "starts": 9,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.29",
       "expected_assists": "0.16",
       "now_cost": 49
@@ -9771,7 +9771,7 @@
       "news_added": "2026-08-15T16:30:07.209742Z",
       "minutes": 210,
       "starts": 2,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.12",
       "expected_assists": "0.04",
       "now_cost": 49
@@ -9789,7 +9789,7 @@
       "news_added": null,
       "minutes": 631,
       "starts": 7,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.21",
       "expected_assists": "0.22",
       "now_cost": 50
@@ -9807,7 +9807,7 @@
       "news_added": "2026-08-23T18:00:08.367241Z",
       "minutes": 362,
       "starts": 4,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.28",
       "expected_assists": "0.06",
       "now_cost": 48
@@ -9820,12 +9820,12 @@
       "web_name": "Hall",
       "status": "d",
       "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": null,
+      "chance_of_playing_this_round": 75,
       "news": "Unspecified injury - 75% chance of playing",
       "news_added": "2026-11-21T19:30:06.216627Z",
       "minutes": 989,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.51",
       "expected_assists": "1.06",
       "now_cost": 52
@@ -9843,7 +9843,7 @@
       "news_added": "2026-09-19T14:00:09.046677Z",
       "minutes": 78,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.01",
       "now_cost": 48
@@ -9879,7 +9879,7 @@
       "news_added": null,
       "minutes": 976,
       "starts": 11,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "2.48",
       "expected_assists": "1.07",
       "now_cost": 60
@@ -9897,7 +9897,7 @@
       "news_added": "2026-09-14T20:00:09.505598Z",
       "minutes": 370,
       "starts": 4,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.77",
       "expected_assists": "0.43",
       "now_cost": 60
@@ -9915,7 +9915,7 @@
       "news_added": "2026-11-02T22:00:09.813234Z",
       "minutes": 142,
       "starts": 0,
-      "form": "-0.3",
+      "form": "-0.2",
       "expected_goals": "0.30",
       "expected_assists": "0.18",
       "now_cost": 48
@@ -9933,7 +9933,7 @@
       "news_added": null,
       "minutes": 478,
       "starts": 6,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.34",
       "expected_assists": "1.08",
       "now_cost": 59
@@ -9951,7 +9951,7 @@
       "news_added": "2026-11-05T16:57:40.468946Z",
       "minutes": 278,
       "starts": 3,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.16",
       "expected_assists": "0.11",
       "now_cost": 54
@@ -9969,7 +9969,7 @@
       "news_added": "2026-10-27T16:00:07.981816Z",
       "minutes": 663,
       "starts": 8,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "0.08",
       "expected_assists": "0.50",
       "now_cost": 55
@@ -9987,7 +9987,7 @@
       "news_added": null,
       "minutes": 647,
       "starts": 8,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "2.18",
       "expected_assists": "0.41",
       "now_cost": 50
@@ -10005,7 +10005,7 @@
       "news_added": "2026-10-12T21:30:09.043536Z",
       "minutes": 118,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.37",
       "expected_assists": "0.28",
       "now_cost": 57
@@ -10023,7 +10023,7 @@
       "news_added": null,
       "minutes": 372,
       "starts": 4,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.06",
       "expected_assists": "0.12",
       "now_cost": 47
@@ -10059,7 +10059,7 @@
       "news_added": null,
       "minutes": 714,
       "starts": 8,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "3.41",
       "expected_assists": "0.19",
       "now_cost": 59
@@ -10077,7 +10077,7 @@
       "news_added": "2026-10-29T23:00:08.575179Z",
       "minutes": 441,
       "starts": 5,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.81",
       "expected_assists": "0.34",
       "now_cost": 58
@@ -10131,7 +10131,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 50
@@ -10149,7 +10149,7 @@
       "news_added": "2026-09-17T14:30:09.823731Z",
       "minutes": 669,
       "starts": 8,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.18",
       "expected_assists": "0.39",
       "now_cost": 44
@@ -10185,7 +10185,7 @@
       "news_added": "2026-10-23T14:30:10.429365Z",
       "minutes": 318,
       "starts": 4,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.62",
       "expected_assists": "0.25",
       "now_cost": 58
@@ -10293,7 +10293,7 @@
       "news_added": null,
       "minutes": 768,
       "starts": 9,
-      "form": "5.3",
+      "form": "4.0",
       "expected_goals": "3.00",
       "expected_assists": "0.75",
       "now_cost": 53
@@ -10311,7 +10311,7 @@
       "news_added": null,
       "minutes": 717,
       "starts": 8,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "1.10",
       "expected_assists": "0.73",
       "now_cost": 52
@@ -10329,7 +10329,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.00",
       "expected_assists": "0.06",
       "now_cost": 50
@@ -10360,12 +10360,12 @@
       "web_name": "N.Williams",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-16T19:00:05.480350Z",
       "minutes": 964,
       "starts": 11,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "1.02",
       "expected_assists": "1.17",
       "now_cost": 48
@@ -10401,7 +10401,7 @@
       "news_added": "2026-09-12T14:00:09.705107Z",
       "minutes": 630,
       "starts": 7,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.21",
       "expected_assists": "0.14",
       "now_cost": 54
@@ -10419,7 +10419,7 @@
       "news_added": "2026-07-23T12:01:23.801183Z",
       "minutes": 989,
       "starts": 11,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "1.28",
       "expected_assists": "0.67",
       "now_cost": 55
@@ -10437,7 +10437,7 @@
       "news_added": null,
       "minutes": 441,
       "starts": 6,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.06",
       "expected_assists": "0.54",
       "now_cost": 42
@@ -10455,7 +10455,7 @@
       "news_added": "2026-09-12T14:00:09.724349Z",
       "minutes": 804,
       "starts": 9,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.65",
       "expected_assists": "0.12",
       "now_cost": 44
@@ -10527,7 +10527,7 @@
       "news_added": null,
       "minutes": 76,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.00",
       "expected_assists": "0.03",
       "now_cost": 44
@@ -10563,7 +10563,7 @@
       "news_added": "2026-10-16T17:30:09.546992Z",
       "minutes": 900,
       "starts": 10,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "2.77",
       "expected_assists": "2.61",
       "now_cost": 78
@@ -10576,7 +10576,7 @@
       "web_name": "Hudson-Odoi",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 0,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-19T15:30:05.816247Z",
       "minutes": 45,
@@ -10599,7 +10599,7 @@
       "news_added": "2026-10-29T15:00:10.057610Z",
       "minutes": 661,
       "starts": 10,
-      "form": "1.0",
+      "form": "0.8",
       "expected_goals": "2.36",
       "expected_assists": "1.36",
       "now_cost": 55
@@ -10653,7 +10653,7 @@
       "news_added": null,
       "minutes": 905,
       "starts": 11,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "1.28",
       "expected_assists": "1.77",
       "now_cost": 55
@@ -10689,7 +10689,7 @@
       "news_added": "2026-08-28T09:30:07.471668Z",
       "minutes": 156,
       "starts": 1,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.09",
       "expected_assists": "0.04",
       "now_cost": 47
@@ -10707,7 +10707,7 @@
       "news_added": "2026-08-17T20:30:08.195072Z",
       "minutes": 168,
       "starts": 2,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.30",
       "expected_assists": "0.02",
       "now_cost": 44
@@ -10725,7 +10725,7 @@
       "news_added": null,
       "minutes": 129,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "1.15",
       "expected_assists": "0.01",
       "now_cost": 56
@@ -10743,7 +10743,7 @@
       "news_added": "2026-10-09T14:30:11.491800Z",
       "minutes": 305,
       "starts": 2,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "1.87",
       "expected_assists": "0.10",
       "now_cost": 56
@@ -10761,7 +10761,7 @@
       "news_added": null,
       "minutes": 50,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.03",
       "expected_assists": "0.00",
       "now_cost": 54
@@ -10774,12 +10774,12 @@
       "web_name": "Schlager",
       "status": "a",
       "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 75,
+      "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-15T17:00:06.045512Z",
       "minutes": 801,
       "starts": 9,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.47",
       "expected_assists": "0.64",
       "now_cost": 49
@@ -10833,7 +10833,7 @@
       "news_added": "2026-09-30T16:00:09.552205Z",
       "minutes": 990,
       "starts": 11,
-      "form": "8.3",
+      "form": "6.2",
       "expected_goals": "1.77",
       "expected_assists": "0.77",
       "now_cost": 52
@@ -10844,10 +10844,10 @@
       "first_name": "Tosin",
       "second_name": "Adarabioyo",
       "web_name": "Tosin",
-      "status": "i",
-      "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 0,
-      "news": "Calf injury - Expected back 29 Nov",
+      "status": "d",
+      "chance_of_playing_next_round": 75,
+      "chance_of_playing_this_round": 75,
+      "news": "Calf injury - 75% chance of playing",
       "news_added": "2026-11-20T15:30:06.265590Z",
       "minutes": 75,
       "starts": 1,
@@ -10869,7 +10869,7 @@
       "news_added": "2026-10-19T22:30:08.721497Z",
       "minutes": 679,
       "starts": 8,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "1.08",
       "expected_assists": "0.33",
       "now_cost": 70
@@ -10880,14 +10880,14 @@
       "first_name": "Sávio",
       "second_name": "Moreira de Oliveira",
       "web_name": "Sávio",
-      "status": "d",
-      "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": 100,
-      "news": "Hamstring injury - 75% chance of playing",
+      "status": "i",
+      "chance_of_playing_next_round": 0,
+      "chance_of_playing_this_round": 0,
+      "news": "Hamstring injury - Unknown return date",
       "news_added": "2026-11-21T17:30:05.822258Z",
       "minutes": 355,
       "starts": 4,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.59",
       "expected_assists": "0.95",
       "now_cost": 64
@@ -10905,7 +10905,7 @@
       "news_added": "2026-11-21T16:30:05.729405Z",
       "minutes": 877,
       "starts": 10,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.40",
       "expected_assists": "1.35",
       "now_cost": 53
@@ -10959,7 +10959,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
       "now_cost": 45
@@ -10995,7 +10995,7 @@
       "news_added": null,
       "minutes": 268,
       "starts": 3,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.00",
       "expected_assists": "0.12",
       "now_cost": 57
@@ -11013,7 +11013,7 @@
       "news_added": "2026-09-19T12:00:08.823872Z",
       "minutes": 422,
       "starts": 5,
-      "form": "5.7",
+      "form": "4.2",
       "expected_goals": "0.56",
       "expected_assists": "0.60",
       "now_cost": 53
@@ -11049,7 +11049,7 @@
       "news_added": "2026-10-19T22:30:08.861525Z",
       "minutes": 675,
       "starts": 8,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "0.27",
       "expected_assists": "1.45",
       "now_cost": 43
@@ -11067,7 +11067,7 @@
       "news_added": "2026-08-21T15:00:07.610517Z",
       "minutes": 736,
       "starts": 8,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.67",
       "expected_assists": "0.18",
       "now_cost": 50
@@ -11103,7 +11103,7 @@
       "news_added": "2026-10-19T22:30:08.875960Z",
       "minutes": 250,
       "starts": 3,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.00",
       "expected_assists": "0.74",
       "now_cost": 44
@@ -11211,7 +11211,7 @@
       "news_added": "2026-07-23T12:01:23.848657Z",
       "minutes": 624,
       "starts": 6,
-      "form": "3.7",
+      "form": "2.8",
       "expected_goals": "1.35",
       "expected_assists": "1.14",
       "now_cost": 66
@@ -11247,7 +11247,7 @@
       "news_added": "2026-11-07T18:30:09.104275Z",
       "minutes": 477,
       "starts": 6,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "0.66",
       "expected_assists": "0.53",
       "now_cost": 56
@@ -11265,7 +11265,7 @@
       "news_added": "2026-10-24T19:00:10.113555Z",
       "minutes": 256,
       "starts": 3,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.44",
       "expected_assists": "0.19",
       "now_cost": 62
@@ -11283,7 +11283,7 @@
       "news_added": "2026-10-10T18:30:09.519346Z",
       "minutes": 406,
       "starts": 4,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.36",
       "expected_assists": "0.16",
       "now_cost": 54
@@ -11337,7 +11337,7 @@
       "news_added": null,
       "minutes": 406,
       "starts": 4,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "1.43",
       "expected_assists": "0.23",
       "now_cost": 53
@@ -11348,14 +11348,14 @@
       "first_name": "Lucas",
       "second_name": "Bergvall",
       "web_name": "Bergvall",
-      "status": "a",
-      "chance_of_playing_next_round": 100,
-      "chance_of_playing_this_round": 100,
-      "news": "",
-      "news_added": "2026-10-18T13:00:09.356060Z",
+      "status": "d",
+      "chance_of_playing_next_round": 75,
+      "chance_of_playing_this_round": 75,
+      "news": "Illness - 75% chance of playing",
+      "news_added": "2026-11-27T15:30:06.712878Z",
       "minutes": 169,
       "starts": 2,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.12",
       "expected_assists": "0.30",
       "now_cost": 53
@@ -11373,7 +11373,7 @@
       "news_added": "2026-07-23T12:01:23.895175Z",
       "minutes": 42,
       "starts": 0,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.05",
       "expected_assists": "0.03",
       "now_cost": 65
@@ -11391,7 +11391,7 @@
       "news_added": null,
       "minutes": 713,
       "starts": 8,
-      "form": "2.7",
+      "form": "2.0",
       "expected_goals": "0.52",
       "expected_assists": "0.20",
       "now_cost": 49
@@ -11445,7 +11445,7 @@
       "news_added": null,
       "minutes": 603,
       "starts": 7,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.35",
       "expected_assists": "0.99",
       "now_cost": 56
@@ -11463,7 +11463,7 @@
       "news_added": null,
       "minutes": 550,
       "starts": 6,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "3.23",
       "expected_assists": "0.16",
       "now_cost": 58
@@ -11535,7 +11535,7 @@
       "news_added": null,
       "minutes": 72,
       "starts": 1,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "0.81",
       "expected_assists": "0.44",
       "now_cost": 44
@@ -11566,7 +11566,7 @@
       "web_name": "Danso",
       "status": "n",
       "chance_of_playing_next_round": 0,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 0,
       "news": "Ineligible to face parent club - Expected back 2 Dec",
       "news_added": "2026-11-21T17:00:05.766153Z",
       "minutes": 376,
@@ -11589,7 +11589,7 @@
       "news_added": null,
       "minutes": 990,
       "starts": 11,
-      "form": "7.0",
+      "form": "5.2",
       "expected_goals": "0.00",
       "expected_assists": "0.04",
       "now_cost": 48
@@ -11661,7 +11661,7 @@
       "news_added": "2026-10-29T18:30:09.458031Z",
       "minutes": 771,
       "starts": 9,
-      "form": "5.7",
+      "form": "4.2",
       "expected_goals": "0.83",
       "expected_assists": "0.36",
       "now_cost": 53
@@ -11679,7 +11679,7 @@
       "news_added": null,
       "minutes": 730,
       "starts": 8,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.57",
       "expected_assists": "0.36",
       "now_cost": 41
@@ -11690,10 +11690,10 @@
       "first_name": "Omar",
       "second_name": "Alderete",
       "web_name": "Alderete",
-      "status": "d",
-      "chance_of_playing_next_round": 75,
+      "status": "a",
+      "chance_of_playing_next_round": 100,
       "chance_of_playing_this_round": 100,
-      "news": "Unspecified injury - 75% chance of playing",
+      "news": "",
       "news_added": "2026-11-27T09:30:06.176281Z",
       "minutes": 209,
       "starts": 2,
@@ -11715,7 +11715,7 @@
       "news_added": "2026-09-12T21:30:09.421687Z",
       "minutes": 882,
       "starts": 10,
-      "form": "4.3",
+      "form": "3.2",
       "expected_goals": "0.03",
       "expected_assists": "0.38",
       "now_cost": 44
@@ -11769,7 +11769,7 @@
       "news_added": null,
       "minutes": 457,
       "starts": 5,
-      "form": "5.0",
+      "form": "3.8",
       "expected_goals": "0.33",
       "expected_assists": "0.14",
       "now_cost": 39
@@ -11805,7 +11805,7 @@
       "news_added": "2026-10-10T16:30:09.200467Z",
       "minutes": 624,
       "starts": 8,
-      "form": "4.0",
+      "form": "3.0",
       "expected_goals": "0.49",
       "expected_assists": "0.66",
       "now_cost": 44
@@ -11823,7 +11823,7 @@
       "news_added": null,
       "minutes": 953,
       "starts": 11,
-      "form": "7.3",
+      "form": "5.5",
       "expected_goals": "3.92",
       "expected_assists": "1.94",
       "now_cost": 57
@@ -11859,7 +11859,7 @@
       "news_added": "2026-11-08T14:30:09.504002Z",
       "minutes": 813,
       "starts": 10,
-      "form": "1.7",
+      "form": "1.2",
       "expected_goals": "0.15",
       "expected_assists": "1.82",
       "now_cost": 53
@@ -11877,7 +11877,7 @@
       "news_added": null,
       "minutes": 934,
       "starts": 11,
-      "form": "3.3",
+      "form": "2.5",
       "expected_goals": "0.44",
       "expected_assists": "0.44",
       "now_cost": 48
@@ -11931,7 +11931,7 @@
       "news_added": null,
       "minutes": 229,
       "starts": 3,
-      "form": "0.7",
+      "form": "0.5",
       "expected_goals": "0.24",
       "expected_assists": "0.04",
       "now_cost": 48
@@ -11949,7 +11949,7 @@
       "news_added": null,
       "minutes": 252,
       "starts": 2,
-      "form": "2.3",
+      "form": "1.8",
       "expected_goals": "0.35",
       "expected_assists": "0.38",
       "now_cost": 52
@@ -11985,7 +11985,7 @@
       "news_added": null,
       "minutes": 534,
       "starts": 8,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.79",
       "expected_assists": "0.28",
       "now_cost": 50
@@ -12003,7 +12003,7 @@
       "news_added": "2026-11-10T11:30:10.818854Z",
       "minutes": 619,
       "starts": 8,
-      "form": "2.0",
+      "form": "1.5",
       "expected_goals": "4.21",
       "expected_assists": "0.13",
       "now_cost": 56
@@ -12021,7 +12021,7 @@
       "news_added": "2026-10-15T16:30:07.851112Z",
       "minutes": 339,
       "starts": 2,
-      "form": "1.3",
+      "form": "1.0",
       "expected_goals": "2.27",
       "expected_assists": "0.05",
       "now_cost": 54
@@ -12034,7 +12034,7 @@
       "web_name": "Methalie",
       "status": "d",
       "chance_of_playing_next_round": 75,
-      "chance_of_playing_this_round": 100,
+      "chance_of_playing_this_round": 75,
       "news": "Illness - 75% chance of playing",
       "news_added": "2026-11-26T21:00:06.487816Z",
       "minutes": 107,
@@ -12057,7 +12057,7 @@
       "news_added": null,
       "minutes": 201,
       "starts": 1,
-      "form": "3.0",
+      "form": "2.2",
       "expected_goals": "0.01",
       "expected_assists": "0.03",
       "now_cost": 44
@@ -12075,7 +12075,7 @@
       "news_added": null,
       "minutes": 131,
       "starts": 0,
-      "form": "0.3",
+      "form": "0.2",
       "expected_goals": "0.42",
       "expected_assists": "0.03",
       "now_cost": 54
