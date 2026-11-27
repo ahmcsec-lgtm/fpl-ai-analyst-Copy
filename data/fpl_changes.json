@@ -1,17 +1,62 @@
 {
-  "updated_at": "2026-11-27T01:34:28.338379+00:00",
+  "updated_at": "2026-11-27T13:30:15.602965+00:00",
   "changes": [
     {
-      "player_id": 78,
-      "player": "Kroupi.Jr",
-      "team_id": 3,
+      "player_id": 99,
+      "player": "Milambo",
+      "team_id": 4,
+      "changes": {
+        "news": {
+          "before": "Knee injury - Unknown return date",
+          "after": "Lack of match fitness - Expected back 5 Dec"
+        }
+      }
+    },
+    {
+      "player_id": 103,
+      "player": "Dasilva",
+      "team_id": 4,
+      "changes": {
+        "news": {
+          "before": "Hamstring injury - Unknown return date",
+          "after": "Lack of match fitness - Expected back 5 Dec"
+        }
+      }
+    },
+    {
+      "player_id": 253,
+      "player": "Andersen",
+      "team_id": 10,
+      "changes": {
+        "status": {
+          "before": "a",
+          "after": "i"
+        },
+        "chance_of_playing_next_round": {
+          "before": 100,
+          "after": 0
+        },
+        "news": {
+          "before": "",
+          "after": "Unspecified injury - Unknown return date"
+        },
+        "news_added": {
+          "before": "2026-07-23T12:01:23.516350Z",
+          "after": "2026-11-27T13:00:06.047138Z"
+        }
+      }
+    },
+    {
+      "player_id": 426,
+      "player": "B.Fernandes",
+      "team_id": 16,
       "changes": {
         "status": {
           "before": "a",
           "after": "d"
         },
         "chance_of_playing_next_round": {
-          "before": 100,
+          "before": null,
           "after": 75
         },
         "news": {
@@ -19,14 +64,14 @@
           "after": "Illness - 75% chance of playing"
         },
         "news_added": {
-          "before": "2026-07-29T17:30:09.796802Z",
-          "after": "2026-11-26T21:00:05.979236Z"
+          "before": null,
+          "after": "2026-11-27T13:00:06.141043Z"
         }
       }
     },
     {
-      "player_id": 612,
-      "player": "Methalie",
+      "player_id": 535,
+      "player": "Alderete",
       "team_id": 20,
       "changes": {
         "status": {
@@ -39,11 +84,11 @@
         },
         "news": {
           "before": "",
-          "after": "Illness - 75% chance of playing"
+          "after": "Unspecified injury - 75% chance of playing"
         },
         "news_added": {
-          "before": "2026-08-28T13:00:08.950445Z",
-          "after": "2026-11-26T21:00:06.487816Z"
+          "before": "2026-10-31T17:30:08.393957Z",
+          "after": "2026-11-27T09:30:06.176281Z"
         }
       }
     }
