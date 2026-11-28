@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-27T19:12:20.499109+00:00",
+  "updated_at": "2026-11-28T01:29:29.899161+00:00",
   "players": {
     "1": {
       "id": 1,
@@ -630,7 +630,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 49
+      "now_cost": 48
     },
     "36": {
       "id": 36,
@@ -846,7 +846,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 44
+      "now_cost": 43
     },
     "51": {
       "id": 51,
@@ -972,7 +972,7 @@
       "form": "0.2",
       "expected_goals": "0.09",
       "expected_assists": "0.05",
-      "now_cost": 57
+      "now_cost": 56
     },
     "166": {
       "id": 166,
@@ -1926,7 +1926,7 @@
       "form": "1.2",
       "expected_goals": "2.54",
       "expected_assists": "0.35",
-      "now_cost": 61
+      "now_cost": 60
     },
     "95": {
       "id": 95,
@@ -2250,7 +2250,7 @@
       "form": "4.8",
       "expected_goals": "0.00",
       "expected_assists": "0.21",
-      "now_cost": 47
+      "now_cost": 48
     },
     "111": {
       "id": 111,
@@ -2484,7 +2484,7 @@
       "form": "4.0",
       "expected_goals": "3.07",
       "expected_assists": "2.62",
-      "now_cost": 63
+      "now_cost": 64
     },
     "125": {
       "id": 125,
@@ -2754,7 +2754,7 @@
       "form": "4.5",
       "expected_goals": "1.25",
       "expected_assists": "0.23",
-      "now_cost": 53
+      "now_cost": 54
     },
     "594": {
       "id": 594,
@@ -2911,9 +2911,9 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-17T13:30:08.724000Z",
-      "minutes": 614,
-      "starts": 7,
-      "form": "0.2",
+      "minutes": 704,
+      "starts": 8,
+      "form": "0.8",
       "expected_goals": "0.00",
       "expected_assists": "0.03",
       "now_cost": 49
@@ -2929,11 +2929,11 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 970,
-      "starts": 11,
-      "form": "4.0",
-      "expected_goals": "3.25",
-      "expected_assists": "1.54",
+      "minutes": 1060,
+      "starts": 12,
+      "form": "4.5",
+      "expected_goals": "3.37",
+      "expected_assists": "1.68",
       "now_cost": 83
     },
     "101": {
@@ -2947,11 +2947,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-31T13:30:08.172741Z",
-      "minutes": 514,
-      "starts": 5,
-      "form": "1.0",
+      "minutes": 598,
+      "starts": 6,
+      "form": "1.2",
       "expected_goals": "0.48",
-      "expected_assists": "0.58",
+      "expected_assists": "0.63",
       "now_cost": 49
     },
     "136": {
@@ -2965,9 +2965,9 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-08-20T14:00:07.949090Z",
-      "minutes": 152,
-      "starts": 1,
-      "form": "0.8",
+      "minutes": 197,
+      "starts": 2,
+      "form": "1.0",
       "expected_goals": "0.21",
       "expected_assists": "0.14",
       "now_cost": 58
@@ -3073,9 +3073,9 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-07-23T12:01:23.464591Z",
-      "minutes": 582,
-      "starts": 7,
-      "form": "3.5",
+      "minutes": 637,
+      "starts": 8,
+      "form": "3.2",
       "expected_goals": "0.19",
       "expected_assists": "0.13",
       "now_cost": 50
@@ -3127,11 +3127,11 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 836,
+      "minutes": 870,
       "starts": 10,
-      "form": "1.5",
+      "form": "1.8",
       "expected_goals": "0.20",
-      "expected_assists": "0.32",
+      "expected_assists": "0.33",
       "now_cost": 48
     },
     "150": {
@@ -3163,9 +3163,9 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-08T15:00:09.230933Z",
-      "minutes": 653,
-      "starts": 7,
-      "form": "2.5",
+      "minutes": 737,
+      "starts": 8,
+      "form": "2.8",
       "expected_goals": "0.10",
       "expected_assists": "0.08",
       "now_cost": 45
@@ -3181,9 +3181,9 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-08-24T18:30:07.421239Z",
-      "minutes": 178,
+      "minutes": 183,
       "starts": 2,
-      "form": "2.0",
+      "form": "2.2",
       "expected_goals": "0.00",
       "expected_assists": "0.15",
       "now_cost": 53
@@ -3199,12 +3199,12 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-09-21T13:00:09.022726Z",
-      "minutes": 968,
-      "starts": 11,
-      "form": "3.0",
+      "minutes": 1058,
+      "starts": 12,
+      "form": "3.5",
       "expected_goals": "2.58",
-      "expected_assists": "1.25",
-      "now_cost": 98
+      "expected_assists": "1.28",
+      "now_cost": 97
     },
     "156": {
       "id": 156,
@@ -3217,11 +3217,11 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 764,
-      "starts": 9,
-      "form": "1.2",
-      "expected_goals": "1.82",
-      "expected_assists": "1.11",
+      "minutes": 854,
+      "starts": 10,
+      "form": "3.5",
+      "expected_goals": "1.84",
+      "expected_assists": "1.43",
       "now_cost": 66
     },
     "157": {
@@ -3271,11 +3271,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-21T16:30:05.451902Z",
-      "minutes": 461,
-      "starts": 6,
-      "form": "1.8",
+      "minutes": 551,
+      "starts": 7,
+      "form": "2.8",
       "expected_goals": "0.05",
-      "expected_assists": "0.10",
+      "expected_assists": "0.11",
       "now_cost": 53
     },
     "161": {
@@ -3289,11 +3289,11 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 547,
-      "starts": 7,
-      "form": "2.8",
-      "expected_goals": "0.77",
-      "expected_assists": "0.18",
+      "minutes": 637,
+      "starts": 8,
+      "form": "3.8",
+      "expected_goals": "0.94",
+      "expected_assists": "0.20",
       "now_cost": 50
     },
     "163": {
@@ -3325,10 +3325,10 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-07-24T20:30:10.609931Z",
-      "minutes": 128,
+      "minutes": 133,
       "starts": 1,
-      "form": "0.8",
-      "expected_goals": "0.07",
+      "form": "1.0",
+      "expected_goals": "0.15",
       "expected_assists": "0.03",
       "now_cost": 52
     },
@@ -3348,7 +3348,7 @@
       "form": "0.0",
       "expected_goals": "3.05",
       "expected_assists": "0.31",
-      "now_cost": 76
+      "now_cost": 75
     },
     "168": {
       "id": 168,
@@ -3397,10 +3397,10 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-09-09T15:00:09.063849Z",
-      "minutes": 66,
+      "minutes": 111,
       "starts": 1,
-      "form": "2.2",
-      "expected_goals": "0.06",
+      "form": "5.2",
+      "expected_goals": "0.88",
       "expected_assists": "0.00",
       "now_cost": 49
     },
@@ -3487,11 +3487,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-17T12:00:10.154091Z",
-      "minutes": 464,
-      "starts": 4,
-      "form": "1.0",
+      "minutes": 554,
+      "starts": 5,
+      "form": "1.2",
       "expected_goals": "0.04",
-      "expected_assists": "0.44",
+      "expected_assists": "0.45",
       "now_cost": 49
     },
     "662": {
@@ -4122,7 +4122,7 @@
       "form": "0.8",
       "expected_goals": "0.15",
       "expected_assists": "0.20",
-      "now_cost": 48
+      "now_cost": 47
     },
     "584": {
       "id": 584,
@@ -4176,7 +4176,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 40
+      "now_cost": 39
     },
     "655": {
       "id": 655,
@@ -4680,7 +4680,7 @@
       "form": "1.8",
       "expected_goals": "2.15",
       "expected_assists": "0.63",
-      "now_cost": 54
+      "now_cost": 53
     },
     "225": {
       "id": 225,
@@ -5598,7 +5598,7 @@
       "form": "1.8",
       "expected_goals": "2.01",
       "expected_assists": "1.37",
-      "now_cost": 54
+      "now_cost": 53
     },
     "269": {
       "id": 269,
@@ -5688,7 +5688,7 @@
       "form": "1.2",
       "expected_goals": "4.05",
       "expected_assists": "0.77",
-      "now_cost": 58
+      "now_cost": 57
     },
     "570": {
       "id": 570,
@@ -7344,7 +7344,7 @@
       "form": "3.0",
       "expected_goals": "1.82",
       "expected_assists": "0.99",
-      "now_cost": 48
+      "now_cost": 49
     },
     "331": {
       "id": 331,
@@ -7380,7 +7380,7 @@
       "form": "3.8",
       "expected_goals": "0.48",
       "expected_assists": "1.27",
-      "now_cost": 45
+      "now_cost": 46
     },
     "333": {
       "id": 333,
@@ -7614,7 +7614,7 @@
       "form": "3.2",
       "expected_goals": "5.65",
       "expected_assists": "0.41",
-      "now_cost": 60
+      "now_cost": 61
     },
     "347": {
       "id": 347,
@@ -8118,7 +8118,7 @@
       "form": "7.2",
       "expected_goals": "2.19",
       "expected_assists": "2.31",
-      "now_cost": 75
+      "now_cost": 76
     },
     "367": {
       "id": 367,
@@ -9720,7 +9720,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 45
+      "now_cost": 44
     },
     "444": {
       "id": 444,
@@ -9828,7 +9828,7 @@
       "form": "1.8",
       "expected_goals": "0.51",
       "expected_assists": "1.06",
-      "now_cost": 52
+      "now_cost": 51
     },
     "450": {
       "id": 450,
@@ -10062,7 +10062,7 @@
       "form": "1.0",
       "expected_goals": "3.41",
       "expected_assists": "0.19",
-      "now_cost": 59
+      "now_cost": 58
     },
     "465": {
       "id": 465,
@@ -10116,7 +10116,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 48
+      "now_cost": 47
     },
     "567": {
       "id": 567,
@@ -10291,11 +10291,11 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 768,
-      "starts": 9,
-      "form": "4.0",
-      "expected_goals": "3.00",
-      "expected_assists": "0.75",
+      "minutes": 851,
+      "starts": 10,
+      "form": "5.0",
+      "expected_goals": "3.06",
+      "expected_assists": "0.76",
       "now_cost": 53
     },
     "201": {
@@ -10309,11 +10309,11 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 717,
-      "starts": 8,
-      "form": "0.5",
+      "minutes": 807,
+      "starts": 9,
+      "form": "1.5",
       "expected_goals": "1.10",
-      "expected_assists": "0.73",
+      "expected_assists": "0.78",
       "now_cost": 52
     },
     "467": {
@@ -10327,11 +10327,11 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 990,
-      "starts": 11,
-      "form": "1.2",
+      "minutes": 1080,
+      "starts": 12,
+      "form": "1.5",
       "expected_goals": "0.00",
-      "expected_assists": "0.06",
+      "expected_assists": "0.07",
       "now_cost": 50
     },
     "468": {
@@ -10363,11 +10363,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-16T19:00:05.480350Z",
-      "minutes": 964,
-      "starts": 11,
-      "form": "1.0",
+      "minutes": 1054,
+      "starts": 12,
+      "form": "1.2",
       "expected_goals": "1.02",
-      "expected_assists": "1.17",
+      "expected_assists": "1.18",
       "now_cost": 48
     },
     "470": {
@@ -10399,9 +10399,9 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-09-12T14:00:09.705107Z",
-      "minutes": 630,
-      "starts": 7,
-      "form": "0.2",
+      "minutes": 720,
+      "starts": 8,
+      "form": "0.5",
       "expected_goals": "0.21",
       "expected_assists": "0.14",
       "now_cost": 54
@@ -10417,11 +10417,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-07-23T12:01:23.801183Z",
-      "minutes": 989,
-      "starts": 11,
-      "form": "1.8",
-      "expected_goals": "1.28",
-      "expected_assists": "0.67",
+      "minutes": 1079,
+      "starts": 12,
+      "form": "2.5",
+      "expected_goals": "1.29",
+      "expected_assists": "0.68",
       "now_cost": 55
     },
     "473": {
@@ -10453,11 +10453,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-09-12T14:00:09.724349Z",
-      "minutes": 804,
-      "starts": 9,
-      "form": "2.8",
+      "minutes": 894,
+      "starts": 10,
+      "form": "3.0",
       "expected_goals": "0.65",
-      "expected_assists": "0.12",
+      "expected_assists": "0.14",
       "now_cost": 44
     },
     "475": {
@@ -10561,11 +10561,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-16T17:30:09.546992Z",
-      "minutes": 900,
-      "starts": 10,
-      "form": "2.2",
-      "expected_goals": "2.77",
-      "expected_assists": "2.61",
+      "minutes": 990,
+      "starts": 11,
+      "form": "5.5",
+      "expected_goals": "3.82",
+      "expected_assists": "2.67",
       "now_cost": 78
     },
     "482": {
@@ -10597,9 +10597,9 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-29T15:00:10.057610Z",
-      "minutes": 661,
+      "minutes": 679,
       "starts": 10,
-      "form": "0.8",
+      "form": "1.0",
       "expected_goals": "2.36",
       "expected_assists": "1.36",
       "now_cost": 55
@@ -10651,11 +10651,11 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 905,
-      "starts": 11,
-      "form": "2.0",
-      "expected_goals": "1.28",
-      "expected_assists": "1.77",
+      "minutes": 995,
+      "starts": 12,
+      "form": "3.0",
+      "expected_goals": "1.53",
+      "expected_assists": "1.79",
       "now_cost": 55
     },
     "487": {
@@ -10687,12 +10687,12 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-08-28T09:30:07.471668Z",
-      "minutes": 156,
+      "minutes": 162,
       "starts": 1,
       "form": "0.2",
       "expected_goals": "0.09",
       "expected_assists": "0.04",
-      "now_cost": 47
+      "now_cost": 46
     },
     "489": {
       "id": 489,
@@ -10705,12 +10705,12 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-08-17T20:30:08.195072Z",
-      "minutes": 168,
+      "minutes": 169,
       "starts": 2,
-      "form": "1.0",
+      "form": "1.2",
       "expected_goals": "0.30",
       "expected_assists": "0.02",
-      "now_cost": 44
+      "now_cost": 43
     },
     "490": {
       "id": 490,
@@ -10723,9 +10723,9 @@
       "chance_of_playing_this_round": null,
       "news": "",
       "news_added": null,
-      "minutes": 129,
+      "minutes": 135,
       "starts": 0,
-      "form": "0.5",
+      "form": "0.8",
       "expected_goals": "1.15",
       "expected_assists": "0.01",
       "now_cost": 56
@@ -10741,11 +10741,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-10-09T14:30:11.491800Z",
-      "minutes": 305,
-      "starts": 2,
-      "form": "0.2",
-      "expected_goals": "1.87",
-      "expected_assists": "0.10",
+      "minutes": 376,
+      "starts": 3,
+      "form": "1.8",
+      "expected_goals": "1.95",
+      "expected_assists": "0.11",
       "now_cost": 56
     },
     "493": {
@@ -10777,11 +10777,11 @@
       "chance_of_playing_this_round": 100,
       "news": "",
       "news_added": "2026-11-15T17:00:06.045512Z",
-      "minutes": 801,
-      "starts": 9,
-      "form": "2.2",
+      "minutes": 884,
+      "starts": 10,
+      "form": "3.5",
       "expected_goals": "0.47",
-      "expected_assists": "0.64",
+      "expected_assists": "1.00",
       "now_cost": 49
     },
     "581": {
@@ -12024,7 +12024,7 @@
       "form": "1.0",
       "expected_goals": "2.27",
       "expected_assists": "0.05",
-      "now_cost": 54
+      "now_cost": 53
     },
     "612": {
       "id": 612,
@@ -12078,7 +12078,7 @@
       "form": "0.2",
       "expected_goals": "0.42",
       "expected_assists": "0.03",
-      "now_cost": 54
+      "now_cost": 53
     },
     "651": {
       "id": 651,
@@ -12096,7 +12096,7 @@
       "form": "0.0",
       "expected_goals": "0.00",
       "expected_assists": "0.00",
-      "now_cost": 45
+      "now_cost": 44
     },
     "668": {
       "id": 668,
@@ -12114,7 +12114,7 @@
       "form": "0.0",
       "expected_goals": "0.02",
       "expected_assists": "0.00",
-      "now_cost": 48
+      "now_cost": 47
     },
     "673": {
       "id": 673,
